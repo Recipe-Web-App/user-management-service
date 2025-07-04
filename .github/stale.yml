@@ -1,0 +1,14 @@
+# Configuration for Probot Stale
+# https://github.com/probot/stale
+
+staleLabel: stale
+exemptLabels:
+  - pinned
+  - security
+daysUntilStale: 30
+daysUntilClose: 7
+only: issues
+markComment: >
+  This issue has been automatically marked as stale because it has not had recent activity. It will be closed if no further activity occurs.
+closeComment: >
+  Closing this issue due to inactivity. Please reopen if needed.

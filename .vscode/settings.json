@@ -1,0 +1,22 @@
+{
+  "editor.formatOnSave": true,
+  "python.formatting.provider": "black",
+  "python.linting.enabled": true,
+  "python.linting.ruffEnabled": true,
+  "python.linting.mypyEnabled": true,
+  "python.linting.mypyArgs": ["--strict"],
+  "editor.codeActionsOnSave": {
+    "source.fixAll": true
+  },
+  "python.analysis.typeCheckingMode": "strict",
+  "python.defaultInterpreterPath": ".venv/bin/python",
+  "[yaml]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "prettier.executablePath": "~/nvm/versions/node/v20.19.3/bin/prettier"
+}

@@ -26,5 +26,7 @@
   },
   "prettier.executablePath": "~/nvm/versions/node/v20.19.3/bin/prettier",
   "cursorpyright.analysis.typeCheckingMode": "strict",
-  "shellcheck.exclude": ["SC2148","SC2154"]
+  "files.associations": {
+    "*.env.*": "dotenv"
+  }
 }

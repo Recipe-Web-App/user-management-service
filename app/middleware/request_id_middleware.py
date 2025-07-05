@@ -12,10 +12,9 @@ from typing import Any
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.core.logging import get_logger, set_request_id
+from app.core.logging import set_request_id
 
 REQUEST_ID_HEADER = "X-Request-ID"
-_log = get_logger("middleware")
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
@@ -29,7 +28,6 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         request.state.request_id = request_id
         # Use context manager to ensure request_id is available throughout the request
         with _request_context(request_id):
-            _log.info(f"Request ID set to: {request_id}")
             response = await call_next(request)
             response.headers[REQUEST_ID_HEADER] = request_id
             return response
@@ -79,7 +77,6 @@ class CustomRequestIDMiddleware:
             # Use context manager to ensure request_id is available throughout
             # the request
             with _request_context(request_id):
-                _log.info(f"Request ID set to: {request_id}")
 
                 # Create a custom send function to add headers
                 async def custom_send(message: dict[str, Any]) -> None:
@@ -105,7 +102,6 @@ async def request_id_middleware(
     request.state.request_id = request_id
     # Use context manager to ensure request_id is available throughout the request
     with _request_context(request_id):
-        _log.info(f"Request ID set to: {request_id}")
         response = await call_next(request)
         response.headers[REQUEST_ID_HEADER] = request_id
         return response

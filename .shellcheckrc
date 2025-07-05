@@ -1,0 +1,3 @@
+# ShellCheck configuration
+# Exclude .env files from shell script checking
+exclude=SC2148,SC2154

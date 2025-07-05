@@ -8,6 +8,7 @@ from fastapi import FastAPI
 
 from app.api.v1.routes import api_router
 from app.core.logging import configure_logging
+from app.middleware.request_id_middleware import request_id_middleware
 
 
 @contextlib.asynccontextmanager
@@ -23,6 +24,8 @@ app = FastAPI(
     description="API for managing users",
     lifespan=lifespan,
 )
+
+app.middleware("http")(request_id_middleware)
 app.include_router(api_router, prefix="/api/v1")
 
 

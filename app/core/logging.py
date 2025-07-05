@@ -5,6 +5,7 @@ providing both console and file logging with request ID support and
 JSON formatting for structured log analysis.
 """
 
+import contextvars
 import json
 import logging
 import logging.handlers
@@ -14,14 +15,16 @@ from typing import ClassVar
 
 from app.core.config import settings
 
+# Context variable for request ID
+request_id_var = contextvars.ContextVar("request_id", default="NULL")
+
 
 class RequestIdFilter(logging.Filter):
     """Filter to add request_id to log records."""
 
     def filter(self, record: logging.LogRecord) -> bool:
         """Filter and modify log records to include request_id."""
-        if not hasattr(record, "request_id"):
-            record.request_id = "NULL"
+        record.request_id = request_id_var.get()
         return True
 
 
@@ -58,7 +61,6 @@ class PrettyFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         """Format a log record for console display with colors."""
-        # Handle request_id formatting
         request_id = getattr(record, "request_id", "NULL")
         if request_id in ("NULL", "-"):
             colored_request_id = ""
@@ -72,11 +74,9 @@ class PrettyFormatter(logging.Formatter):
             colored_request_id = ""
             colored_separator = ""
 
-        # Get color for log level
         level_color = self.COLORS.get(record.levelname, "")
         level_reset = self.COLORS["RESET"]
 
-        # Format with colors
         return (
             f"{self.COLORS['GREEN']}{self.formatTime(record)}{self.COLORS['RESET']} | "
             f"{level_color}{record.levelname:<8}{level_reset} | "
@@ -89,45 +89,44 @@ class PrettyFormatter(logging.Formatter):
 
 def configure_logging() -> None:
     """Configure global application logging using settings-based config."""
-    # Disable noisy HTTP logging
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("httpcore.connection").setLevel(logging.WARNING)
     logging.getLogger("httpcore.http11").setLevel(logging.WARNING)
 
-    # Create logs directory if it doesn't exist
     log_dir = Path("./logs")
     log_dir.mkdir(exist_ok=True)
 
-    # Clear existing handlers
     root_logger = logging.getLogger()
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
 
-    # Add request_id filter to root logger
-    root_logger.addFilter(RequestIdFilter())
+    # Do NOT add RequestIdFilter to root_logger itself
 
-    # Configure handlers based on settings
     for sink in settings.logging_sinks:
         if sink.sink == "sys.stdout":
-            # Console handler with pretty formatting
             console_handler = logging.StreamHandler(sys.stdout)
             console_handler.setLevel(getattr(logging, sink.level or "INFO"))
             console_handler.setFormatter(PrettyFormatter())
+            console_handler.addFilter(RequestIdFilter())
             root_logger.addHandler(console_handler)
         elif isinstance(sink.sink, str) and sink.sink.endswith(".log"):
-            # File handler with JSON formatting
             file_handler = logging.handlers.RotatingFileHandler(
-                sink.sink, maxBytes=10 * 1024 * 1024, backupCount=5  # 10MB
+                sink.sink, maxBytes=10 * 1024 * 1024, backupCount=5
             )
             file_handler.setLevel(getattr(logging, sink.level or "DEBUG"))
             file_handler.setFormatter(JsonFormatter())
+            file_handler.addFilter(RequestIdFilter())
             root_logger.addHandler(file_handler)
 
-    # Set root logger level to minimum of all handlers
     if root_logger.handlers:
         min_level = min(handler.level for handler in root_logger.handlers)
         root_logger.setLevel(min_level)
+
+    # Let uvicorn logs propagate to the root logger
+    uvicorn_logger = logging.getLogger("uvicorn")
+    uvicorn_logger.handlers = []
+    uvicorn_logger.propagate = True
 
 
 def get_logger(name: str | None = None) -> logging.Logger:
@@ -142,3 +141,13 @@ def get_logger(name: str | None = None) -> logging.Logger:
 
     """
     return logging.getLogger(name or __name__)
+
+
+def set_request_id(request_id: str) -> None:
+    """Set the request ID for the current logging context.
+
+    Args:
+        request_id: The request ID to set for subsequent log messages.
+
+    """
+    request_id_var.set(request_id)

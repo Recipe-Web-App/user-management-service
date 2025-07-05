@@ -1,0 +1,21 @@
+{
+  "sinks": [
+    {
+      "sink": "sys.stdout",
+      "level": "INFO",
+      "serialize": false,
+      "colorize": true,
+      "catch": true
+    },
+    {
+      "sink": "./logs/app.log",
+      "level": "DEBUG",
+      "rotation": "10 MB",
+      "retention": "10 days",
+      "compression": "zip",
+      "serialize": false,
+      "colorize": false,
+      "catch": true
+    }
+  ]
+}

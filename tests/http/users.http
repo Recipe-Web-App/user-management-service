@@ -1,0 +1,42 @@
+### User Management Tests
+
+### Get User Profile
+GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/profile
+
+###
+
+### Update User Profile
+PUT http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/profile
+Content-Type: application/json
+
+###
+
+### Delete User Account
+DELETE http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/account
+
+###
+
+### Get User by ID
+GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000
+
+###
+
+### Search Users - Default Pagination
+GET http://127.0.0.1:8000/api/v1/user-management/users/search
+
+###
+
+### Search Users - Custom Pagination
+GET http://127.0.0.1:8000/api/v1/user-management/users/search?limit=10&offset=5
+
+###
+
+### Search Users - Count Only
+GET http://127.0.0.1:8000/api/v1/user-management/users/search?count_only=true
+
+###
+
+### Search Users - With Query Parameters
+GET http://127.0.0.1:8000/api/v1/user-management/users/search?q=test&limit=5&offset=0
+
+###

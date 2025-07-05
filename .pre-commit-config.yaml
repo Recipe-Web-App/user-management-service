@@ -17,6 +17,11 @@ repos:
     hooks:
       - id: mypy
         language_version: python3.11
+        additional_dependencies:
+          - fastapi
+          - pydantic>=2.0.0
+          - starlette
+          - types-PyYAML
 
   - repo: https://github.com/PyCQA/pydocstyle
     rev: 6.3.0

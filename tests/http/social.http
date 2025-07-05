@@ -1,0 +1,56 @@
+### Social Features Tests
+
+### Get Following List - Default Pagination
+GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/following
+
+###
+
+### Get Following List - Custom Pagination
+GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/following?limit=10&offset=5
+
+###
+
+### Get Following List - Count Only
+GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/following?count_only=true
+
+###
+
+### Get Followers List - Default Pagination
+GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/followers
+
+###
+
+### Get Followers List - Custom Pagination
+GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/followers?limit=15&offset=10
+
+###
+
+### Get Followers List - Count Only
+GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/followers?count_only=true
+
+###
+
+### Follow User
+POST http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/follow/456e7890-e89b-12d3-a456-426614174001
+
+###
+
+### Unfollow User
+DELETE http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/follow/456e7890-e89b-12d3-a456-426614174001
+
+###
+
+### Get User Activity - Default Pagination
+GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/activity
+
+###
+
+### Get User Activity - Custom Pagination
+GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/activity?limit=25&offset=0
+
+###
+
+### Get User Activity - Count Only
+GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/activity?count_only=true
+
+###

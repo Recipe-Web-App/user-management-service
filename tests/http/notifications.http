@@ -1,0 +1,42 @@
+### Notification Management Tests
+
+### Get Notifications - Default Pagination
+GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/notifications
+
+###
+
+### Get Notifications - Custom Pagination
+GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/notifications?limit=10&offset=5
+
+###
+
+### Get Notifications - Count Only
+GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/notifications?count_only=true
+
+###
+
+### Mark Notification as Read
+PUT http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/notifications/789e0123-e89b-12d3-a456-426614174002/read
+
+###
+
+### Mark All Notifications as Read
+PUT http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/notifications/read-all
+
+###
+
+### Delete Notification
+DELETE http://127.0.0.1:8000/api/v1/user-management/users/notifications/789e0123-e89b-12d3-a456-426614174002
+
+###
+
+### Get Notification Preferences
+GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/notifications/preferences
+
+###
+
+### Update Notification Preferences
+PUT http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/notifications/preferences
+Content-Type: application/json
+
+###

@@ -1,0 +1,42 @@
+### Authentication Tests
+
+### Register User
+POST http://127.0.0.1:8000/api/v1/user-management/auth/register
+Content-Type: application/json
+
+###
+
+### Login User
+POST http://127.0.0.1:8000/api/v1/user-management/auth/login
+Content-Type: application/json
+
+###
+
+### Login with Username
+POST http://127.0.0.1:8000/api/v1/user-management/auth/login
+Content-Type: application/json
+
+###
+
+### Logout User
+POST http://127.0.0.1:8000/api/v1/user-management/auth/logout
+
+###
+
+### Refresh Token
+POST http://127.0.0.1:8000/api/v1/user-management/auth/refresh
+Content-Type: application/json
+
+###
+
+### Request Password Reset
+POST http://127.0.0.1:8000/api/v1/user-management/auth/reset-password
+Content-Type: application/json
+
+###
+
+### Confirm Password Reset
+POST http://127.0.0.1:8000/api/v1/user-management/auth/reset-password/confirm
+Content-Type: application/json
+
+###

@@ -20,7 +20,6 @@ async def register() -> JSONResponse:
 
     Returns:
         JSONResponse: Registration result
-
     """
     # TODO: Implement user registration
     return JSONResponse(content={"message": "Registration endpoint"})
@@ -37,7 +36,6 @@ async def login() -> JSONResponse:
 
     Returns:
         JSONResponse: Login result with access token
-
     """
     # TODO: Implement user login
     return JSONResponse(content={"message": "Login endpoint"})
@@ -54,7 +52,6 @@ async def logout() -> JSONResponse:
 
     Returns:
         JSONResponse: Logout confirmation
-
     """
     # TODO: Implement user logout
     return JSONResponse(content={"message": "Logout endpoint"})
@@ -71,7 +68,6 @@ async def refresh_token() -> JSONResponse:
 
     Returns:
         JSONResponse: New access token
-
     """
     # TODO: Implement token refresh
     return JSONResponse(content={"message": "Token refresh endpoint"})
@@ -88,7 +84,6 @@ async def request_password_reset() -> JSONResponse:
 
     Returns:
         JSONResponse: Password reset request confirmation
-
     """
     # TODO: Implement password reset request
     return JSONResponse(content={"message": "Password reset request endpoint"})
@@ -105,7 +100,6 @@ async def confirm_password_reset() -> JSONResponse:
 
     Returns:
         JSONResponse: Password reset confirmation
-
     """
     # TODO: Implement password reset confirmation
     return JSONResponse(content={"message": "Password reset confirmation endpoint"})

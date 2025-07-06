@@ -1,7 +1,7 @@
 """Configuration management for the User Management Service.
 
-This module provides configuration classes and settings management,
-including logging sink configuration loaded from JSON files.
+This module provides configuration classes and settings management, including logging
+sink configuration loaded from JSON files.
 """
 
 import json
@@ -23,7 +23,6 @@ class LoggingSink:
         compression: Compression for rotated logs (e.g., "zip").
         colorize: Enable colored output for console sinks.
         catch: Catch sink exceptions.
-
     """
 
     sink: Any
@@ -53,8 +52,8 @@ class LoggingSink:
 class Settings:
     """Application settings, including logging sinks configuration.
 
-    Manages application configuration settings, particularly logging
-    configuration loaded from JSON files.
+    Manages application configuration settings, particularly logging configuration
+    loaded from JSON files.
     """
 
     LOGGING_CONFIG_PATH: str = str(
@@ -65,11 +64,9 @@ class Settings:
         """Initialize settings and load logging configuration."""
         config_path = Path(self.LOGGING_CONFIG_PATH).expanduser().resolve()
         with config_path.open("r", encoding="utf-8") as f:
-            config = json.load(f)
-        sinks = config.get("sinks", [])
-        self._logging_sinks = [
-            LoggingSink.from_dict(s) for s in sinks if isinstance(s, dict)
-        ]
+            config: dict[str, Any] = json.load(f)
+        sinks: list[dict[str, Any]] = config.get("sinks", [])
+        self._logging_sinks = [LoggingSink.from_dict(s) for s in sinks]
 
     @property
     def logging_sinks(self) -> list[LoggingSink]:

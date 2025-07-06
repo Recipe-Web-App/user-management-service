@@ -38,7 +38,6 @@ async def get_notifications(
 
     Returns:
         JSONResponse: List of notifications or count
-
     """
     # TODO: Implement get notifications
     return JSONResponse(
@@ -70,7 +69,6 @@ async def mark_notification_read(
 
     Returns:
         JSONResponse: Read confirmation
-
     """
     # TODO: Implement mark notification read
     return JSONResponse(
@@ -91,7 +89,6 @@ async def mark_all_notifications_read(
 
     Returns:
         JSONResponse: Read all confirmation
-
     """
     # TODO: Implement mark all notifications read
     return JSONResponse(
@@ -116,7 +113,6 @@ async def delete_notification(
 
     Returns:
         JSONResponse: Deletion confirmation
-
     """
     # TODO: Implement delete notification
     return JSONResponse(content={"message": f"Delete notification {notification_id}"})
@@ -135,7 +131,6 @@ async def get_notification_preferences(
 
     Returns:
         JSONResponse: Notification preferences
-
     """
     # TODO: Implement get notification preferences
     return JSONResponse(content={"message": f"Get {user_id} preferences endpoint"})
@@ -154,7 +149,6 @@ async def update_notification_preferences(
 
     Returns:
         JSONResponse: Updated preferences
-
     """
     # TODO: Implement update notification preferences
     return JSONResponse(content={"message": f"Update {user_id} preferences endpoint"})

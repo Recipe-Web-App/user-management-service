@@ -52,7 +52,6 @@ class CustomRequestIDMiddleware:
 
         Args:
             app: The ASGI application to wrap.
-
         """
         self.app = app
 
@@ -68,7 +67,6 @@ class CustomRequestIDMiddleware:
             scope: The ASGI scope.
             receive: The receive callable.
             send: The send callable.
-
         """
         if scope["type"] == "http":
             request = Request(scope, receive)

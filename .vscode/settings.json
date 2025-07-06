@@ -28,5 +28,6 @@
   "cursorpyright.analysis.typeCheckingMode": "strict",
   "files.associations": {
     "*.env.*": "dotenv"
-  }
+  },
+  "python.formatting.docformatterPath": "~/.cache/pypoetry/virtualenvs/user-management-service-R2vVcIwx-py3.11/bin/docformatter"
 }

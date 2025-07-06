@@ -36,8 +36,6 @@ kubernetes = "^33.1.0"
 rich = "^14.0.0"
 click = "^8.2.1"
 python-dotenv = "^1.1.1"
-kubernetes-stubs = "^22.6.0.post1"
-pyright = "^1.1.402"
 docformatter = "^1.7.5"
 
 [tool.poetry.scripts]
@@ -92,18 +90,6 @@ fail_under = 90
 [tool.flake8]
 max-line-length = 88
 extend-ignore = ["E203", "W503"]
-
-[tool.pyright]
-include = ["app", "scripts", "tests"]
-exclude = ["**/node_modules", "**/__pycache__"]
-typeCheckingMode = "strict"
-useLibraryCodeForTypes = true
-reportMissingImports = true
-reportMissingTypeStubs = true
-pythonVersion = "3.11"
-pythonPlatform = "Linux"
-stubPath = "typings"
-extraPaths = ["."]
 
 [tool.docformatter]
 wrap_summaries = 88

@@ -675,18 +675,6 @@ client = ["kubernetes"]
 dev = ["black", "flake8", "flake8-black", "flake8-isort", "gitpython (==3.1.43)", "isort", "jinja2", "pytest", "tox", "tox-gh-actions", "wemake-python-styleguide"]
 
 [[package]]
-name = "kubipy"
-version = "0.1.9.5"
-description = "Python interface for Minikube"
-optional = false
-python-versions = "*"
-groups = ["dev"]
-files = [
-    {file = "kubipy-0.1.9.5-py3-none-any.whl", hash = "sha256:7dc7499d5bcb50e590c8c52f73fcc347f80f00ea2668e735bb97d4024c697b3d"},
-    {file = "kubipy-0.1.9.5.tar.gz", hash = "sha256:1088f9d73a3bd6eafad61c0b529ee98d68b23cee295fd6ad78061cf19f289223"},
-]
-
-[[package]]
 name = "markdown-it-py"
 version = "3.0.0"
 description = "Python port of markdown-it. Markdown parsing, done right!"
@@ -1706,4 +1694,4 @@ dev = ["doc8", "flake8", "flake8-import-order", "rstcheck[sphinx]", "sphinx"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "4988bf44900f280daeeb9da106862ab258a0b75db3d8fe1baeb4feeb64b95a1b"
+content-hash = "b93fe8e32773ecf81b0bd47c132927ccab275035db97d60fe8f41757e804ca58"

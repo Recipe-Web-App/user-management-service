@@ -39,7 +39,6 @@ python-dotenv = "^1.1.1"
 docformatter = "^1.7.5"
 kubernetes-typed = "^18.20.2"
 docker = "^7.1.0"
-kubipy = "^0.1.9.5"
 
 [tool.poetry.scripts]
 app-local = "app.main:main"
@@ -48,6 +47,7 @@ container-status = "scripts.container_management.get_container_status:main"
 container-start = "scripts.container_management.start_container:main"
 container-stop = "scripts.container_management.stop_container:main"
 container-cleanup = "scripts.container_management.cleanup_container:main"
+test = "scripts.container_management.test:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

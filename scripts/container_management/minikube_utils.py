@@ -14,7 +14,7 @@ def check_minikube_status() -> bool:
         bool: True if Minikube is running, False otherwise.
     """
     try:
-        mk = minipy()
+        mk = get_minikube_instance()
         status = mk.current_status()
         return bool(status and "Running" in status)
     except Exception:
@@ -28,7 +28,7 @@ def get_minikube_status_info() -> dict[str, str]:
         dict[str, str]: Dictionary containing parsed status information.
     """
     try:
-        mk = minipy()
+        mk = get_minikube_instance()
         status = mk.current_status()
         # Parse the status output
         status_dict: dict[str, str] = {}
@@ -55,7 +55,7 @@ def start_minikube() -> bool:
         return True
 
     try:
-        mk = minipy()
+        mk = get_minikube_instance()
         mk.start()
     except Exception:
         return False
@@ -70,7 +70,7 @@ def stop_minikube() -> bool:
         bool: True if Minikube was stopped successfully.
     """
     try:
-        mk = minipy()
+        mk = get_minikube_instance()
         mk.stop()
     except Exception:
         return False

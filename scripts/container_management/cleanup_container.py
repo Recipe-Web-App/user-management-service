@@ -13,13 +13,12 @@ from pathlib import Path
 import click
 import docker
 from kubernetes import client, config
-from kubipy.utils import minipy
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Confirm
 
-from .minikube_utils import check_minikube_status, start_minikube
+from .minikube_utils import check_minikube_status, get_minikube_instance, start_minikube
 
 # Configure rich console
 console = Console()
@@ -117,7 +116,7 @@ class CleanupManager:
                     if resource_path.exists():
                         try:
                             # Use kubipy to delete resources
-                            mk = minipy()
+                            mk = get_minikube_instance()
                             mk.kubectl(
                                 [
                                     "delete",
@@ -151,7 +150,7 @@ class CleanupManager:
                 task = progress.add_task("Removing Docker image...", total=None)
 
                 # Set minikube docker environment
-                mk = minipy()
+                mk = get_minikube_instance()
                 mk.docker_env()
 
                 # Remove the image using docker-py
@@ -177,7 +176,7 @@ class CleanupManager:
                 task = progress.add_task("Deleting persistent volumes...", total=None)
 
                 # Delete PVCs
-                mk = minipy()
+                mk = get_minikube_instance()
                 mk.kubectl(
                     [
                         "delete",
@@ -217,7 +216,7 @@ class CleanupManager:
             ) as progress:
                 task = progress.add_task("Stopping Minikube...", total=None)
 
-                mk = minipy()
+                mk = get_minikube_instance()
                 mk.stop()
 
                 progress.update(task, completed=True)

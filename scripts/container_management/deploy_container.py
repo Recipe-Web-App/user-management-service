@@ -17,12 +17,11 @@ import kubernetes
 from dotenv import load_dotenv
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
-from kubipy.utils import minipy
 from rich.console import Console
 from rich.layout import Layout
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from .minikube_utils import check_minikube_status, start_minikube
+from .minikube_utils import check_minikube_status, get_minikube_instance, start_minikube
 
 # Configure rich console
 console = Console()
@@ -205,7 +204,7 @@ class DockerManager:
                 task = progress.add_task("Building Docker image...", total=None)
 
                 # Use kubipy to set minikube docker environment
-                mk = minipy()
+                mk = get_minikube_instance()
                 mk.docker_env()
 
                 # Execute docker build using docker-py
@@ -224,7 +223,7 @@ def check_prerequisites() -> bool:
     """Check if all prerequisites are met."""
     # Check if minikube is available via kubipy
     try:
-        mk = minipy()
+        mk = get_minikube_instance()
         mk.status()
     except Exception:
         console.print("❌ Minikube is not available", style="red")
@@ -323,7 +322,7 @@ def apply_manifests_or_exit(config_obj: DeploymentConfig, namespace: str) -> Non
         if manifest_path.exists():
             try:
                 # Use kubipy to apply manifests
-                mk = minipy()
+                mk = get_minikube_instance()
                 mk.kubectl(["apply", "-f", str(manifest_path), "-n", namespace])
                 console.print(f"✅ Applied {manifest}", style="green")
             except Exception as e:
@@ -340,7 +339,7 @@ def wait_for_deployment_ready_or_exit(
     console.print("⏳ Waiting for deployment to be ready...", style="blue")
     try:
         # Use kubipy to wait for deployment
-        mk = minipy()
+        mk = get_minikube_instance()
         mk.kubectl(
             [
                 "wait",
@@ -361,7 +360,7 @@ def print_service_url(config_obj: DeploymentConfig, namespace: str) -> None:
     """Print the service URL for the deployed service."""
     try:
         # Use kubipy to get service URL
-        mk = minipy()
+        mk = get_minikube_instance()
         service_url = mk.service(config_obj.service_name, namespace=namespace, url=True)
         console.print(f"🌐 Service URL: {service_url}", style="green")
     except Exception:

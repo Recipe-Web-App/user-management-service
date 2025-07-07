@@ -22,7 +22,8 @@ repos:
           - pydantic>=2.0.0
           - starlette
           - types-PyYAML
-          - kubernetes-stubs
+          - kubernetes
+          - kubernetes-typed
           - uvicorn
 
   - repo: https://github.com/myint/docformatter

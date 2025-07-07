@@ -37,14 +37,17 @@ rich = "^14.0.0"
 click = "^8.2.1"
 python-dotenv = "^1.1.1"
 docformatter = "^1.7.5"
+kubernetes-typed = "^18.20.2"
+docker = "^7.1.0"
+kubipy = "^0.1.9.5"
 
 [tool.poetry.scripts]
 app-local = "app.main:main"
-container-deploy = "scripts.containerManagement.deploy_container:main"
-container-status = "scripts.containerManagement.get_container_status:main"
-container-start = "scripts.containerManagement.start_container:main"
-container-stop = "scripts.containerManagement.stop_container:main"
-container-cleanup = "scripts.containerManagement.cleanup_container:main"
+container-deploy = "scripts.container_management.deploy_container:main"
+container-status = "scripts.container_management.get_container_status:main"
+container-start = "scripts.container_management.start_container:main"
+container-stop = "scripts.container_management.stop_container:main"
+container-cleanup = "scripts.container_management.cleanup_container:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

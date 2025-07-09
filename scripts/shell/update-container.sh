@@ -4,7 +4,7 @@
 set -euo pipefail
 
 NAMESPACE="user-management"
-DEPLOYMENT="user-management-deployment"
+DEPLOYMENT="user-management"
 IMAGE_NAME="user-management-service"
 IMAGE_TAG="latest"
 FULL_IMAGE_NAME="${IMAGE_NAME}:${IMAGE_TAG}"

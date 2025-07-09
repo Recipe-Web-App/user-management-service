@@ -4,7 +4,7 @@
 set -euo pipefail
 
 NAMESPACE="user-management"
-DEPLOYMENT="user-management-deployment"
+DEPLOYMENT="user-management"
 
 # Fixes bug where first separator line does not fill the terminal width
 COLUMNS=$(tput cols 2>/dev/null || echo 80)

@@ -38,7 +38,6 @@ async def get_following(
 
     Returns:
         JSONResponse: List of users being followed or count
-
     """
     # TODO: Implement get following list
     return JSONResponse(
@@ -79,7 +78,6 @@ async def get_followers(
 
     Returns:
         JSONResponse: List of followers or count
-
     """
     # TODO: Implement get followers list
     return JSONResponse(
@@ -112,7 +110,6 @@ async def follow_user(
 
     Returns:
         JSONResponse: Follow confirmation
-
     """
     # TODO: Implement follow user
     return JSONResponse(content={"message": f"User {user_id} follow {target_user_id}"})
@@ -136,7 +133,6 @@ async def unfollow_user(
 
     Returns:
         JSONResponse: Unfollow confirmation
-
     """
     # TODO: Implement unfollow user
     return JSONResponse(
@@ -170,7 +166,6 @@ async def get_user_activity(
 
     Returns:
         JSONResponse: User activity data or count
-
     """
     # TODO: Implement get user activity
     return JSONResponse(

@@ -1,8 +1,8 @@
 """Logging setup and configuration using Python's standard logging module.
 
-This module configures structured logging for the entire application,
-providing both console and file logging with request ID support and
-JSON formatting for structured log analysis.
+This module configures structured logging for the entire application, providing both
+console and file logging with request ID support and JSON formatting for structured log
+analysis.
 """
 
 import contextvars
@@ -138,7 +138,6 @@ def get_logger(name: str | None = None) -> logging.Logger:
 
     Returns:
         logging.Logger: A configured logger instance.
-
     """
     return logging.getLogger(name or __name__)
 
@@ -148,6 +147,5 @@ def set_request_id(request_id: str) -> None:
 
     Args:
         request_id: The request ID to set for subsequent log messages.
-
     """
     request_id_var.set(request_id)

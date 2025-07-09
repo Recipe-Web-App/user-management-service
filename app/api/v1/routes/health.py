@@ -21,7 +21,6 @@ async def health_check() -> JSONResponse:
 
     Returns:
         JSONResponse: OK
-
     """
     content = {"status": "ok"}
     return JSONResponse(content=content, status_code=200)

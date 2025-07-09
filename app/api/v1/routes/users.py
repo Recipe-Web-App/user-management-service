@@ -25,7 +25,6 @@ async def get_profile(
 
     Returns:
         JSONResponse: User profile data
-
     """
     # TODO: Implement get user profile
     return JSONResponse(content={"message": f"Get {user_id} profile endpoint"})
@@ -44,7 +43,6 @@ async def update_profile(
 
     Returns:
         JSONResponse: Updated profile data
-
     """
     # TODO: Implement update user profile
     return JSONResponse(content={"message": f"Update {user_id} profile endpoint"})
@@ -63,7 +61,6 @@ async def delete_account(
 
     Returns:
         JSONResponse: Account deletion confirmation
-
     """
     # TODO: Implement delete user account
     return JSONResponse(content={"message": f"Delete {user_id} account endpoint"})
@@ -93,7 +90,6 @@ async def search_users(
 
     Returns:
         JSONResponse: Search results or count
-
     """
     # TODO: Implement user search
     return JSONResponse(
@@ -124,7 +120,6 @@ async def get_user_by_id(
 
     Returns:
         JSONResponse: Public user profile data
-
     """
     # TODO: Implement get user by ID
     return JSONResponse(content={"message": f"Get user {user_id} endpoint"})

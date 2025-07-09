@@ -20,6 +20,7 @@ repos:
         additional_dependencies:
           - fastapi
           - pydantic>=2.0.0
+          - pydantic-settings>=2.0.0
           - starlette
           - types-PyYAML
           - kubernetes
@@ -55,3 +56,9 @@ repos:
     hooks:
       - id: vulture
         args: ["app", "--min-confidence", "80"]
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        files: ".*\\.sh$"

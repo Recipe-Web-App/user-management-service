@@ -6,7 +6,6 @@ set -euo pipefail
 NAMESPACE="user-management"
 CONFIG_DIR="k8s"
 SECRET_NAME="user-management-db-password"
-PASSWORD_ENV_VAR="USER_MANAGEMENT_DB_PASSWORD"
 IMAGE_NAME="user-management-service"
 IMAGE_TAG="latest"
 FULL_IMAGE_NAME="${IMAGE_NAME}:${IMAGE_TAG}"
@@ -91,6 +90,7 @@ if [ -f .env ]; then
     BEFORE_ENV=$(mktemp)
     AFTER_ENV=$(mktemp)
     env | cut -d= -f1 | sort > "$BEFORE_ENV"
+    # shellcheck source=.env disable=SC1091
     source .env
     # Capture env after
     env | cut -d= -f1 | sort > "$AFTER_ENV"
@@ -118,13 +118,6 @@ envsubst < "${CONFIG_DIR}/configmap-template.yaml" | kubectl apply -f -
 print_separator "="
 echo "🔐 Creating/updating Secret..."
 print_separator "-"
-
-if [ -z "${!PASSWORD_ENV_VAR:-}" ]; then
-  read -r -s -p "Enter user_management_user PostgreSQL password: " USER_MANAGEMENT_DB_PASSWORD
-  echo
-else
-  USER_MANAGEMENT_DB_PASSWORD="${!PASSWORD_ENV_VAR}"
-fi
 
 kubectl delete secret "$SECRET_NAME" -n "$NAMESPACE" --ignore-not-found
 envsubst < "${CONFIG_DIR}/secret-template.yaml" | kubectl apply -f -

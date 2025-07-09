@@ -51,13 +51,13 @@ spec:
                   key: USER_MANAGEMENT_DB_PASSWORD
           livenessProbe:
             httpGet:
-              path: /api/v1/health
+              path: /api/v1/user-management/health
               port: 8000
             initialDelaySeconds: 30
             periodSeconds: 60
           readinessProbe:
             httpGet:
-              path: /api/v1/health
+              path: /api/v1/user-management/health
               port: 8000
             initialDelaySeconds: 30
             periodSeconds: 60
@@ -68,4 +68,3 @@ spec:
             limits:
               cpu: "1"
               memory: "1Gi"
-

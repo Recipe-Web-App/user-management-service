@@ -3,6 +3,9 @@
 Contains FastAPI exception handler functions to map exceptions to HTTP responses.
 """
 
+import traceback
+from http import HTTPStatus
+
 from fastapi import Request
 from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse, Response
@@ -20,15 +23,13 @@ async def unhandled_exception_handler(_request: Request, exc: Exception) -> Resp
         exc (Exception): The exception that was raised.
 
     Raises:
-        exc: _description_
-
-    Returns:
-        _type_: _description_
+        Response: JSON response with error details.
     """
     if isinstance(exc, HTTPException):
         raise exc
-    _log.exception("Unhandled exception occurred", exc_info=exc)
+
+    _log.error("Unhandled exception occurred: %s\n%s", str(exc), traceback.format_exc())
     return JSONResponse(
-        status_code=500,
+        status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
         content={"detail": "An unexpected error occurred."},
     )

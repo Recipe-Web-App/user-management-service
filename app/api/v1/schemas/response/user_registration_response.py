@@ -3,8 +3,8 @@
 from pydantic import Field
 
 from app.api.v1.schemas.base_schema_model import BaseSchemaModel
+from app.api.v1.schemas.common.token import Token
 from app.api.v1.schemas.common.user import User
-from app.enums.token_type import TokenType
 
 
 class UserRegistrationResponse(BaseSchemaModel):
@@ -14,13 +14,7 @@ class UserRegistrationResponse(BaseSchemaModel):
         ...,
         description="The registered user's information",
     )
-    access_token: str = Field(
-        ...,
-        description="JWT access token for the registered user",
-        examples=["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."],
-    )
-    token_type: TokenType = Field(
-        default=TokenType.BEARER,
-        description="Type of authentication token",
-        examples=["bearer"],
+    token: Token | None = Field(
+        None,
+        description="Access token information for the registered user",
     )

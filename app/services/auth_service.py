@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from jose import jwt
 from passlib.context import CryptContext
 
+from app.api.v1.schemas.common.token import Token
 from app.api.v1.schemas.common.user import User as UserSchema
 from app.api.v1.schemas.request.user_registration_request import UserRegistrationRequest
 from app.api.v1.schemas.response.user_registration_response import (
@@ -60,14 +61,13 @@ class AuthService:
             )
 
         user = await self._create_user(user_data)
-        access_token = self._create_access_token(user)
+        token = self._create_access_token(user)
 
         user_response = UserSchema.model_validate(user)
 
         return UserRegistrationResponse(
             user=user_response,
-            access_token=access_token,
-            token_type=TokenType.BEARER,
+            token=token,
         )
 
     def _get_password_hash(self, password: str) -> str:
@@ -81,14 +81,14 @@ class AuthService:
         """
         return _pwd_context.hash(password)
 
-    def _create_access_token(self, user: UserModel) -> str:
+    def _create_access_token(self, user: UserModel) -> Token:
         """Create JWT access token for user.
 
         Args:
             user: User to create token for
 
         Returns:
-            str: JWT token
+            Token: JWT token with expiration information
         """
         data = {"sub": str(user.user_id), "username": user.username}
         to_encode = data.copy()
@@ -96,8 +96,18 @@ class AuthService:
             minutes=settings.access_token_expire_minutes
         )
         to_encode.update({"exp": expire})
-        return jwt.encode(
+
+        access_token = jwt.encode(
             to_encode, settings.jwt_secret_key, algorithm=settings.jwt_signing_algorithm
+        )
+
+        # Calculate expiration time in seconds
+        expires_in = settings.access_token_expire_minutes * 60
+
+        return Token(
+            access_token=access_token,
+            token_type=TokenType.BEARER,
+            expires_in=expires_in,
         )
 
     async def _create_user(self, user_data: UserRegistrationRequest) -> UserModel:

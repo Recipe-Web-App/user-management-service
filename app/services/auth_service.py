@@ -6,7 +6,6 @@ from uuid import uuid4
 from fastapi import HTTPException, status
 from jose import jwt
 from passlib.context import CryptContext
-from pydantic import SecretStr
 
 from app.api.v1.schemas.common.user import User as UserSchema
 from app.api.v1.schemas.request.user_registration_request import UserRegistrationRequest
@@ -18,6 +17,7 @@ from app.core.logging import get_logger
 from app.db.database_session import DatabaseSession
 from app.db.models.user.user import User as UserModel
 from app.enums.token_type import TokenType
+from app.utils.security import SensitiveData
 
 # Password hashing context
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -67,7 +67,7 @@ class AuthService:
 
         return UserRegistrationResponse(
             user=user_response,
-            access_token=SecretStr(access_token),
+            access_token=SensitiveData(access_token),
             token_type=TokenType.BEARER,
         )
 

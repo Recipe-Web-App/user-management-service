@@ -3,10 +3,26 @@
 Defines endpoints for user authentication and account management.
 """
 
-from fastapi import APIRouter
+from http import HTTPStatus
+from typing import Annotated
+
+from fastapi import APIRouter, Body, Depends
 from fastapi.responses import JSONResponse
 
+from app.api.v1.schemas.request.user_registration_request import UserRegistrationRequest
+from app.api.v1.schemas.response.error_response import ErrorResponse
+from app.api.v1.schemas.response.user_registration_response import (
+    UserRegistrationResponse,
+)
+from app.db.session import DatabaseSession
+from app.services.auth_service import AuthService
+
 router = APIRouter()
+
+
+def get_auth_service(db: DatabaseSession) -> AuthService:
+    """Get auth service instance."""
+    return AuthService(db)
 
 
 @router.post(
@@ -14,15 +30,43 @@ router = APIRouter()
     tags=["authentication"],
     summary="Register a new user",
     description="Create a new user account",
+    response_model=UserRegistrationResponse,
+    responses={
+        HTTPStatus.OK: {
+            "model": UserRegistrationResponse,
+            "description": "User registered successfully",
+        },
+        HTTPStatus.BAD_REQUEST: {
+            "model": ErrorResponse,
+            "description": "Bad request",
+        },
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+            "model": ErrorResponse,
+            "description": "Validation error",
+        },
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "model": ErrorResponse,
+            "description": "Internal server error",
+        },
+    },
 )
-async def register() -> JSONResponse:
+async def register(
+    user_data: Annotated[UserRegistrationRequest, Body(..., embed=True)],
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+) -> UserRegistrationResponse:
     """Register a new user.
 
+    Args:
+        user_data: User registration data
+        auth_service: Auth service instance
+
     Returns:
-        JSONResponse: Registration result
+        UserRegistrationResponse: Registration result with user data and access token
+
+    Raises:
+        HTTPException: If registration fails
     """
-    # TODO: Implement user registration
-    return JSONResponse(content={"message": "Registration endpoint"})
+    return await auth_service.register_user(user_data)
 
 
 @router.post(

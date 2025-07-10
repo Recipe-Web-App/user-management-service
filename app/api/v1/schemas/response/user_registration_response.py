@@ -5,7 +5,6 @@ from pydantic import Field
 from app.api.v1.schemas.base_schema_model import BaseSchemaModel
 from app.api.v1.schemas.common.user import User
 from app.enums.token_type import TokenType
-from app.utils.security import SensitiveData
 
 
 class UserRegistrationResponse(BaseSchemaModel):
@@ -15,7 +14,7 @@ class UserRegistrationResponse(BaseSchemaModel):
         ...,
         description="The registered user's information",
     )
-    access_token: SensitiveData = Field(
+    access_token: str = Field(
         ...,
         description="JWT access token for the registered user",
         examples=["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."],

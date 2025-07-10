@@ -15,6 +15,11 @@ fastapi = "^0.115.14"
 uvicorn = "^0.35.0"
 pydantic = "^2.0.0"
 pydantic-settings = "^2.10.1"
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+python-jose = {extras = ["cryptography"], version = "^3.5.0"}
+asyncpg = "^0.30.0"
+sqlalchemy = {extras = ["asyncio"], version = "^2.0.41"}
+email-validator = "^2.2.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"
@@ -41,6 +46,8 @@ docformatter = "^1.7.5"
 kubernetes-typed = "^18.20.2"
 docker = "^7.1.0"
 pydantic-settings = {extras = ["all"], version = "^2.10.1"}
+pytest = "^8.4.1"
+pytest-asyncio = "^1.0.0"
 
 [tool.poetry.scripts]
 app-local = "app.main:main"
@@ -65,6 +72,7 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "T20", "PT", "SIM", "ARG", "DTZ", "PIE", "Q", "RSE", "RET", "SLF", "TCH", "PTH", "ERA", "PL", "TRY", "RUF"]
+ignore = ["TRY003"]
 
 [tool.mypy]
 python_version = "3.11"

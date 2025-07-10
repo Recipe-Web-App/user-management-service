@@ -5,8 +5,8 @@ from collections.abc import AsyncGenerator
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.config import settings
+from app.db.database_session import DatabaseSession
 from app.db.models.base_database_model import BaseDatabaseModel
-from app.db.session import DatabaseSession
 
 DATABASE_URL = (
     f"postgresql+asyncpg://{settings.user_management_db_user}:"

@@ -14,13 +14,16 @@ from app.api.v1.schemas.response.error_response import ErrorResponse
 from app.api.v1.schemas.response.user_registration_response import (
     UserRegistrationResponse,
 )
-from app.db.session import DatabaseSession
+from app.db.database_manager import get_db
+from app.db.database_session import DatabaseSession
 from app.services.auth_service import AuthService
 
 router = APIRouter()
 
 
-def get_auth_service(db: DatabaseSession) -> AuthService:
+async def get_auth_service(
+    db: Annotated[DatabaseSession, Depends(get_db)],
+) -> AuthService:
     """Get auth service instance."""
     return AuthService(db)
 

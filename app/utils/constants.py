@@ -11,11 +11,13 @@ class Constants:
     MIN_PASSWORD_LENGTH: ClassVar[int] = 8
     MAX_PASSWORD_LENGTH: ClassVar[int] = 128
 
+    _instance: ClassVar["Constants | None"] = None
+
     def __new__(cls) -> "Constants":
         """Singleton pattern - return the same instance."""
-        _ = cls  # Avoids vulture error
-
-        return CONSTANTS
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
 
 
 CONSTANTS = Constants()

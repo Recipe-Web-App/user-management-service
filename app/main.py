@@ -9,11 +9,11 @@ from fastapi import FastAPI
 
 from app.api.v1.routes import api_router
 from app.core.logging import configure_logging
-from app.db.database import init_db
+from app.db.database_manager import init_db
 from app.exceptions.handlers import unhandled_exception_handler
 from app.middleware.request_id_middleware import request_id_middleware
 
-logger = logging.getLogger(__name__)
+_log = logging.getLogger(__name__)
 
 
 @contextlib.asynccontextmanager
@@ -24,7 +24,7 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
     try:
         await init_db()
     except Exception as e:
-        logger.warning("Could not initialize database: %s", e)
+        _log.critical("Could not initialize database: %s", e)
 
     yield
 

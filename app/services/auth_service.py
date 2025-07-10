@@ -15,8 +15,8 @@ from app.api.v1.schemas.response.user_registration_response import (
 )
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.db.database_session import DatabaseSession
 from app.db.models.user.user import User as UserModel
-from app.db.session import DatabaseSession
 from app.enums.token_type import TokenType
 
 # Password hashing context

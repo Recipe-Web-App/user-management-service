@@ -7,6 +7,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
 from app.db.models.base_database_model import BaseDatabaseModel
+from app.utils.security import SecurePasswordHash, SensitiveData
 
 
 class User(BaseDatabaseModel):
@@ -18,7 +19,9 @@ class User(BaseDatabaseModel):
     user_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     username = Column(String(50), unique=True, nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
-    password_hash = Column(String(255), nullable=False)
+    password_hash: Column[SensitiveData | None] = Column(
+        SecurePasswordHash(255), nullable=False
+    )
     full_name = Column(String(255), nullable=True)
     bio = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)

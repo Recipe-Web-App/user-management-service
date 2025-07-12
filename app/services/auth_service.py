@@ -46,8 +46,10 @@ class AuthService:
         Raises:
             HTTPException: If username or email already exists
         """
+        _log.info(f"Registering user: {user_data}")
         existing_user = await self.db.get_user_by_username(user_data.username)
         if existing_user:
+            _log.warning(f"Username already registered: {existing_user.username}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Username already registered",
@@ -55,15 +57,17 @@ class AuthService:
 
         existing_user = await self.db.get_user_by_email(user_data.email)
         if existing_user:
+            _log.warning(f"Email already registered: {existing_user.email}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email already registered",
             )
 
         user = await self._create_user(user_data)
+        _log.info(f"User created: {user}")
         token = self._create_access_token(user)
-
         user_response = UserSchema.model_validate(user)
+        _log.debug(f"Transformed user model to response: {user_response}")
 
         return UserRegistrationResponse(
             user=user_response,
@@ -80,6 +84,18 @@ class AuthService:
             str: Hashed password
         """
         return _pwd_context.hash(password)
+
+    def _verify_password(self, plain_password: str, hashed_password: str) -> bool:
+        """Verify a password against its hash.
+
+        Args:
+            plain_password: Plain text password to verify
+            hashed_password: Hashed password to check against
+
+        Returns:
+            bool: True if password matches, False otherwise
+        """
+        return _pwd_context.verify(plain_password, hashed_password)
 
     def _create_access_token(self, user: UserModel) -> Token:
         """Create JWT access token for user.

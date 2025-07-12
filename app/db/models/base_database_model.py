@@ -62,7 +62,9 @@ class BaseDatabaseModel(DeclarativeBase):
         return f"<circular_ref:{type(obj).__name__}>"
 
     @staticmethod
-    def _serialize(obj: object, visited: set[int] | None = None) -> object:
+    def _serialize(  # noqa: PLR0911
+        obj: object, visited: set[int] | None = None
+    ) -> object:
         if visited is None:
             visited = set()
 
@@ -80,6 +82,10 @@ class BaseDatabaseModel(DeclarativeBase):
             # Handle enums (must come before __dict__)
             if isinstance(obj, enum.Enum):
                 return obj.value
+            # Handle SensitiveData objects (must come before __dict__)
+            if hasattr(obj, "get_raw_value") and hasattr(obj, "__str__"):
+                # This is a SensitiveData object, return its string representation
+                return str(obj)
             # Handle ORM objects (with __dict__ and no _sa_instance_state)
             if hasattr(obj, "__dict__"):
                 return {

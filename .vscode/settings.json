@@ -33,6 +33,19 @@
   "cSpell.words": [
     "autoflush",
     "renderable",
-    "sessionmaker"
+    "sadd",
+    "sessionmaker",
+    "setex",
+    "smembers",
+    "SQLCLIENT",
+    "SQLCONNECTION",
+    "sqlstate",
+    "srem",
+    "testuser",
+    "zadd",
+    "zcard",
+    "zcount",
+    "zrangebyscore",
+    "zrem"
   ],
 }

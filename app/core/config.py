@@ -84,6 +84,12 @@ class _Settings(BaseSettings):
     ALLOWED_ORIGIN_HOSTS: str = Field(..., alias="ALLOWED_ORIGIN_HOSTS")
     ALLOWED_CREDENTIALS: bool = Field(..., alias="ALLOWED_CREDENTIALS")
 
+    # Redis Configuration
+    REDIS_HOST: str = Field(..., alias="REDIS_HOST")
+    REDIS_PORT: int = Field(..., alias="REDIS_PORT")
+    REDIS_PASSWORD: str = Field(..., alias="REDIS_PASSWORD")
+    REDIS_DB: int = Field(..., alias="REDIS_DB")
+
     LOGGING_CONFIG_PATH: str = Field(
         str(
             (Path(__file__).parent.parent.parent / "config" / "logging.json").resolve(),
@@ -166,6 +172,26 @@ class _Settings(BaseSettings):
     def allowed_credentials(self) -> bool:
         """Get allowed credentials setting for CORS."""
         return self.ALLOWED_CREDENTIALS
+
+    @property
+    def redis_host(self) -> str:
+        """Get Redis host."""
+        return self.REDIS_HOST
+
+    @property
+    def redis_port(self) -> int:
+        """Get Redis port."""
+        return self.REDIS_PORT
+
+    @property
+    def redis_password(self) -> str:
+        """Get Redis password."""
+        return self.REDIS_PASSWORD
+
+    @property
+    def redis_db(self) -> int:
+        """Get Redis database number."""
+        return self.REDIS_DB
 
     @property
     def logging_sinks(self) -> list["LoggingSink"]:

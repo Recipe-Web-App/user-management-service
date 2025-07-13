@@ -18,11 +18,12 @@ from app.core.logging import get_logger
 from app.db.database_session import DatabaseSession
 from app.db.models.user.user import User as UserModel
 from app.enums.token_type import TokenType
+from app.services.session_service import SessionData, SessionService
+
+_log = get_logger(__name__)
 
 # Password hashing context
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-_log = get_logger(__name__)
 
 
 class AuthService:
@@ -31,6 +32,7 @@ class AuthService:
     def __init__(self, db: DatabaseSession) -> None:
         """Initialize auth service with database session."""
         self.db = db
+        self.session_service = SessionService()
 
     async def register_user(
         self, user_data: UserRegistrationRequest
@@ -66,6 +68,10 @@ class AuthService:
         user = await self._create_user(user_data)
         _log.info(f"User created: {user}")
         token = self._create_access_token(user)
+
+        # Create session for the new user
+        await self._create_user_session(user)
+
         user_response = UserSchema.model_validate(user)
         _log.debug(f"Transformed user model to response: {user_response}")
 
@@ -125,6 +131,30 @@ class AuthService:
             token_type=TokenType.BEARER,
             expires_in=expires_in,
         )
+
+    async def _create_user_session(self, user: UserModel) -> SessionData:
+        """Create a session for a user.
+
+        Args:
+            user: User to create session for
+
+        Returns:
+            SessionData: Created session data
+        """
+        session_metadata = {
+            "username": user.username,
+            "email": user.email,
+            "login_method": "registration",
+        }
+
+        session = await self.session_service.create_session(
+            user_id=str(user.user_id),
+            ttl_seconds=settings.access_token_expire_minutes * 60,
+            metadata=session_metadata,
+        )
+
+        _log.info(f"Created session for user {user.username}: {session.session_id}")
+        return session
 
     async def _create_user(self, user_data: UserRegistrationRequest) -> UserModel:
         """Create a new user in the database.

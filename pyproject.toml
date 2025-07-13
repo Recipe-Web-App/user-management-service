@@ -20,6 +20,7 @@ python-jose = {extras = ["cryptography"], version = "^3.5.0"}
 asyncpg = "^0.30.0"
 sqlalchemy = {extras = ["asyncio"], version = "^2.0.41"}
 email-validator = "^2.2.0"
+redis = "^6.2.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"
@@ -41,7 +42,6 @@ types-PyYAML = "^6.0.0"
 kubernetes = "^33.1.0"
 rich = "^14.0.0"
 click = "^8.2.1"
-python-dotenv = "^1.1.1"
 docformatter = "^1.7.5"
 kubernetes-typed = "^18.20.2"
 docker = "^7.1.0"

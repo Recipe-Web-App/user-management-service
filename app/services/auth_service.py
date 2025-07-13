@@ -12,7 +12,9 @@ from sqlalchemy.exc import TimeoutError as SQLTimeoutError
 
 from app.api.v1.schemas.common.token import Token
 from app.api.v1.schemas.common.user import User as UserSchema
+from app.api.v1.schemas.request.user_login_request import UserLoginRequest
 from app.api.v1.schemas.request.user_registration_request import UserRegistrationRequest
+from app.api.v1.schemas.response.user_login_response import UserLoginResponse
 from app.api.v1.schemas.response.user_registration_response import (
     UserRegistrationResponse,
 )
@@ -116,6 +118,148 @@ class AuthService:
             token=token,
         )
 
+    async def _authenticate_user(self, login_data: UserLoginRequest) -> UserModel:
+        """Authenticate user credentials.
+
+        Args:
+            login_data: User login credentials
+
+        Returns:
+            UserModel: Authenticated user
+
+        Raises:
+            HTTPException: If authentication fails
+        """
+        # Try to find user by username or email
+        user = None
+        if login_data.username:
+            user = await self.db.get_user_by_username(login_data.username)
+        elif login_data.email:
+            user = await self.db.get_user_by_email(login_data.email)
+
+        if not user:
+            login_identifier = login_data.username or login_data.email
+            _log.warning(f"Login failed: User not found - {login_identifier}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid credentials",
+            )
+
+        # Check if user is active
+        if not user.is_active:
+            _log.warning(f"Login failed: Inactive user - {user.username}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Account is deactivated",
+            )
+
+        # Verify password
+        password = login_data.password.get_secret_value()
+        password_hash = user.password_hash.get_raw_value() if user.password_hash else ""
+        if not self._verify_password(password, password_hash):
+            _log.warning(f"Login failed: Invalid password for user - {user.username}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid credentials",
+            )
+
+        return user
+
+    async def _check_existing_session(self, user: UserModel) -> None:
+        """Check if user already has an active session.
+
+        Args:
+            user: User to check
+
+        Raises:
+            HTTPException: If user already has an active session
+        """
+        user_sessions = await self.redis_session.get_user_sessions(str(user.user_id))
+        if user_sessions:
+            _log.warning(f"Login failed: User already logged in - {user.username}")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "User is already logged in. "
+                    "Please log out before logging in again."
+                ),
+            )
+
+    async def login_user(self, login_data: UserLoginRequest) -> UserLoginResponse:
+        """Log in a user.
+
+        Args:
+            login_data: User login credentials
+
+        Returns:
+            UserLoginResponse: Login result with user data and access token
+
+        Raises:
+            HTTPException: If credentials are invalid, user is inactive, or database
+            services are unavailable
+        """
+        # Determine login identifier for logging
+        login_identifier = login_data.username or login_data.email
+        _log.info(f"Login attempt for user: {login_identifier}")
+
+        try:
+            # Authenticate user
+            user = await self._authenticate_user(login_data)
+
+            # Check for existing active session(s)
+            await self._check_existing_session(user)
+
+            _log.info(f"User authenticated successfully: {user.username}")
+
+            # Create access token
+            token = self._create_access_token(user)
+
+            # Create or update user session
+            try:
+                await self._create_user_session(user, login_method="login")
+            except redis.ConnectionError as e:
+                _log.error(f"Redis connection error during login: {e}")
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=(
+                        "Login successful, but session service is temporarily "
+                        "unavailable. Please try again later."
+                    ),
+                ) from e
+
+            user_response = UserSchema.model_validate(user)
+            _log.debug(f"Transformed user model to response: {user_response}")
+
+            return UserLoginResponse(
+                user=user_response,
+                token=token,
+            )
+
+        except HTTPException:
+            # Re-raise HTTP exceptions as they are already properly formatted
+            raise
+        except DatabaseError as e:
+            _log.error(f"Database error during user login: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
+        except (DisconnectionError, SQLTimeoutError) as e:
+            _log.error(f"Database connection error during user login: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Database service is temporarily unavailable. "
+                    "Please try again later."
+                ),
+            ) from e
+        except Exception as e:
+            _log.error(f"Unexpected error during user login: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="An unexpected error occurred during login",
+            ) from e
+
     def _get_password_hash(self, password: str) -> str:
         """Hash a password.
 
@@ -168,11 +312,14 @@ class AuthService:
             expires_in=expires_in,
         )
 
-    async def _create_user_session(self, user: UserModel) -> SessionData:
+    async def _create_user_session(
+        self, user: UserModel, login_method: str = "registration"
+    ) -> SessionData:
         """Create a session for a user.
 
         Args:
             user: User to create session for
+            login_method: Method used to create the session (registration/login)
 
         Returns:
             SessionData: Created session data
@@ -180,7 +327,7 @@ class AuthService:
         session_metadata = {
             "username": user.username,
             "email": user.email,
-            "login_method": "registration",
+            "login_method": login_method,
         }
 
         session = await self.redis_session.create_session(

@@ -9,8 +9,10 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends
 from fastapi.responses import JSONResponse
 
+from app.api.v1.schemas.request.user_login_request import UserLoginRequest
 from app.api.v1.schemas.request.user_registration_request import UserRegistrationRequest
 from app.api.v1.schemas.response.error_response import ErrorResponse
+from app.api.v1.schemas.response.user_login_response import UserLoginResponse
 from app.api.v1.schemas.response.user_registration_response import (
     UserRegistrationResponse,
 )
@@ -54,6 +56,10 @@ async def get_auth_service(
             "model": ErrorResponse,
             "description": "Internal server error",
         },
+        HTTPStatus.SERVICE_UNAVAILABLE: {
+            "model": ErrorResponse,
+            "description": "Service temporarily unavailable",
+        },
     },
 )
 async def register(
@@ -80,15 +86,56 @@ async def register(
     tags=["authentication"],
     summary="Log in user",
     description="Authenticate user and return access token",
+    response_model=UserLoginResponse,
+    responses={
+        HTTPStatus.OK: {
+            "model": UserLoginResponse,
+            "description": "User logged in successfully",
+        },
+        HTTPStatus.BAD_REQUEST: {
+            "model": ErrorResponse,
+            "description": "Bad request",
+        },
+        HTTPStatus.UNAUTHORIZED: {
+            "model": ErrorResponse,
+            "description": "Invalid credentials or inactive account",
+        },
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+            "model": ErrorResponse,
+            "description": "Validation error",
+        },
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "model": ErrorResponse,
+            "description": "Internal server error",
+        },
+        HTTPStatus.SERVICE_UNAVAILABLE: {
+            "model": ErrorResponse,
+            "description": "Service temporarily unavailable",
+        },
+        HTTPStatus.CONFLICT: {
+            "model": ErrorResponse,
+            "description": "User already logged in",
+        },
+    },
 )
-async def login() -> JSONResponse:
+async def login(
+    login_data: Annotated[UserLoginRequest, Body(...)],
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+) -> UserLoginResponse:
     """Log in user.
 
+    Args:
+        login_data: User login credentials
+        auth_service: Auth service instance
+
     Returns:
-        JSONResponse: Login result with access token
+        UserLoginResponse: Login result with user data and access token
+
+    Raises:
+        HTTPException: If login fails due to invalid credentials, inactive account,
+        or service unavailability
     """
-    # TODO: Implement user login
-    return JSONResponse(content={"message": "Login endpoint"})
+    return await auth_service.login_user(login_data)
 
 
 @router.post(

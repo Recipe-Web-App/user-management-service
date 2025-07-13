@@ -3,6 +3,7 @@
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+import redis.exceptions
 from fastapi import HTTPException, status
 from jose import jwt
 from passlib.context import CryptContext
@@ -49,7 +50,7 @@ class AuthService:
             UserRegistrationResponse: Registration result with user data and token
 
         Raises:
-            HTTPException: If username or email already exists
+            HTTPException: If username or email already exists, or Redis is unavailable
         """
         _log.info(f"Registering user: {user_data}")
         existing_user = await self.db.get_user_by_username(user_data.username)
@@ -73,7 +74,17 @@ class AuthService:
         token = self._create_access_token(user)
 
         # Create session for the new user
-        await self._create_user_session(user)
+        try:
+            await self._create_user_session(user)
+        except redis.ConnectionError as e:
+            _log.error(f"Redis connection error during registration: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "User registered successfully, but session service is temporarily "
+                    "unavailable. Please try logging in again later."
+                ),
+            ) from e
 
         user_response = UserSchema.model_validate(user)
         _log.debug(f"Transformed user model to response: {user_response}")

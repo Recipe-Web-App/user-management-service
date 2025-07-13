@@ -26,6 +26,11 @@ repos:
           - kubernetes
           - kubernetes-typed
           - uvicorn
+          - passlib[bcrypt]
+          - python-jose[cryptography]
+          - asyncpg
+          - sqlalchemy[asyncio]
+          - email-validator
 
   - repo: https://github.com/myint/docformatter
     rev: v1.7.7

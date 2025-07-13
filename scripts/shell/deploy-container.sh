@@ -182,7 +182,7 @@ print_separator "="
 echo "🌍 You can now access your app at: http://user-management.local/api/v1/user-management/health"
 
 POD_NAME=$(kubectl get pods -n "$NAMESPACE" -l app=user-management -o jsonpath="{.items[0].metadata.name}")
-SERVICE_JSON=$(kubectl get svc user-management-service -n "$NAMESPACE" -o json)
+SERVICE_JSON=$(kubectl get svc user-management -n "$NAMESPACE" -o json)
 SERVICE_IP=$(echo "$SERVICE_JSON" | jq -r '.spec.clusterIP')
 SERVICE_PORT=$(echo "$SERVICE_JSON" | jq -r '.spec.ports[0].port')
 INGRESS_HOSTS=$(kubectl get ingress -n "$NAMESPACE" -o jsonpath='{.items[*].spec.rules[*].host}' | tr ' ' '\n' | sort -u | paste -sd ',' -)

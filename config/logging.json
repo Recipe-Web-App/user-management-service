@@ -2,7 +2,7 @@
   "sinks": [
     {
       "sink": "sys.stdout",
-      "level": "INFO",
+      "level": "DEBUG",
       "serialize": false,
       "colorize": true,
       "catch": true

@@ -18,13 +18,23 @@ Content-Type: application/json
 POST http://user-management.local/api/v1/user-management/auth/login
 Content-Type: application/json
 
-###
+{
+  "login_data": {
+    "username": "testuser",
+    "password": "SecurePass123!"
+  }
+}
 
-### Login with Username
+### Login with Email
 POST http://user-management.local/api/v1/user-management/auth/login
 Content-Type: application/json
 
-###
+{
+  "login_data": {
+    "email": "test@example.com",
+    "password": "SecurePass123!"
+  }
+}
 
 ### Logout User
 POST http://user-management.local/api/v1/user-management/auth/logout

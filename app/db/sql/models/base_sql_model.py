@@ -1,4 +1,4 @@
-"""Base database model for SQLAlchemy models."""
+"""Base SQL model for SQLAlchemy models."""
 
 import enum
 import json
@@ -6,7 +6,7 @@ import json
 from sqlalchemy.orm import DeclarativeBase
 
 
-class BaseDatabaseModel(DeclarativeBase):
+class BaseSqlModel(DeclarativeBase):
     """Base class for all SQLAlchemy ORM models.
 
     Inherits from:
@@ -71,14 +71,14 @@ class BaseDatabaseModel(DeclarativeBase):
         # Prevent infinite recursion by tracking visited objects
         obj_id = id(obj)
         if obj_id in visited:
-            return BaseDatabaseModel._get_circular_ref_repr(obj)
+            return BaseSqlModel._get_circular_ref_repr(obj)
 
         visited.add(obj_id)
 
         try:
             # Handle lists of ORM objects
             if isinstance(obj, list):
-                return [BaseDatabaseModel._serialize(item, visited) for item in obj]
+                return [BaseSqlModel._serialize(item, visited) for item in obj]
             # Handle enums (must come before __dict__)
             if isinstance(obj, enum.Enum):
                 return obj.value
@@ -89,7 +89,7 @@ class BaseDatabaseModel(DeclarativeBase):
             # Handle ORM objects (with __dict__ and no _sa_instance_state)
             if hasattr(obj, "__dict__"):
                 return {
-                    k: BaseDatabaseModel._serialize(v, visited)
+                    k: BaseSqlModel._serialize(v, visited)
                     for k, v in vars(obj).items()
                     if not k.startswith("_sa_instance_state") and not k.startswith("__")
                 }

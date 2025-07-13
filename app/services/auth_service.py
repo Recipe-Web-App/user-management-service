@@ -15,10 +15,11 @@ from app.api.v1.schemas.response.user_registration_response import (
 )
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.db.database_session import DatabaseSession
-from app.db.models.user.user import User as UserModel
+from app.db.redis.models.session_data import SessionData
+from app.db.redis.redis_database_session import RedisDatabaseSession
+from app.db.sql.models.user.user import User as UserModel
+from app.db.sql.sql_database_session import SqlDatabaseSession
 from app.enums.token_type import TokenType
-from app.services.session_service import SessionData, SessionService
 
 _log = get_logger(__name__)
 
@@ -29,10 +30,12 @@ _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 class AuthService:
     """Service for authentication operations."""
 
-    def __init__(self, db: DatabaseSession) -> None:
+    def __init__(
+        self, db: SqlDatabaseSession, redis_session: RedisDatabaseSession
+    ) -> None:
         """Initialize auth service with database session."""
         self.db = db
-        self.session_service = SessionService()
+        self.redis_session = redis_session
 
     async def register_user(
         self, user_data: UserRegistrationRequest
@@ -147,7 +150,7 @@ class AuthService:
             "login_method": "registration",
         }
 
-        session = await self.session_service.create_session(
+        session = await self.redis_session.create_session(
             user_id=str(user.user_id),
             ttl_seconds=settings.access_token_expire_minutes * 60,
             metadata=session_metadata,

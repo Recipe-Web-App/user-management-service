@@ -1,13 +1,13 @@
-"""Custom database session with common query methods."""
+"""Custom SQL database session with common query methods."""
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.user.user import User
+from app.db.sql.models.user.user import User
 
 
-class DatabaseSession(AsyncSession):
-    """Custom database session with common query methods."""
+class SqlDatabaseSession(AsyncSession):
+    """Custom SQL database session with common query methods."""
 
     async def get_user_by_username(self, username: str) -> User | None:
         """Get user by username."""

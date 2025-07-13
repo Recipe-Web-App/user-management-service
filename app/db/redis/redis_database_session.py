@@ -1,42 +1,26 @@
-"""Session management service for user authentication."""
+"""Custom Redis session with domain-specific operations."""
 
-import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import redis.asyncio as redis
-from pydantic import BaseModel, Field
 
-from app.core.config import settings
 from app.core.logging import get_logger
+from app.db.redis.models.session_data import SessionData
 
 _log = get_logger(__name__)
 
 
-class SessionData(BaseModel):
-    """Model for session data structure."""
+class RedisDatabaseSession:
+    """Custom Redis session with session management methods."""
 
-    user_id: str
-    session_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    expires_at: datetime
-    is_active: bool = True
-    metadata: dict[str, Any] = Field(default_factory=dict)
-    last_activity: datetime = Field(default_factory=datetime.utcnow)
+    def __init__(self, redis_client: redis.Redis) -> None:
+        """Initialize Redis database session with Redis client.
 
-
-class SessionService:
-    """Manages user sessions using Redis."""
-
-    def __init__(self) -> None:
-        """Initialize session service with Redis connection."""
-        self.redis_client = redis.Redis(
-            host=settings.redis_host,
-            port=settings.redis_port,
-            password=settings.redis_password,
-            db=settings.redis_db,
-            decode_responses=True,
-        )
+        Args:
+            redis_client: The Redis client instance to use for operations
+        """
+        self.redis = redis_client
         self.session_prefix = "session:"
         self.user_sessions_prefix = "user_sessions:"
         self.session_cleanup_key = "session_cleanup"
@@ -67,17 +51,17 @@ class SessionService:
 
         # Store session data
         session_key = f"{self.session_prefix}{session_data.session_id}"
-        await self.redis_client.setex(
-            session_key, ttl_seconds, session_data.model_dump_json()
-        )
+        await self.redis.setex(session_key, ttl_seconds, session_data.model_dump_json())
 
         # Add to user's session list
         user_sessions_key = f"{self.user_sessions_prefix}{user_id}"
-        await self.redis_client.sadd(user_sessions_key, session_data.session_id)
-        await self.redis_client.expire(user_sessions_key, ttl_seconds)
+        sadd_result = self.redis.sadd(user_sessions_key, session_data.session_id)
+        if hasattr(sadd_result, "__await__"):
+            await sadd_result
+        await self.redis.expire(user_sessions_key, ttl_seconds)
 
         # Add to cleanup set
-        await self.redis_client.zadd(
+        await self.redis.zadd(
             self.session_cleanup_key,
             {session_data.session_id: session_data.expires_at.timestamp()},
         )
@@ -95,7 +79,7 @@ class SessionService:
             Optional[SessionData]: The session data if found and active
         """
         session_key = f"{self.session_prefix}{session_id}"
-        session_json = await self.redis_client.get(session_key)
+        session_json = await self.redis.get(session_key)
 
         if not session_json:
             _log.debug(f"Session not found: {session_id}")
@@ -105,11 +89,11 @@ class SessionService:
             session_data = SessionData.model_validate_json(str(session_json))
 
             # Update last activity
-            session_data.last_activity = datetime.now(UTC)
+            session_data.update_activity()
             remaining_ttl = await self._get_remaining_ttl(session_id)
 
             if remaining_ttl > 0:
-                await self.redis_client.setex(
+                await self.redis.setex(
                     session_key,
                     remaining_ttl,
                     session_data.model_dump_json(),
@@ -134,7 +118,7 @@ class SessionService:
             bool: True if session was invalidated successfully
         """
         session_key = f"{self.session_prefix}{session_id}"
-        session_json = await self.redis_client.get(session_key)
+        session_json = await self.redis.get(session_key)
 
         if not session_json:
             _log.debug(f"Session not found for invalidation: {session_id}")
@@ -144,12 +128,14 @@ class SessionService:
             session_data = SessionData.model_validate_json(str(session_json))
 
             # Remove from Redis
-            await self.redis_client.delete(session_key)
-            await self.redis_client.zrem(self.session_cleanup_key, session_id)
+            await self.redis.delete(session_key)
+            await self.redis.zrem(self.session_cleanup_key, session_id)
 
             # Remove from user's session list
             user_sessions_key = f"{self.user_sessions_prefix}{session_data.user_id}"
-            await self.redis_client.srem(user_sessions_key, session_id)
+            srem_result = self.redis.srem(user_sessions_key, session_id)
+            if hasattr(srem_result, "__await__"):
+                await srem_result
 
             _log.info(f"Session invalidated: {session_id}")
         except Exception as e:
@@ -168,7 +154,11 @@ class SessionService:
             int: Number of sessions invalidated
         """
         user_sessions_key = f"{self.user_sessions_prefix}{user_id}"
-        session_ids = await self.redis_client.smembers(user_sessions_key)
+        smembers_result = self.redis.smembers(user_sessions_key)
+        if hasattr(smembers_result, "__await__"):
+            session_ids = await smembers_result
+        else:
+            session_ids = smembers_result
 
         if not session_ids:
             _log.debug(f"No sessions found for user: {user_id}")
@@ -177,11 +167,11 @@ class SessionService:
         # Remove all sessions
         for session_id in session_ids:
             session_key = f"{self.session_prefix}{session_id}"
-            await self.redis_client.delete(session_key)
-            await self.redis_client.zrem(self.session_cleanup_key, session_id)
+            await self.redis.delete(session_key)
+            await self.redis.zrem(self.session_cleanup_key, session_id)
 
         # Remove user sessions set
-        await self.redis_client.delete(user_sessions_key)
+        await self.redis.delete(user_sessions_key)
 
         _log.info(f"Invalidated {len(session_ids)} sessions for user: {user_id}")
         return len(session_ids)
@@ -196,7 +186,11 @@ class SessionService:
             list[SessionData]: List of active sessions
         """
         user_sessions_key = f"{self.user_sessions_prefix}{user_id}"
-        session_ids = await self.redis_client.smembers(user_sessions_key)
+        smembers_result = self.redis.smembers(user_sessions_key)
+        if hasattr(smembers_result, "__await__"):
+            session_ids = await smembers_result
+        else:
+            session_ids = smembers_result
 
         sessions = []
         for session_id in session_ids:
@@ -214,7 +208,7 @@ class SessionService:
             int: Number of sessions cleaned up
         """
         current_time = datetime.now(UTC).timestamp()
-        expired_sessions = await self.redis_client.zrangebyscore(
+        expired_sessions = await self.redis.zrangebyscore(
             self.session_cleanup_key, 0, current_time
         )
 
@@ -237,7 +231,7 @@ class SessionService:
             int: Remaining TTL in seconds
         """
         session_key = f"{self.session_prefix}{session_id}"
-        return await self.redis_client.ttl(session_key)
+        return await self.redis.ttl(session_key)
 
     async def get_session_stats(self) -> dict[str, Any]:
         """Get session statistics.
@@ -245,9 +239,9 @@ class SessionService:
         Returns:
             Dict[str, Any]: Session statistics
         """
-        total_sessions = await self.redis_client.zcard(self.session_cleanup_key)
+        total_sessions = await self.redis.zcard(self.session_cleanup_key)
         current_time = datetime.now(UTC).timestamp()
-        active_sessions = await self.redis_client.zcount(
+        active_sessions = await self.redis.zcount(
             self.session_cleanup_key, current_time, "+inf"
         )
 
@@ -264,6 +258,6 @@ class SessionService:
             bool: True if connection is successful
         """
         try:
-            return bool(await self.redis_client.ping())
+            return bool(await self.redis.ping())
         except redis.ConnectionError:
             return False

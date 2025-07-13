@@ -14,18 +14,21 @@ from app.api.v1.schemas.response.error_response import ErrorResponse
 from app.api.v1.schemas.response.user_registration_response import (
     UserRegistrationResponse,
 )
-from app.db.database_manager import get_db
-from app.db.database_session import DatabaseSession
+from app.db.redis.redis_database_manager import get_redis_session
+from app.db.redis.redis_database_session import RedisDatabaseSession
+from app.db.sql.sql_database_manager import get_db
+from app.db.sql.sql_database_session import SqlDatabaseSession
 from app.services.auth_service import AuthService
 
 router = APIRouter()
 
 
 async def get_auth_service(
-    db: Annotated[DatabaseSession, Depends(get_db)],
+    db: Annotated[SqlDatabaseSession, Depends(get_db)],
+    redis_session: Annotated[RedisDatabaseSession, Depends(get_redis_session)],
 ) -> AuthService:
     """Get auth service instance."""
-    return AuthService(db)
+    return AuthService(db, redis_session)
 
 
 @router.post(

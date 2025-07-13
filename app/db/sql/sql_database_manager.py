@@ -1,12 +1,12 @@
-"""Database connection and session management."""
+"""SQL database connection and session management."""
 
 from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.config import settings
-from app.db.database_session import DatabaseSession
-from app.db.models.base_database_model import BaseDatabaseModel
+from app.db.sql.models.base_sql_model import BaseSqlModel
+from app.db.sql.sql_database_session import SqlDatabaseSession
 
 DATABASE_URL = (
     f"postgresql+asyncpg://{settings.user_management_db_user}:"
@@ -27,14 +27,14 @@ engine = create_async_engine(
 
 AsyncSessionLocal = async_sessionmaker(
     engine,
-    class_=DatabaseSession,
+    class_=SqlDatabaseSession,
     expire_on_commit=False,
     autoflush=False,
     autocommit=False,
 )
 
 
-async def get_db() -> AsyncGenerator[DatabaseSession, None]:
+async def get_db() -> AsyncGenerator[SqlDatabaseSession, None]:
     """Get database session."""
     async with AsyncSessionLocal() as session:
         try:
@@ -46,4 +46,4 @@ async def get_db() -> AsyncGenerator[DatabaseSession, None]:
 async def init_db() -> None:
     """Initialize database tables."""
     async with engine.begin() as conn:
-        await conn.run_sync(BaseDatabaseModel.metadata.create_all)
+        await conn.run_sync(BaseSqlModel.metadata.create_all)

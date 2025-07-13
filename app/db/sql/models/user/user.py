@@ -6,11 +6,11 @@ from sqlalchemy import Boolean, Column, DateTime, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
-from app.db.models.base_database_model import BaseDatabaseModel
+from app.db.sql.models.base_sql_model import BaseSqlModel
 from app.utils.security import SecurePasswordHash, SensitiveData
 
 
-class User(BaseDatabaseModel):
+class User(BaseSqlModel):
     """User model representing the users table."""
 
     __tablename__ = "users"

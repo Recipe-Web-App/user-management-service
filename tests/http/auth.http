@@ -14,7 +14,7 @@ Content-Type: application/json
   }
 }
 
-### Login User
+### Login User (capture tokens)
 POST http://user-management.local/api/v1/user-management/auth/login
 Content-Type: application/json
 
@@ -24,6 +24,7 @@ Content-Type: application/json
 }
 
 > {%
+// Save the access token and refresh token from the login response
 client.global.set("accessToken", response.body.token.accessToken);
 client.global.set("refreshToken", response.body.token.refreshToken);
 %}
@@ -45,20 +46,25 @@ Content-Type: application/json
   "refresh_token": "{{refreshToken}}"
 }
 
-### Logout User
-POST http://user-management.local/api/v1/user-management/auth/logout
-Authorization: Bearer {{accessToken}}
-
-###
-
 ### Request Password Reset
 POST http://user-management.local/api/v1/user-management/auth/reset-password
 Content-Type: application/json
 
-###
+{
+  "email": "test@example.com"
+}
 
-### Confirm Password Reset
+### Confirm Password Reset (use token from logs)
 POST http://user-management.local/api/v1/user-management/auth/reset-password/confirm
 Content-Type: application/json
+
+{
+  "reset_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "new_password": "NewSecurePass123!"
+}
+
+### Logout User
+POST http://user-management.local/api/v1/user-management/auth/logout
+Authorization: Bearer {{accessToken}}
 
 ###

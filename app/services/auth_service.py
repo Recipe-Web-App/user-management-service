@@ -13,10 +13,22 @@ from sqlalchemy.exc import TimeoutError as SQLTimeoutError
 from app.api.v1.schemas.common.token import Token
 from app.api.v1.schemas.common.user import User as UserSchema
 from app.api.v1.schemas.request.user_login_request import UserLoginRequest
+from app.api.v1.schemas.request.user_password_reset_confirm_request import (
+    UserPasswordResetConfirmRequest,
+)
+from app.api.v1.schemas.request.user_password_reset_request import (
+    UserPasswordResetRequest,
+)
 from app.api.v1.schemas.request.user_refresh_request import UserRefreshRequest
 from app.api.v1.schemas.request.user_registration_request import UserRegistrationRequest
 from app.api.v1.schemas.response.user_login_response import UserLoginResponse
 from app.api.v1.schemas.response.user_logout_response import UserLogoutResponse
+from app.api.v1.schemas.response.user_password_reset_confirm_response import (
+    UserPasswordResetConfirmResponse,
+)
+from app.api.v1.schemas.response.user_password_reset_response import (
+    UserPasswordResetResponse,
+)
 from app.api.v1.schemas.response.user_refresh_response import UserRefreshResponse
 from app.api.v1.schemas.response.user_registration_response import (
     UserRegistrationResponse,
@@ -29,6 +41,7 @@ from app.db.sql.models.user.user import User as UserModel
 from app.db.sql.sql_database_session import SqlDatabaseSession
 from app.enums.token_type import TokenType
 from app.exceptions.custom_exceptions.database_exceptions import DatabaseError
+from app.utils.security import SensitiveData
 
 _log = get_logger(__name__)
 
@@ -359,6 +372,177 @@ class AuthService:
                 ),
             ) from e
 
+    async def request_password_reset(
+        self, reset_data: UserPasswordResetRequest
+    ) -> UserPasswordResetResponse:
+        """Request password reset for a user.
+
+        Args:
+            reset_data: Password reset request data
+
+        Returns:
+            UserPasswordResetResponse: Password reset request result
+
+        Raises:
+            HTTPException: If user not found or service unavailable
+        """
+        _log.info(f"Password reset request for email: {reset_data.email}")
+
+        try:
+            # Find user by email
+            user = await self.db.get_user_by_email(reset_data.email)
+            if not user:
+                _log.warning(
+                    f"Password reset failed: User not found - {reset_data.email}"
+                )
+                # Don't reveal if user exists or not for security
+                return UserPasswordResetResponse(
+                    message="If the email exists, a password reset link has been sent",
+                    email_sent=True,
+                )
+
+            # Check if user is active
+            if not user.is_active:
+                _log.warning(f"Password reset failed: Inactive user - {user.username}")
+                return UserPasswordResetResponse(
+                    message="If the email exists, a password reset link has been sent",
+                    email_sent=True,
+                )
+
+            # Create password reset token
+            reset_token = self._create_password_reset_token(user)
+            _log.info(f"Password reset token created for user: {user.username}")
+
+            # TODO: Send email with reset token
+            # For now, we'll just log the token (in production, send via email)
+            _log.info(f"Password reset token for {user.email}: {reset_token}")
+
+            return UserPasswordResetResponse(
+                message="If the email exists, a password reset link has been sent",
+                email_sent=True,
+            )
+
+        except DatabaseError as e:
+            _log.error(f"Database error during password reset request: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
+        except (DisconnectionError, SQLTimeoutError) as e:
+            _log.error(f"Database connection error during password reset request: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Database service is temporarily unavailable. "
+                    "Please try again later."
+                ),
+            ) from e
+        except Exception as e:
+            _log.error(f"Unexpected error during password reset request: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="An unexpected error occurred during password reset request",
+            ) from e
+
+    async def confirm_password_reset(
+        self, confirm_data: UserPasswordResetConfirmRequest
+    ) -> UserPasswordResetConfirmResponse:
+        """Confirm password reset using reset token.
+
+        Args:
+            confirm_data: Password reset confirmation data
+
+        Returns:
+            UserPasswordResetConfirmResponse: Password reset confirmation result
+
+        Raises:
+            HTTPException: If reset token is invalid, expired, or user not found
+        """
+        _log.info("Password reset confirmation attempt")
+
+        try:
+            # Decode and validate reset token
+            payload = self._decode_password_reset_token(confirm_data.reset_token)
+            user_id = payload.get("sub")
+            token_type = payload.get("type")
+
+            if not user_id or token_type != "password_reset":  # nosec
+                _log.warning(
+                    "Invalid password reset token: missing user ID or wrong token type"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid or expired reset token",
+                )
+
+            # Get user from database
+            user = await self.db.get_user_by_id(user_id)
+            if not user:
+                _log.warning(f"Password reset failed: User not found - {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid or expired reset token",
+                )
+
+            # Check if user is active
+            if not user.is_active:
+                _log.warning(f"Password reset failed: Inactive user - {user.username}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Account is deactivated",
+                )
+
+            # Update user password
+            new_password = confirm_data.new_password.get_secret_value()
+            hashed_password = self._get_password_hash(new_password)
+
+            # Update user in database
+            if user.password_hash is None:
+                user.password_hash = SensitiveData(hashed_password)
+            else:
+                user.password_hash.set_raw_value(hashed_password)
+            await self.db.commit()
+            await self.db.refresh(user)
+
+            # Invalidate all user sessions (force re-login with new password)
+            try:
+                await self.redis_session.invalidate_user_sessions(str(user.user_id))
+                _log.info(
+                    "Invalidated sessions for user after password reset: "
+                    f"{user.username}"
+                )
+            except redis.ConnectionError as e:
+                _log.warning(f"Could not invalidate sessions after password reset: {e}")
+
+            _log.info(f"Password reset successfully for user: {user.username}")
+
+            return UserPasswordResetConfirmResponse(
+                message="Password reset successfully",
+                password_updated=True,
+            )
+
+        except JWTError as e:
+            _log.warning(f"JWT decode error during password reset: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired reset token",
+            ) from e
+        except DatabaseError as e:
+            _log.error(f"Database error during password reset: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
+        except (DisconnectionError, SQLTimeoutError) as e:
+            _log.error(f"Database connection error during password reset: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Database service is temporarily unavailable. "
+                    "Please try again later."
+                ),
+            ) from e
+
     async def logout_user(self, user_id: str) -> UserLogoutResponse:
         """Log out a user by invalidating their sessions.
 
@@ -482,6 +666,30 @@ class AuthService:
             to_encode, settings.jwt_secret_key, algorithm=settings.jwt_signing_algorithm
         )
 
+    def _create_password_reset_token(self, user: UserModel) -> str:
+        """Create JWT password reset token for user.
+
+        Args:
+            user: User to create password reset token for
+
+        Returns:
+            str: JWT password reset token
+        """
+        data = {
+            "sub": str(user.user_id),
+            "username": user.username,
+            "type": "password_reset",  # nosec
+        }
+        to_encode = data.copy()
+        expire = datetime.now(UTC) + timedelta(
+            minutes=settings.password_reset_token_expire_minutes
+        )
+        to_encode.update({"exp": expire})
+
+        return jwt.encode(
+            to_encode, settings.jwt_secret_key, algorithm=settings.jwt_signing_algorithm
+        )
+
     def _create_tokens(self, user: UserModel) -> Token:
         """Create both access and refresh tokens for user.
 
@@ -515,6 +723,24 @@ class AuthService:
         """
         return jwt.decode(
             refresh_token,
+            settings.jwt_secret_key,
+            algorithms=[settings.jwt_signing_algorithm],
+        )
+
+    def _decode_password_reset_token(self, reset_token: str) -> dict:
+        """Decode and validate password reset token.
+
+        Args:
+            reset_token: JWT password reset token to decode
+
+        Returns:
+            dict: Decoded token payload
+
+        Raises:
+            jwt.JWTError: If token is invalid or expired
+        """
+        return jwt.decode(
+            reset_token,
             settings.jwt_secret_key,
             algorithms=[settings.jwt_signing_algorithm],
         )

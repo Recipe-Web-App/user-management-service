@@ -80,6 +80,9 @@ class _Settings(BaseSettings):
     JWT_SIGNING_ALGORITHM: str = Field(..., alias="JWT_SIGNING_ALGORITHM")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(..., alias="ACCESS_TOKEN_EXPIRE_MINUTES")
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(..., alias="REFRESH_TOKEN_EXPIRE_DAYS")
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = Field(
+        ..., alias="PASSWORD_RESET_TOKEN_EXPIRE_MINUTES"
+    )
 
     # CORS Configuration
     ALLOWED_ORIGIN_HOSTS: str = Field(..., alias="ALLOWED_ORIGIN_HOSTS")
@@ -168,6 +171,11 @@ class _Settings(BaseSettings):
     def refresh_token_expire_days(self) -> int:
         """Get refresh token expiration time in days."""
         return self.REFRESH_TOKEN_EXPIRE_DAYS
+
+    @property
+    def password_reset_token_expire_minutes(self) -> int:
+        """Get password reset token expiration time in minutes."""
+        return self.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
 
     @property
     def allowed_origin_hosts(self) -> str:

@@ -15,6 +15,9 @@ from app.api.v1.schemas.response.notification_count_response import (
 from app.api.v1.schemas.response.notification_list_response import (
     NotificationListResponse,
 )
+from app.api.v1.schemas.response.notification_read_all_response import (
+    NotificationReadAllResponse,
+)
 from app.api.v1.schemas.response.notification_read_response import (
     NotificationReadResponse,
 )
@@ -113,22 +116,30 @@ async def mark_notification_read(
 
 
 @router.put(
-    "/user-management/users/{user_id}/notifications/read-all",
+    "/user-management/notifications/read-all",
     tags=["notifications"],
     summary="Mark all notifications as read",
     description="Mark all notifications as read",
+    response_model=NotificationReadAllResponse,
 )
 async def mark_all_notifications_read(
-    user_id: Annotated[UUID, Path(description="User ID")],
-) -> JSONResponse:
+    authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
+    notification_service: Annotated[
+        NotificationService,
+        Depends(get_notification_service),
+    ],
+) -> NotificationReadAllResponse:
     """Mark all notifications as read.
 
+    Args:
+        authenticated_user_id: User ID from JWT token
+        notification_service: Notification service instance
+
     Returns:
-        JSONResponse: Read all confirmation
+        NotificationReadAllResponse: Read all confirmation
     """
-    # TODO: Implement mark all notifications read
-    return JSONResponse(
-        content={"message": f"Mark all {user_id} notifications as read"}
+    return await notification_service.mark_all_notifications_read(
+        UUID(authenticated_user_id)
     )
 
 

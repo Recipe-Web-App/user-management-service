@@ -14,6 +14,9 @@ from app.api.v1.schemas.response.notification_count_response import (
 from app.api.v1.schemas.response.notification_list_response import (
     NotificationListResponse,
 )
+from app.api.v1.schemas.response.notification_read_all_response import (
+    NotificationReadAllResponse,
+)
 from app.api.v1.schemas.response.notification_read_response import (
     NotificationReadResponse,
 )
@@ -169,7 +172,8 @@ class NotificationService:
                 await self.db.commit()
                 await self.db.refresh(notification)
                 _log.info(
-                    f"Notification {notification_id} marked as read for user {user_id}"
+                    f"Notification {notification_id} marked as read "
+                    f"for user {user_id}"
                 )
             return NotificationReadResponse(
                 message="Notification marked as read successfully",
@@ -183,6 +187,71 @@ class NotificationService:
         except (DisconnectionError, SQLTimeoutError) as e:
             _log.error(
                 f"Database connection error while marking notification read: {e}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Database service is temporarily unavailable. "
+                    "Please try again later."
+                ),
+            ) from e
+
+    async def mark_all_notifications_read(
+        self, user_id: UUID
+    ) -> NotificationReadAllResponse:
+        """Mark all unread notifications as read for a user.
+
+        Args:
+            user_id: The user's unique identifier
+
+        Returns:
+            NotificationReadAllResponse: Confirmation with count of updated
+                notifications
+
+        Raises:
+            HTTPException: If database services are unavailable
+        """
+        _log.info(f"Marking all notifications as read for user {user_id}")
+        try:
+            # Get all unread notifications for the user
+            notifications_result = await self.db.execute(
+                select(NotificationModel).where(
+                    NotificationModel.user_id == user_id,
+                    NotificationModel.is_read.is_(False),
+                    NotificationModel.is_deleted.is_(False),
+                )
+            )
+            notifications = notifications_result.scalars().all()
+
+            read_notification_ids = []
+            for notification in notifications:
+                notification.is_read = True
+                read_notification_ids.append(notification.notification_id)
+
+            if read_notification_ids:
+                await self.db.commit()
+                _log.info(
+                    f"Marked {len(read_notification_ids)} notifications as read "
+                    f"for user {user_id}"
+                )
+            else:
+                _log.info(f"No unread notifications found for user {user_id}")
+
+            return NotificationReadAllResponse(
+                message="All notifications marked as read successfully",
+                read_notification_ids=read_notification_ids,
+            )
+
+        except DatabaseError as e:
+            _log.error(f"Database error while marking all notifications read: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
+        except (DisconnectionError, SQLTimeoutError) as e:
+            _log.error(
+                f"Database connection error while marking all "
+                f"notifications read: {e}"
             )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

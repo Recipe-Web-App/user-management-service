@@ -1,42 +1,59 @@
 ### Notification Management Tests
 
 ### Get Notifications - Default Pagination
-GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/notifications
+GET http://user-management.local/api/v1/user-management/notifications
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzM1Njg5NjAwfQ.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8
 
 ###
 
 ### Get Notifications - Custom Pagination
-GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/notifications?limit=10&offset=5
+GET http://user-management.local/api/v1/user-management/notifications?limit=10&offset=5
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzM1Njg5NjAwfQ.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8
 
 ###
 
 ### Get Notifications - Count Only
-GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/notifications?count_only=true
+GET http://user-management.local/api/v1/user-management/notifications?count_only=true
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzM1Njg5NjAwfQ.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8
 
 ###
 
 ### Mark Notification as Read
-PUT http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/notifications/789e0123-e89b-12d3-a456-426614174002/read
+PUT http://user-management.local/api/v1/user-management/notifications/789e0123-e89b-12d3-a456-426614174002/read
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzM1Njg5NjAwfQ.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8
 
 ###
 
 ### Mark All Notifications as Read
-PUT http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/notifications/read-all
+PUT http://user-management.local/api/v1/user-management/notifications/read-all
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzM1Njg5NjAwfQ.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8
+
+# Example expected response:
+# {
+#   "message": "All notifications marked as read successfully",
+#   "read_notification_ids": [
+#     "789e0123-e89b-12d3-a456-426614174002",
+#     "789e0123-e89b-12d3-a456-426614174003"
+#   ]
+# }
 
 ###
 
 ### Delete Notification
-DELETE http://127.0.0.1:8000/api/v1/user-management/users/notifications/789e0123-e89b-12d3-a456-426614174002
+DELETE http://user-management.local/api/v1/user-management/notifications/789e0123-e89b-12d3-a456-426614174002
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzM1Njg5NjAwfQ.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8
 
 ###
 
 ### Get Notification Preferences
-GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/notifications/preferences
+GET http://user-management.local/api/v1/user-management/notifications/preferences
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzM1Njg5NjAwfQ.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8
 
 ###
 
 ### Update Notification Preferences
-PUT http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/notifications/preferences
+PUT http://user-management.local/api/v1/user-management/notifications/preferences
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZXhwIjoxNzM1Njg5NjAwfQ.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8
 Content-Type: application/json
 
 ###

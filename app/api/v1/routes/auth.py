@@ -1,21 +1,32 @@
 """Authentication routes.
 
-Provides endpoints for user authentication including registration, login, logout, and
-token refresh.
+Provides endpoints for user authentication including registration, login, logout, token
+refresh, and password reset.
 """
 
 from http import HTTPStatus
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
-from fastapi.responses import JSONResponse
 
 from app.api.v1.schemas.request.user_login_request import UserLoginRequest
+from app.api.v1.schemas.request.user_password_reset_confirm_request import (
+    UserPasswordResetConfirmRequest,
+)
+from app.api.v1.schemas.request.user_password_reset_request import (
+    UserPasswordResetRequest,
+)
 from app.api.v1.schemas.request.user_refresh_request import UserRefreshRequest
 from app.api.v1.schemas.request.user_registration_request import UserRegistrationRequest
 from app.api.v1.schemas.response.error_response import ErrorResponse
 from app.api.v1.schemas.response.user_login_response import UserLoginResponse
 from app.api.v1.schemas.response.user_logout_response import UserLogoutResponse
+from app.api.v1.schemas.response.user_password_reset_confirm_response import (
+    UserPasswordResetConfirmResponse,
+)
+from app.api.v1.schemas.response.user_password_reset_response import (
+    UserPasswordResetResponse,
+)
 from app.api.v1.schemas.response.user_refresh_response import UserRefreshResponse
 from app.api.v1.schemas.response.user_registration_response import (
     UserRegistrationResponse,
@@ -256,15 +267,47 @@ async def refresh_token(
     tags=["authentication"],
     summary="Request password reset",
     description="Send password reset email",
+    response_model=UserPasswordResetResponse,
+    responses={
+        HTTPStatus.OK: {
+            "model": UserPasswordResetResponse,
+            "description": "Password reset email sent successfully",
+        },
+        HTTPStatus.BAD_REQUEST: {
+            "model": ErrorResponse,
+            "description": "Bad request",
+        },
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+            "model": ErrorResponse,
+            "description": "Validation error",
+        },
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "model": ErrorResponse,
+            "description": "Internal server error",
+        },
+        HTTPStatus.SERVICE_UNAVAILABLE: {
+            "model": ErrorResponse,
+            "description": "Service temporarily unavailable",
+        },
+    },
 )
-async def request_password_reset() -> JSONResponse:
+async def request_password_reset(
+    reset_data: Annotated[UserPasswordResetRequest, Body(...)],
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+) -> UserPasswordResetResponse:
     """Request password reset.
 
+    Args:
+        reset_data: Password reset request data
+        auth_service: Auth service instance
+
     Returns:
-        JSONResponse: Password reset request confirmation
+        UserPasswordResetResponse: Password reset request result
+
+    Raises:
+        HTTPException: If password reset request fails
     """
-    # TODO: Implement password reset request
-    return JSONResponse(content={"message": "Password reset request endpoint"})
+    return await auth_service.request_password_reset(reset_data)
 
 
 @router.post(
@@ -272,12 +315,44 @@ async def request_password_reset() -> JSONResponse:
     tags=["authentication"],
     summary="Confirm password reset",
     description="Reset password using token",
+    response_model=UserPasswordResetConfirmResponse,
+    responses={
+        HTTPStatus.OK: {
+            "model": UserPasswordResetConfirmResponse,
+            "description": "Password reset successfully",
+        },
+        HTTPStatus.BAD_REQUEST: {
+            "model": ErrorResponse,
+            "description": "Invalid or expired reset token",
+        },
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+            "model": ErrorResponse,
+            "description": "Validation error",
+        },
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "model": ErrorResponse,
+            "description": "Internal server error",
+        },
+        HTTPStatus.SERVICE_UNAVAILABLE: {
+            "model": ErrorResponse,
+            "description": "Service temporarily unavailable",
+        },
+    },
 )
-async def confirm_password_reset() -> JSONResponse:
+async def confirm_password_reset(
+    confirm_data: Annotated[UserPasswordResetConfirmRequest, Body(...)],
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+) -> UserPasswordResetConfirmResponse:
     """Confirm password reset.
 
+    Args:
+        confirm_data: Password reset confirmation data
+        auth_service: Auth service instance
+
     Returns:
-        JSONResponse: Password reset confirmation
+        UserPasswordResetConfirmResponse: Password reset confirmation result
+
+    Raises:
+        HTTPException: If password reset confirmation fails
     """
-    # TODO: Implement password reset confirmation
-    return JSONResponse(content={"message": "Password reset confirmation endpoint"})
+    return await auth_service.confirm_password_reset(confirm_data)

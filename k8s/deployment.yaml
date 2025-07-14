@@ -74,6 +74,11 @@ spec:
                 configMapKeyRef:
                   name: user-management-config
                   key: REFRESH_TOKEN_EXPIRE_DAYS
+            - name: PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
+              valueFrom:
+                configMapKeyRef:
+                  name: user-management-config
+                  key: PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
             - name: ALLOWED_ORIGIN_HOSTS
               valueFrom:
                 configMapKeyRef:

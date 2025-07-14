@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from sqlalchemy import Boolean, Column, DateTime, String, Text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.db.sql.models.base_sql_model import BaseSqlModel
@@ -34,6 +35,8 @@ class User(BaseSqlModel):
         onupdate=func.now(),
         nullable=False,
     )
+
+    notifications = relationship("Notification", back_populates="user")
 
     def __repr__(self) -> str:
         """Return string representation of the User model."""

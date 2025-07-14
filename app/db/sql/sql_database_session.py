@@ -212,6 +212,25 @@ class SqlDatabaseSession(AsyncSession):
             await self._handle_database_error("get_user_by_email", e)
             raise
 
+    async def get_user_by_id(self, user_id: str) -> User | None:
+        """Get user by ID with error handling.
+
+        Args:
+            user_id: User ID to search for
+
+        Returns:
+            User | None: User if found, None otherwise
+
+        Raises:
+            DatabaseError: Classified database error with appropriate status code
+        """
+        try:
+            result = await self.execute(select(User).where(User.user_id == user_id))
+            return result.scalar_one_or_none()
+        except Exception as e:
+            await self._handle_database_error("get_user_by_id", e)
+            raise
+
     async def create_user(self, user: User) -> User:
         """Create a new user with error handling.
 

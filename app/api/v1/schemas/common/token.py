@@ -13,6 +13,10 @@ class Token(BaseSchemaModel):
         ...,
         description="JWT access token for the registered user",
     )
+    refresh_token: str | None = Field(
+        None,
+        description="JWT refresh token for obtaining new access tokens",
+    )
     token_type: TokenType = Field(
         default=TokenType.BEARER,
         description="Type of authentication token",

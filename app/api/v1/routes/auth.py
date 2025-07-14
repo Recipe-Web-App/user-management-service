@@ -1,6 +1,7 @@
-"""Authentication route handler.
+"""Authentication routes.
 
-Defines endpoints for user authentication and account management.
+Provides endpoints for user authentication including registration, login, logout, and
+token refresh.
 """
 
 from http import HTTPStatus
@@ -10,10 +11,12 @@ from fastapi import APIRouter, Body, Depends
 from fastapi.responses import JSONResponse
 
 from app.api.v1.schemas.request.user_login_request import UserLoginRequest
+from app.api.v1.schemas.request.user_refresh_request import UserRefreshRequest
 from app.api.v1.schemas.request.user_registration_request import UserRegistrationRequest
 from app.api.v1.schemas.response.error_response import ErrorResponse
 from app.api.v1.schemas.response.user_login_response import UserLoginResponse
 from app.api.v1.schemas.response.user_logout_response import UserLogoutResponse
+from app.api.v1.schemas.response.user_refresh_response import UserRefreshResponse
 from app.api.v1.schemas.response.user_registration_response import (
     UserRegistrationResponse,
 )
@@ -21,7 +24,7 @@ from app.db.redis.redis_database_manager import get_redis_session
 from app.db.redis.redis_database_session import RedisDatabaseSession
 from app.db.sql.sql_database_manager import get_db
 from app.db.sql.sql_database_session import SqlDatabaseSession
-from app.middleware import get_current_user_id
+from app.middleware.auth_middleware import get_current_user_id
 from app.services.auth_service import AuthService
 
 router = APIRouter()
@@ -31,7 +34,15 @@ async def get_auth_service(
     db: Annotated[SqlDatabaseSession, Depends(get_db)],
     redis_session: Annotated[RedisDatabaseSession, Depends(get_redis_session)],
 ) -> AuthService:
-    """Get auth service instance."""
+    """Get auth service instance.
+
+    Args:
+        db: Database session
+        redis_session: Redis session
+
+    Returns:
+        AuthService: Auth service instance
+    """
     return AuthService(db, redis_session)
 
 
@@ -193,15 +204,51 @@ async def logout(
     tags=["authentication"],
     summary="Refresh access token",
     description="Get new access token using refresh token",
+    response_model=UserRefreshResponse,
+    responses={
+        HTTPStatus.OK: {
+            "model": UserRefreshResponse,
+            "description": "Token refreshed successfully",
+        },
+        HTTPStatus.BAD_REQUEST: {
+            "model": ErrorResponse,
+            "description": "Bad request",
+        },
+        HTTPStatus.UNAUTHORIZED: {
+            "model": ErrorResponse,
+            "description": "Invalid refresh token or no active session",
+        },
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+            "model": ErrorResponse,
+            "description": "Validation error",
+        },
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "model": ErrorResponse,
+            "description": "Internal server error",
+        },
+        HTTPStatus.SERVICE_UNAVAILABLE: {
+            "model": ErrorResponse,
+            "description": "Service temporarily unavailable",
+        },
+    },
 )
-async def refresh_token() -> JSONResponse:
+async def refresh_token(
+    refresh_data: Annotated[UserRefreshRequest, Body(...)],
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+) -> UserRefreshResponse:
     """Refresh access token.
 
+    Args:
+        refresh_data: Refresh token data
+        auth_service: Auth service instance
+
     Returns:
-        JSONResponse: New access token
+        UserRefreshResponse: New access token
+
+    Raises:
+        HTTPException: If refresh token is invalid, expired, or user not found
     """
-    # TODO: Implement token refresh
-    return JSONResponse(content={"message": "Token refresh endpoint"})
+    return await auth_service.refresh_token(refresh_data)
 
 
 @router.post(

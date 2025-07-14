@@ -14,7 +14,7 @@ Content-Type: application/json
   }
 }
 
-### Login User (capture token)
+### Login User
 POST http://user-management.local/api/v1/user-management/auth/login
 Content-Type: application/json
 
@@ -25,6 +25,7 @@ Content-Type: application/json
 
 > {%
 client.global.set("accessToken", response.body.token.accessToken);
+client.global.set("refreshToken", response.body.token.refreshToken);
 %}
 
 ### Login with Email
@@ -36,15 +37,17 @@ Content-Type: application/json
   "password": "SecurePass123!"
 }
 
-### Logout User
-POST http://user-management.local/api/v1/user-management/auth/logout
-Authorization: Bearer {{accessToken}}
-
-###
-
 ### Refresh Token
 POST http://user-management.local/api/v1/user-management/auth/refresh
 Content-Type: application/json
+
+{
+  "refresh_token": "{{refreshToken}}"
+}
+
+### Logout User
+POST http://user-management.local/api/v1/user-management/auth/logout
+Authorization: Bearer {{accessToken}}
 
 ###
 

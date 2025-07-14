@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import redis.exceptions
 from fastapi import HTTPException, status
-from jose import jwt
+from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.exc import DisconnectionError
 from sqlalchemy.exc import TimeoutError as SQLTimeoutError
@@ -13,9 +13,11 @@ from sqlalchemy.exc import TimeoutError as SQLTimeoutError
 from app.api.v1.schemas.common.token import Token
 from app.api.v1.schemas.common.user import User as UserSchema
 from app.api.v1.schemas.request.user_login_request import UserLoginRequest
+from app.api.v1.schemas.request.user_refresh_request import UserRefreshRequest
 from app.api.v1.schemas.request.user_registration_request import UserRegistrationRequest
 from app.api.v1.schemas.response.user_login_response import UserLoginResponse
 from app.api.v1.schemas.response.user_logout_response import UserLogoutResponse
+from app.api.v1.schemas.response.user_refresh_response import UserRefreshResponse
 from app.api.v1.schemas.response.user_registration_response import (
     UserRegistrationResponse,
 )
@@ -96,7 +98,7 @@ class AuthService:
                 ),
             ) from e
 
-        token = self._create_access_token(user)
+        token = self._create_tokens(user)
 
         # Create session for the new user
         try:
@@ -199,21 +201,17 @@ class AuthService:
             HTTPException: If credentials are invalid, user is inactive, or database
             services are unavailable
         """
-        # Determine login identifier for logging
-        login_identifier = login_data.username or login_data.email
-        _log.info(f"Login attempt for user: {login_identifier}")
+        _log.info(f"Login attempt for user: {login_data.username or login_data.email}")
 
         try:
             # Authenticate user
             user = await self._authenticate_user(login_data)
 
-            # Check for existing active session(s)
+            # Check for existing session
             await self._check_existing_session(user)
 
-            _log.info(f"User authenticated successfully: {user.username}")
-
             # Create access token
-            token = self._create_access_token(user)
+            token = self._create_tokens(user)
 
             # Create or update user session
             try:
@@ -259,6 +257,106 @@ class AuthService:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="An unexpected error occurred during login",
+            ) from e
+
+    async def refresh_token(
+        self, refresh_data: UserRefreshRequest
+    ) -> UserRefreshResponse:
+        """Refresh access token using refresh token.
+
+        Args:
+            refresh_data: Refresh token data
+
+        Returns:
+            UserRefreshResponse: New access token
+
+        Raises:
+            HTTPException: If refresh token is invalid, expired, or user not found
+        """
+        _log.info("Token refresh attempt")
+
+        try:
+            # Decode and validate refresh token
+            payload = self._decode_refresh_token(refresh_data.refresh_token)
+            user_id = payload.get("sub")
+            token_type = payload.get("type")
+
+            if not user_id or token_type != "refresh":  # nosec
+                _log.warning(
+                    "Invalid refresh token: missing user ID or wrong token type"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid refresh token",
+                )
+
+            # Get user from database
+            user = await self.db.get_user_by_id(user_id)
+            if not user:
+                _log.warning(f"Refresh failed: User not found - {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid refresh token",
+                )
+
+            # Check if user is active
+            if not user.is_active:
+                _log.warning(f"Refresh failed: Inactive user - {user.username}")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Account is deactivated",
+                )
+
+            # Check if user has active session
+            user_sessions = await self.redis_session.get_user_sessions(
+                str(user.user_id)
+            )
+            if not user_sessions:
+                _log.warning(
+                    f"Refresh failed: No active session for user - {user.username}"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="No active session found",
+                )
+
+            # Create new access token (without refresh token for refresh response)
+            access_token = self._create_access_token(user)
+            _log.info(f"Token refreshed successfully for user: {user.username}")
+
+            return UserRefreshResponse(
+                message="Token refreshed successfully",
+                token=access_token,
+            )
+        except JWTError as e:
+            _log.warning(f"JWT decode error during token refresh: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token",
+            ) from e
+        except DatabaseError as e:
+            _log.error(f"Database error during token refresh: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
+        except (DisconnectionError, SQLTimeoutError) as e:
+            _log.error(f"Database connection error during token refresh: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Database service is temporarily unavailable. "
+                    "Please try again later."
+                ),
+            ) from e
+        except redis.ConnectionError as e:
+            _log.error(f"Redis connection error during token refresh: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Session service is temporarily unavailable. "
+                    "Please try again later."
+                ),
             ) from e
 
     async def logout_user(self, user_id: str) -> UserLogoutResponse:
@@ -357,8 +455,68 @@ class AuthService:
 
         return Token(
             access_token=access_token,
+            refresh_token=None,
             token_type=TokenType.BEARER,
             expires_in=expires_in,
+        )
+
+    def _create_refresh_token(self, user: UserModel) -> str:
+        """Create JWT refresh token for user.
+
+        Args:
+            user: User to create refresh token for
+
+        Returns:
+            str: JWT refresh token
+        """
+        data = {
+            "sub": str(user.user_id),
+            "username": user.username,
+            "type": "refresh",  # nosec
+        }
+        to_encode = data.copy()
+        expire = datetime.now(UTC) + timedelta(days=settings.refresh_token_expire_days)
+        to_encode.update({"exp": expire})
+
+        return jwt.encode(
+            to_encode, settings.jwt_secret_key, algorithm=settings.jwt_signing_algorithm
+        )
+
+    def _create_tokens(self, user: UserModel) -> Token:
+        """Create both access and refresh tokens for user.
+
+        Args:
+            user: User to create tokens for
+
+        Returns:
+            Token: JWT tokens with expiration information
+        """
+        access_token = self._create_access_token(user)
+        refresh_token = self._create_refresh_token(user)
+
+        return Token(
+            access_token=access_token.access_token,
+            refresh_token=refresh_token,
+            token_type=TokenType.BEARER,
+            expires_in=access_token.expires_in,
+        )
+
+    def _decode_refresh_token(self, refresh_token: str) -> dict:
+        """Decode and validate refresh token.
+
+        Args:
+            refresh_token: JWT refresh token to decode
+
+        Returns:
+            dict: Decoded token payload
+
+        Raises:
+            jwt.JWTError: If token is invalid or expired
+        """
+        return jwt.decode(
+            refresh_token,
+            settings.jwt_secret_key,
+            algorithms=[settings.jwt_signing_algorithm],
         )
 
     async def _create_user_session(

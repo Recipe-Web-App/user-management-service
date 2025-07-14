@@ -8,9 +8,14 @@ from sqlalchemy.exc import DisconnectionError
 from sqlalchemy.exc import TimeoutError as SQLTimeoutError
 
 from app.api.v1.schemas.common.notification import Notification as NotificationSchema
-from app.api.v1.schemas.response.notification_response import (
+from app.api.v1.schemas.response.notification_count_response import (
     NotificationCountResponse,
+)
+from app.api.v1.schemas.response.notification_list_response import (
     NotificationListResponse,
+)
+from app.api.v1.schemas.response.notification_read_response import (
+    NotificationReadResponse,
 )
 from app.core.logging import get_logger
 from app.db.sql.models.user.notification import Notification as NotificationModel
@@ -61,7 +66,7 @@ class NotificationService:
                 count_result = await self.db.execute(
                     select(func.count(NotificationModel.notification_id)).where(
                         NotificationModel.user_id == user_id,
-                        NotificationModel.is_deleted == False,  # noqa: E712
+                        NotificationModel.is_deleted.is_(False),
                     )
                 )
                 total_count = count_result.scalar()
@@ -73,7 +78,7 @@ class NotificationService:
                 select(NotificationModel)
                 .where(
                     NotificationModel.user_id == user_id,
-                    NotificationModel.is_deleted == False,  # noqa: E712
+                    NotificationModel.is_deleted.is_(False),
                 )
                 .order_by(NotificationModel.created_at.desc())
                 .limit(limit)
@@ -85,7 +90,7 @@ class NotificationService:
             count_result = await self.db.execute(
                 select(func.count(NotificationModel.notification_id)).where(
                     NotificationModel.user_id == user_id,
-                    NotificationModel.is_deleted == False,  # noqa: E712
+                    NotificationModel.is_deleted.is_(False),
                 )
             )
             total_count = count_result.scalar()
@@ -116,6 +121,69 @@ class NotificationService:
             ) from e
         except (DisconnectionError, SQLTimeoutError) as e:
             _log.error(f"Database connection error while getting notifications: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Database service is temporarily unavailable. "
+                    "Please try again later."
+                ),
+            ) from e
+
+    async def mark_notification_read(
+        self, user_id: UUID, notification_id: UUID
+    ) -> NotificationReadResponse:
+        """Mark a notification as read for a user.
+
+        Args:
+            user_id: The user's unique identifier
+            notification_id: The notification's unique identifier
+
+        Returns:
+            NotificationReadResponse: Confirmation of marking as read
+
+        Raises:
+            HTTPException: If notification not found, not owned by user, or DB error
+        """
+        _log.info(f"Marking notification {notification_id} as read for user {user_id}")
+        try:
+            notification_result = await self.db.execute(
+                select(NotificationModel).where(
+                    NotificationModel.notification_id == notification_id,
+                    NotificationModel.user_id == user_id,
+                    NotificationModel.is_deleted.is_(False),
+                )
+            )
+            notification = notification_result.scalar_one_or_none()
+            if not notification:
+                _log.warning(
+                    f"Notification {notification_id} not found for user {user_id}"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Notification not found",
+                )
+            if notification.is_read:
+                _log.info(f"Notification {notification_id} already marked as read")
+            else:
+                notification.is_read = True
+                await self.db.commit()
+                await self.db.refresh(notification)
+                _log.info(
+                    f"Notification {notification_id} marked as read for user {user_id}"
+                )
+            return NotificationReadResponse(
+                message="Notification marked as read successfully",
+            )
+        except DatabaseError as e:
+            _log.error(f"Database error while marking notification read: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
+        except (DisconnectionError, SQLTimeoutError) as e:
+            _log.error(
+                f"Database connection error while marking notification read: {e}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=(

@@ -1,4 +1,4 @@
-"""Notification response schemas."""
+"""Notification list response schema."""
 
 from pydantic import Field
 
@@ -24,13 +24,4 @@ class NotificationListResponse(BaseSchemaModel):
     offset: int = Field(
         ...,
         description="Number of results skipped",
-    )
-
-
-class NotificationCountResponse(BaseSchemaModel):
-    """Response schema for notification count only."""
-
-    total_count: int = Field(
-        ...,
-        description="Total number of notifications",
     )

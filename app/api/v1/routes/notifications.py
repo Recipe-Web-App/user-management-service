@@ -6,12 +6,17 @@ Defines endpoints for notification management and preferences.
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, Depends, Path, Query
 from fastapi.responses import JSONResponse
 
-from app.api.v1.schemas.response.notification_response import (
+from app.api.v1.schemas.response.notification_count_response import (
     NotificationCountResponse,
+)
+from app.api.v1.schemas.response.notification_list_response import (
     NotificationListResponse,
+)
+from app.api.v1.schemas.response.notification_read_response import (
+    NotificationReadResponse,
 )
 from app.db.sql.sql_database_manager import get_db
 from app.db.sql.sql_database_session import SqlDatabaseSession
@@ -36,14 +41,13 @@ async def get_notification_service(
 
 
 @router.get(
-    "/user-management/users/{user_id}/notifications",
+    "/user-management/notifications",
     tags=["notifications"],
     summary="Get notifications",
     description="Retrieve user's notifications",
     response_model=(NotificationListResponse | NotificationCountResponse),
 )
-async def get_notifications(  # noqa: PLR0913
-    user_id: Annotated[UUID, Path(description="User ID")],
+async def get_notifications(
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
     notification_service: Annotated[
         NotificationService,
@@ -60,7 +64,6 @@ async def get_notifications(  # noqa: PLR0913
     """Get notifications.
 
     Args:
-        user_id: The user's unique identifier
         authenticated_user_id: User ID from JWT token
         limit: Number of results to return (1-100)
         offset: Number of results to skip
@@ -71,15 +74,8 @@ async def get_notifications(  # noqa: PLR0913
         NotificationListResponse | NotificationCountResponse:
             List of notifications or count
     """
-    # Verify user can only access their own notifications
-    if str(user_id) != authenticated_user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only access your own notifications",
-        )
-
     return await notification_service.get_notifications(
-        user_id=user_id,
+        user_id=UUID(authenticated_user_id),
         limit=limit,
         offset=offset,
         count_only=count_only,
@@ -87,26 +83,32 @@ async def get_notifications(  # noqa: PLR0913
 
 
 @router.put(
-    "/user-management/users//notifications/{notification_id}/read",
+    "/user-management/notifications/{notification_id}/read",
     tags=["notifications"],
     summary="Mark notification as read",
     description="Mark a notification as read",
+    response_model=NotificationReadResponse,
 )
 async def mark_notification_read(
     notification_id: Annotated[UUID, Path(description="Notification ID")],
-) -> JSONResponse:
+    authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
+    notification_service: Annotated[
+        NotificationService,
+        Depends(get_notification_service),
+    ],
+) -> NotificationReadResponse:
     """Mark notification as read.
 
     Args:
-        user_id: The user's unique identifier
         notification_id: The notification's unique identifier
+        authenticated_user_id: User ID from JWT token
+        notification_service: Notification service instance
 
     Returns:
-        JSONResponse: Read confirmation
+        NotificationReadResponse: Read confirmation
     """
-    # TODO: Implement mark notification read
-    return JSONResponse(
-        content={"message": f"Mark notification {notification_id} as read for user"}
+    return await notification_service.mark_notification_read(
+        UUID(authenticated_user_id), notification_id
     )
 
 

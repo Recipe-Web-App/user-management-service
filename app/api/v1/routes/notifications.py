@@ -6,10 +6,33 @@ Defines endpoints for notification management and preferences.
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from fastapi.responses import JSONResponse
 
+from app.api.v1.schemas.response.notification_response import (
+    NotificationCountResponse,
+    NotificationListResponse,
+)
+from app.db.sql.sql_database_manager import get_db
+from app.db.sql.sql_database_session import SqlDatabaseSession
+from app.middleware.auth_middleware import get_current_user_id
+from app.services.notification_service import NotificationService
+
 router = APIRouter()
+
+
+async def get_notification_service(
+    db: Annotated[SqlDatabaseSession, Depends(get_db)],
+) -> NotificationService:
+    """Get notification service instance.
+
+    Args:
+        db: Database session
+
+    Returns:
+        NotificationService: Notification service instance
+    """
+    return NotificationService(db)
 
 
 @router.get(
@@ -17,9 +40,15 @@ router = APIRouter()
     tags=["notifications"],
     summary="Get notifications",
     description="Retrieve user's notifications",
+    response_model=(NotificationListResponse | NotificationCountResponse),
 )
-async def get_notifications(
+async def get_notifications(  # noqa: PLR0913
     user_id: Annotated[UUID, Path(description="User ID")],
+    authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
+    notification_service: Annotated[
+        NotificationService,
+        Depends(get_notification_service),
+    ],
     limit: Annotated[
         int, Query(ge=1, le=100, description="Number of results to return")
     ] = 20,
@@ -27,28 +56,33 @@ async def get_notifications(
     count_only: Annotated[
         bool, Query(description="Return only the count of results")
     ] = False,
-) -> JSONResponse:
+) -> NotificationListResponse | NotificationCountResponse:
     """Get notifications.
 
     Args:
         user_id: The user's unique identifier
+        authenticated_user_id: User ID from JWT token
         limit: Number of results to return (1-100)
         offset: Number of results to skip
         count_only: Return only the count of results
+        notification_service: Notification service instance
 
     Returns:
-        JSONResponse: List of notifications or count
+        NotificationListResponse | NotificationCountResponse:
+            List of notifications or count
     """
-    # TODO: Implement get notifications
-    return JSONResponse(
-        content={
-            "message": f"Get {user_id} notifications endpoint",
-            "pagination": {
-                "limit": limit,
-                "offset": offset,
-                "count_only": count_only,
-            },
-        }
+    # Verify user can only access their own notifications
+    if str(user_id) != authenticated_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only access your own notifications",
+        )
+
+    return await notification_service.get_notifications(
+        user_id=user_id,
+        limit=limit,
+        offset=offset,
+        count_only=count_only,
     )
 
 

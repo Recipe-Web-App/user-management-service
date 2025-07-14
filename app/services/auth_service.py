@@ -15,6 +15,7 @@ from app.api.v1.schemas.common.user import User as UserSchema
 from app.api.v1.schemas.request.user_login_request import UserLoginRequest
 from app.api.v1.schemas.request.user_registration_request import UserRegistrationRequest
 from app.api.v1.schemas.response.user_login_response import UserLoginResponse
+from app.api.v1.schemas.response.user_logout_response import UserLogoutResponse
 from app.api.v1.schemas.response.user_registration_response import (
     UserRegistrationResponse,
 )
@@ -258,6 +259,54 @@ class AuthService:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="An unexpected error occurred during login",
+            ) from e
+
+    async def logout_user(self, user_id: str) -> UserLogoutResponse:
+        """Log out a user by invalidating their sessions.
+
+        Args:
+            user_id: The user ID to logout
+
+        Returns:
+            UserLogoutResponse: Logout result with confirmation
+
+        Raises:
+            HTTPException: If logout fails due to service unavailability
+        """
+        _log.info(f"Logout attempt for user: {user_id}")
+
+        try:
+            # Invalidate all sessions for the user
+            sessions_invalidated = await self.redis_session.invalidate_user_sessions(
+                user_id
+            )
+
+            if sessions_invalidated > 0:
+                _log.info(
+                    f"User logged out successfully: {user_id} "
+                    f"(invalidated {sessions_invalidated} sessions)"
+                )
+            else:
+                _log.info(f"User logged out (no active sessions found): {user_id}")
+
+            return UserLogoutResponse(
+                message="User logged out successfully",
+                session_invalidated=sessions_invalidated > 0,
+            )
+        except redis.ConnectionError as e:
+            _log.error(f"Redis connection error during logout: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Logout failed: Session service is temporarily unavailable. "
+                    "Please try again later."
+                ),
+            ) from e
+        except Exception as e:
+            _log.error(f"Unexpected error during logout: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="An unexpected error occurred during logout",
             ) from e
 
     def _get_password_hash(self, password: str) -> str:

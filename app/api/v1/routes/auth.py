@@ -13,6 +13,7 @@ from app.api.v1.schemas.request.user_login_request import UserLoginRequest
 from app.api.v1.schemas.request.user_registration_request import UserRegistrationRequest
 from app.api.v1.schemas.response.error_response import ErrorResponse
 from app.api.v1.schemas.response.user_login_response import UserLoginResponse
+from app.api.v1.schemas.response.user_logout_response import UserLogoutResponse
 from app.api.v1.schemas.response.user_registration_response import (
     UserRegistrationResponse,
 )
@@ -20,6 +21,7 @@ from app.db.redis.redis_database_manager import get_redis_session
 from app.db.redis.redis_database_session import RedisDatabaseSession
 from app.db.sql.sql_database_manager import get_db
 from app.db.sql.sql_database_session import SqlDatabaseSession
+from app.middleware import get_current_user_id
 from app.services.auth_service import AuthService
 
 router = APIRouter()
@@ -143,15 +145,47 @@ async def login(
     tags=["authentication"],
     summary="Log out user",
     description="Invalidate user session",
+    response_model=UserLogoutResponse,
+    responses={
+        HTTPStatus.OK: {
+            "model": UserLogoutResponse,
+            "description": "User logged out successfully",
+        },
+        HTTPStatus.BAD_REQUEST: {
+            "model": ErrorResponse,
+            "description": "Bad request",
+        },
+        HTTPStatus.UNAUTHORIZED: {
+            "model": ErrorResponse,
+            "description": "Invalid or missing authorization token",
+        },
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "model": ErrorResponse,
+            "description": "Internal server error",
+        },
+        HTTPStatus.SERVICE_UNAVAILABLE: {
+            "model": ErrorResponse,
+            "description": "Service temporarily unavailable",
+        },
+    },
 )
-async def logout() -> JSONResponse:
+async def logout(
+    user_id: Annotated[str, Depends(get_current_user_id)],
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+) -> UserLogoutResponse:
     """Log out user.
 
+    Args:
+        user_id: User ID extracted from JWT token
+        auth_service: Auth service instance
+
     Returns:
-        JSONResponse: Logout confirmation
+        UserLogoutResponse: Logout result with confirmation
+
+    Raises:
+        HTTPException: If logout fails due to invalid token or service unavailability
     """
-    # TODO: Implement user logout
-    return JSONResponse(content={"message": "Logout endpoint"})
+    return await auth_service.logout_user(user_id)
 
 
 @router.post(

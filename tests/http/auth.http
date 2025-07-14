@@ -14,30 +14,31 @@ Content-Type: application/json
   }
 }
 
-### Login User
+### Login User (capture token)
 POST http://user-management.local/api/v1/user-management/auth/login
 Content-Type: application/json
 
 {
-  "login_data": {
-    "username": "testuser",
-    "password": "SecurePass123!"
-  }
+  "username": "testuser",
+  "password": "SecurePass123!"
 }
+
+> {%
+client.global.set("accessToken", response.body.token.accessToken);
+%}
 
 ### Login with Email
 POST http://user-management.local/api/v1/user-management/auth/login
 Content-Type: application/json
 
 {
-  "login_data": {
-    "email": "test@example.com",
-    "password": "SecurePass123!"
-  }
+  "email": "test@example.com",
+  "password": "SecurePass123!"
 }
 
 ### Logout User
 POST http://user-management.local/api/v1/user-management/auth/logout
+Authorization: Bearer {{accessToken}}
 
 ###
 

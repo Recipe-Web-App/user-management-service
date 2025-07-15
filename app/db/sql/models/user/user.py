@@ -37,6 +37,7 @@ class User(BaseSqlModel):
     )
 
     notifications = relationship("Notification", back_populates="user")
+    preferences = relationship("UserPreferences", back_populates="user")
 
     def __repr__(self) -> str:
         """Return string representation of the User model."""

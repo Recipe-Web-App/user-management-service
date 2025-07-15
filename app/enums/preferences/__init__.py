@@ -1,27 +1,28 @@
-"""Enums package."""
+"""Preference enums package."""
 
-from .preferences import (
+from .keys import (
     AccessibilityPreferenceKey,
-    ColorScheme,
     DisplayPreferenceKey,
-    FontSize,
-    Language,
     LanguagePreferenceKey,
-    LayoutDensity,
     NotificationPreferenceKey,
-    PasswordStrength,
-    PreferenceType,
     PrivacyPreferenceKey,
-    ProfileVisibility,
     SecurityPreferenceKey,
-    SessionTimeout,
     SocialPreferenceKey,
     SoundPreferenceKey,
-    Theme,
     ThemePreferenceKey,
+)
+from .types import PreferenceType
+from .values import (
+    ColorScheme,
+    FontSize,
+    Language,
+    LayoutDensity,
+    PasswordStrength,
+    ProfileVisibility,
+    SessionTimeout,
+    Theme,
     VolumeLevel,
 )
-from .token_type import TokenType
 
 __all__ = [
     "AccessibilityPreferenceKey",
@@ -42,6 +43,5 @@ __all__ = [
     "SoundPreferenceKey",
     "Theme",
     "ThemePreferenceKey",
-    "TokenType",
     "VolumeLevel",
 ]

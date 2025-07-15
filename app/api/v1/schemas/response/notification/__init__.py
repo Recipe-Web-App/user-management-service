@@ -1,0 +1,1 @@
+"""Notification response schemas package."""

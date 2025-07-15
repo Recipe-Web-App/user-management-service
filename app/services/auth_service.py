@@ -12,25 +12,27 @@ from sqlalchemy.exc import TimeoutError as SQLTimeoutError
 
 from app.api.v1.schemas.common.token import Token
 from app.api.v1.schemas.common.user import User as UserSchema
-from app.api.v1.schemas.request.user_login_request import UserLoginRequest
-from app.api.v1.schemas.request.user_password_reset_confirm_request import (
+from app.api.v1.schemas.request.user.user_login_request import UserLoginRequest
+from app.api.v1.schemas.request.user.user_password_reset_confirm_request import (
     UserPasswordResetConfirmRequest,
 )
-from app.api.v1.schemas.request.user_password_reset_request import (
+from app.api.v1.schemas.request.user.user_password_reset_request import (
     UserPasswordResetRequest,
 )
-from app.api.v1.schemas.request.user_refresh_request import UserRefreshRequest
-from app.api.v1.schemas.request.user_registration_request import UserRegistrationRequest
-from app.api.v1.schemas.response.user_login_response import UserLoginResponse
-from app.api.v1.schemas.response.user_logout_response import UserLogoutResponse
-from app.api.v1.schemas.response.user_password_reset_confirm_response import (
+from app.api.v1.schemas.request.user.user_refresh_request import UserRefreshRequest
+from app.api.v1.schemas.request.user.user_registration_request import (
+    UserRegistrationRequest,
+)
+from app.api.v1.schemas.response.user.user_login_response import UserLoginResponse
+from app.api.v1.schemas.response.user.user_logout_response import UserLogoutResponse
+from app.api.v1.schemas.response.user.user_password_reset_confirm_response import (
     UserPasswordResetConfirmResponse,
 )
-from app.api.v1.schemas.response.user_password_reset_response import (
+from app.api.v1.schemas.response.user.user_password_reset_response import (
     UserPasswordResetResponse,
 )
-from app.api.v1.schemas.response.user_refresh_response import UserRefreshResponse
-from app.api.v1.schemas.response.user_registration_response import (
+from app.api.v1.schemas.response.user.user_refresh_response import UserRefreshResponse
+from app.api.v1.schemas.response.user.user_registration_response import (
     UserRegistrationResponse,
 )
 from app.core.config import settings

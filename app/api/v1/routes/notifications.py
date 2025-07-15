@@ -10,23 +10,23 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Path, Query, Response
 from fastapi.responses import JSONResponse
 
-from app.api.v1.schemas.request.notification_delete_request import (
+from app.api.v1.schemas.request.notification.notification_delete_request import (
     NotificationDeleteRequest,
 )
 from app.api.v1.schemas.response.error_response import ErrorResponse
-from app.api.v1.schemas.response.notification_count_response import (
+from app.api.v1.schemas.response.notification.notification_count_response import (
     NotificationCountResponse,
 )
-from app.api.v1.schemas.response.notification_delete_response import (
+from app.api.v1.schemas.response.notification.notification_delete_response import (
     NotificationDeleteResponse,
 )
-from app.api.v1.schemas.response.notification_list_response import (
+from app.api.v1.schemas.response.notification.notification_list_response import (
     NotificationListResponse,
 )
-from app.api.v1.schemas.response.notification_read_all_response import (
+from app.api.v1.schemas.response.notification.notification_read_all_response import (
     NotificationReadAllResponse,
 )
-from app.api.v1.schemas.response.notification_read_response import (
+from app.api.v1.schemas.response.notification.notification_read_response import (
     NotificationReadResponse,
 )
 from app.db.sql.sql_database_manager import get_db

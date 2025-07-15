@@ -8,19 +8,19 @@ from sqlalchemy.exc import DisconnectionError
 from sqlalchemy.exc import TimeoutError as SQLTimeoutError
 
 from app.api.v1.schemas.common.notification import Notification as NotificationSchema
-from app.api.v1.schemas.response.notification_count_response import (
+from app.api.v1.schemas.response.notification.notification_count_response import (
     NotificationCountResponse,
 )
-from app.api.v1.schemas.response.notification_delete_response import (
+from app.api.v1.schemas.response.notification.notification_delete_response import (
     NotificationDeleteResponse,
 )
-from app.api.v1.schemas.response.notification_list_response import (
+from app.api.v1.schemas.response.notification.notification_list_response import (
     NotificationListResponse,
 )
-from app.api.v1.schemas.response.notification_read_all_response import (
+from app.api.v1.schemas.response.notification.notification_read_all_response import (
     NotificationReadAllResponse,
 )
-from app.api.v1.schemas.response.notification_read_response import (
+from app.api.v1.schemas.response.notification.notification_read_response import (
     NotificationReadResponse,
 )
 from app.core.logging import get_logger

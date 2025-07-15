@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import DisconnectionError
 from sqlalchemy.exc import TimeoutError as SQLTimeoutError
+from sqlalchemy.orm import selectinload
 
 from app.api.v1.schemas.common.notification import Notification as NotificationSchema
 from app.api.v1.schemas.response.notification.notification_count_response import (
@@ -28,6 +29,7 @@ from app.api.v1.schemas.response.notification.notification_read_response import 
 )
 from app.core.logging import get_logger
 from app.db.sql.models.user.notification import Notification as NotificationModel
+from app.db.sql.models.user.user import User
 from app.db.sql.sql_database_session import SqlDatabaseSession
 from app.exceptions.custom_exceptions.database_exceptions import DatabaseError
 
@@ -373,8 +375,13 @@ class NotificationService:
         """
         _log.info(f"Getting notification preferences for user: {user_id}")
         try:
-            # Verify user exists and eager load notification_preferences
-            user = await self.db.get_user_by_id(str(user_id))
+            # Eagerly load notification_preferences relationship
+            result = await self.db.execute(
+                select(User)
+                .options(selectinload(User.notification_preferences))
+                .where(User.user_id == str(user_id))
+            )
+            user = result.scalars().first()
             if not user:
                 _log.warning(f"User not found: {user_id}")
                 raise HTTPException(
@@ -382,7 +389,6 @@ class NotificationService:
                     detail="User not found",
                 )
 
-            # Fetch notification preferences via relationship
             preferences_obj = user.notification_preferences
             if not preferences_obj:
                 _log.info(f"No notification preferences found for user {user_id}")

@@ -3,14 +3,22 @@
 Defines endpoints for notification management and preferences.
 """
 
+from http import HTTPStatus
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Response
 from fastapi.responses import JSONResponse
 
+from app.api.v1.schemas.request.notification_delete_request import (
+    NotificationDeleteRequest,
+)
+from app.api.v1.schemas.response.error_response import ErrorResponse
 from app.api.v1.schemas.response.notification_count_response import (
     NotificationCountResponse,
+)
+from app.api.v1.schemas.response.notification_delete_response import (
+    NotificationDeleteResponse,
 )
 from app.api.v1.schemas.response.notification_list_response import (
     NotificationListResponse,
@@ -49,6 +57,32 @@ async def get_notification_service(
     summary="Get notifications",
     description="Retrieve user's notifications",
     response_model=(NotificationListResponse | NotificationCountResponse),
+    responses={
+        HTTPStatus.OK: {
+            "model": (NotificationListResponse | NotificationCountResponse),
+            "description": "Notifications retrieved successfully",
+        },
+        HTTPStatus.BAD_REQUEST: {
+            "model": ErrorResponse,
+            "description": "Bad request",
+        },
+        HTTPStatus.UNAUTHORIZED: {
+            "model": ErrorResponse,
+            "description": "Invalid or missing authorization token",
+        },
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+            "model": ErrorResponse,
+            "description": "Validation error",
+        },
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "model": ErrorResponse,
+            "description": "Internal server error",
+        },
+        HTTPStatus.SERVICE_UNAVAILABLE: {
+            "model": ErrorResponse,
+            "description": "Service temporarily unavailable",
+        },
+    },
 )
 async def get_notifications(
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
@@ -91,6 +125,36 @@ async def get_notifications(
     summary="Mark notification as read",
     description="Mark a notification as read",
     response_model=NotificationReadResponse,
+    responses={
+        HTTPStatus.OK: {
+            "model": NotificationReadResponse,
+            "description": "Notification marked as read successfully",
+        },
+        HTTPStatus.BAD_REQUEST: {
+            "model": ErrorResponse,
+            "description": "Bad request",
+        },
+        HTTPStatus.UNAUTHORIZED: {
+            "model": ErrorResponse,
+            "description": "Invalid or missing authorization token",
+        },
+        HTTPStatus.NOT_FOUND: {
+            "model": ErrorResponse,
+            "description": "Notification not found",
+        },
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+            "model": ErrorResponse,
+            "description": "Validation error",
+        },
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "model": ErrorResponse,
+            "description": "Internal server error",
+        },
+        HTTPStatus.SERVICE_UNAVAILABLE: {
+            "model": ErrorResponse,
+            "description": "Service temporarily unavailable",
+        },
+    },
 )
 async def mark_notification_read(
     notification_id: Annotated[UUID, Path(description="Notification ID")],
@@ -121,6 +185,32 @@ async def mark_notification_read(
     summary="Mark all notifications as read",
     description="Mark all notifications as read",
     response_model=NotificationReadAllResponse,
+    responses={
+        HTTPStatus.OK: {
+            "model": NotificationReadAllResponse,
+            "description": "All notifications marked as read successfully",
+        },
+        HTTPStatus.BAD_REQUEST: {
+            "model": ErrorResponse,
+            "description": "Bad request",
+        },
+        HTTPStatus.UNAUTHORIZED: {
+            "model": ErrorResponse,
+            "description": "Invalid or missing authorization token",
+        },
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+            "model": ErrorResponse,
+            "description": "Validation error",
+        },
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "model": ErrorResponse,
+            "description": "Internal server error",
+        },
+        HTTPStatus.SERVICE_UNAVAILABLE: {
+            "model": ErrorResponse,
+            "description": "Service temporarily unavailable",
+        },
+    },
 )
 async def mark_all_notifications_read(
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
@@ -144,25 +234,79 @@ async def mark_all_notifications_read(
 
 
 @router.delete(
-    "/user-management/users/notifications/{notification_id}",
+    "/user-management/notifications",
     tags=["notifications"],
-    summary="Delete notification",
-    description="Delete a specific notification",
+    summary="Delete notifications",
+    description="Delete multiple notifications",
+    response_model=NotificationDeleteResponse,
+    status_code=HTTPStatus.OK,
+    responses={
+        HTTPStatus.OK: {
+            "model": NotificationDeleteResponse,
+            "description": "All notifications deleted successfully",
+        },
+        HTTPStatus.PARTIAL_CONTENT: {
+            "model": NotificationDeleteResponse,
+            "description": (
+                "Partial success - some notifications deleted, others not found"
+            ),
+        },
+        HTTPStatus.BAD_REQUEST: {
+            "model": ErrorResponse,
+            "description": "Bad request",
+        },
+        HTTPStatus.UNAUTHORIZED: {
+            "model": ErrorResponse,
+            "description": "Invalid or missing authorization token",
+        },
+        HTTPStatus.NOT_FOUND: {
+            "model": ErrorResponse,
+            "description": "No notifications found",
+        },
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+            "model": ErrorResponse,
+            "description": "Validation error",
+        },
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "model": ErrorResponse,
+            "description": "Internal server error",
+        },
+        HTTPStatus.SERVICE_UNAVAILABLE: {
+            "model": ErrorResponse,
+            "description": "Service temporarily unavailable",
+        },
+    },
 )
-async def delete_notification(
-    notification_id: Annotated[UUID, Path(description="Notification ID")],
-) -> JSONResponse:
-    """Delete notification.
+async def delete_notifications(
+    request: NotificationDeleteRequest,
+    authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
+    notification_service: Annotated[
+        NotificationService,
+        Depends(get_notification_service),
+    ],
+) -> NotificationDeleteResponse | Response:
+    """Delete notifications.
 
     Args:
-        user_id: The user's unique identifier
-        notification_id: The notification's unique identifier
+        request: Request containing notification IDs to delete
+        authenticated_user_id: User ID from JWT token
+        notification_service: Notification service instance
 
     Returns:
-        JSONResponse: Deletion confirmation
+        NotificationDeleteResponse: Deletion confirmation
     """
-    # TODO: Implement delete notification
-    return JSONResponse(content={"message": f"Delete notification {notification_id}"})
+    response, is_partial_success = await notification_service.delete_notifications(
+        UUID(authenticated_user_id), request.notification_ids
+    )
+
+    if is_partial_success:
+        return Response(
+            content=response.model_dump_json(),
+            status_code=HTTPStatus.PARTIAL_CONTENT,
+            media_type="application/json",
+        )
+
+    return response
 
 
 @router.get(

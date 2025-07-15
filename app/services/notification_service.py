@@ -11,6 +11,9 @@ from app.api.v1.schemas.common.notification import Notification as NotificationS
 from app.api.v1.schemas.response.notification_count_response import (
     NotificationCountResponse,
 )
+from app.api.v1.schemas.response.notification_delete_response import (
+    NotificationDeleteResponse,
+)
 from app.api.v1.schemas.response.notification_list_response import (
     NotificationListResponse,
 )
@@ -260,3 +263,93 @@ class NotificationService:
                     "Please try again later."
                 ),
             ) from e
+
+    async def delete_notifications(
+        self, user_id: UUID, notification_ids: list[UUID]
+    ) -> tuple[NotificationDeleteResponse, bool]:
+        """Delete notifications for a user.
+
+        Args:
+            user_id: The user's unique identifier
+            notification_ids: List of notification IDs to delete
+
+        Returns:
+            NotificationDeleteResponse: Confirmation with deletion results
+
+        Raises:
+            HTTPException: If user not found, no notifications found, or DB error
+        """
+        _log.info(f"Deleting {len(notification_ids)} notifications for user {user_id}")
+        try:
+            # Verify user exists
+            user = await self.db.get_user_by_id(str(user_id))
+            if not user:
+                _log.warning(f"User not found: {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found",
+                )
+
+            # Get notifications that belong to the user
+            notifications_result = await self.db.execute(
+                select(NotificationModel).where(
+                    NotificationModel.notification_id.in_(notification_ids),
+                    NotificationModel.user_id == user_id,
+                    NotificationModel.is_deleted.is_(False),
+                )
+            )
+            notifications = notifications_result.scalars().all()
+
+            # Track which notifications were found and deleted
+            found_notification_ids = {n.notification_id for n in notifications}
+            not_found_count = len(notification_ids) - len(found_notification_ids)
+
+            if not notifications:
+                _log.warning(
+                    f"No notifications found for user {user_id} "
+                    f"with IDs: {notification_ids}"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="No notifications found",
+                )
+
+            # Mark notifications as deleted
+            deleted_notification_ids = []
+            for notification in notifications:
+                notification.is_deleted = True
+                deleted_notification_ids.append(notification.notification_id)
+
+            await self.db.commit()
+            _log.info(
+                f"Successfully deleted {len(deleted_notification_ids)} notifications "
+                f"for user {user_id}"
+            )
+
+            if not_found_count > 0:
+                _log.warning(
+                    f"Some notifications not found for user {user_id}: "
+                    f"{not_found_count} out of {len(notification_ids)}"
+                )
+
+            response = NotificationDeleteResponse(
+                message="Notifications deleted successfully",
+                deleted_notification_ids=deleted_notification_ids,
+            )
+        except DatabaseError as e:
+            _log.error(f"Database error while deleting notifications: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
+        except (DisconnectionError, SQLTimeoutError) as e:
+            _log.error(f"Database connection error while deleting notifications: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Database service is temporarily unavailable. "
+                    "Please try again later."
+                ),
+            ) from e
+        else:
+            return response, not_found_count > 0

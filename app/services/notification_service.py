@@ -1,8 +1,10 @@
 """Notification service for user management."""
 
+from typing import TypeVar
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.exc import DisconnectionError
 from sqlalchemy.exc import TimeoutError as SQLTimeoutError
@@ -18,14 +20,14 @@ from app.api.v1.schemas.response.notification.notification_delete_response impor
 from app.api.v1.schemas.response.notification.notification_list_response import (
     NotificationListResponse,
 )
-from app.api.v1.schemas.response.notification.notification_preferences_response import (
-    NotificationPreferencesResponse,
-)
 from app.api.v1.schemas.response.notification.notification_read_all_response import (
     NotificationReadAllResponse,
 )
 from app.api.v1.schemas.response.notification.notification_read_response import (
     NotificationReadResponse,
+)
+from app.api.v1.schemas.response.preference.user_preference_response import (
+    UserPreferenceResponse,
 )
 from app.core.logging import get_logger
 from app.db.sql.models.user.notification import Notification as NotificationModel
@@ -34,6 +36,8 @@ from app.db.sql.sql_database_session import SqlDatabaseSession
 from app.exceptions.custom_exceptions.database_exceptions import DatabaseError
 
 _log = get_logger(__name__)
+
+T = TypeVar("T", bound=BaseModel)
 
 
 class NotificationService:
@@ -361,24 +365,34 @@ class NotificationService:
 
     async def get_notification_preferences(
         self, user_id: UUID
-    ) -> NotificationPreferencesResponse:
+    ) -> UserPreferenceResponse:
         """Get notification preferences for a user.
 
         Args:
             user_id: The user's unique identifier
 
         Returns:
-            NotificationPreferencesResponse: User's notification preferences
+            UserPreferenceResponse: User's preferences grouped by category
 
         Raises:
             HTTPException: If user not found or database services are unavailable
         """
         _log.info(f"Getting notification preferences for user: {user_id}")
         try:
-            # Eagerly load notification_preferences relationship
+            # Eagerly load all preference relationships
             result = await self.db.execute(
                 select(User)
-                .options(selectinload(User.notification_preferences))
+                .options(
+                    selectinload(User.notification_preferences),
+                    selectinload(User.display_preferences),
+                    selectinload(User.theme_preferences),
+                    selectinload(User.privacy_preferences),
+                    selectinload(User.security_preferences),
+                    selectinload(User.sound_preferences),
+                    selectinload(User.social_preferences),
+                    selectinload(User.language_preferences),
+                    selectinload(User.accessibility_preferences),
+                )
                 .where(User.user_id == str(user_id))
             )
             user = result.scalars().first()
@@ -389,30 +403,20 @@ class NotificationService:
                     detail="User not found",
                 )
 
-            preferences_obj = user.notification_preferences
-            if not preferences_obj:
-                _log.info(f"No notification preferences found for user {user_id}")
-                preferences_dict = {}
-            else:
-                preferences_dict = {
-                    "email_notifications": preferences_obj.email_notifications,
-                    "push_notifications": preferences_obj.push_notifications,
-                    "sms_notifications": preferences_obj.sms_notifications,
-                    "marketing_emails": preferences_obj.marketing_emails,
-                    "security_alerts": preferences_obj.security_alerts,
-                    "activity_summaries": preferences_obj.activity_summaries,
-                    "recipe_recommendations": preferences_obj.recipe_recommendations,
-                    "social_interactions": preferences_obj.social_interactions,
-                }
-
-            _log.info(
-                f"Retrieved {len(preferences_dict)} notification preferences "
-                f"for user {user_id}"
-            )
-
-            return NotificationPreferencesResponse(
-                user_id=str(user_id),
-                preferences=preferences_dict,
+            return UserPreferenceResponse.model_validate(
+                {
+                    "user_id": str(user.user_id),
+                    "notification": user.notification_preferences,
+                    "display": user.display_preferences,
+                    "theme": user.theme_preferences,
+                    "privacy": user.privacy_preferences,
+                    "security": user.security_preferences,
+                    "sound": user.sound_preferences,
+                    "social": user.social_preferences,
+                    "language": user.language_preferences,
+                    "accessibility": user.accessibility_preferences,
+                },
+                from_attributes=True,
             )
 
         except DatabaseError as e:

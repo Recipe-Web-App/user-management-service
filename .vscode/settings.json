@@ -35,6 +35,7 @@
     "conlist",
     "renderable",
     "sadd",
+    "selectinload",
     "sessionmaker",
     "setex",
     "smembers",

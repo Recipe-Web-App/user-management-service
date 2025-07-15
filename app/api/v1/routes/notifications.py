@@ -23,14 +23,14 @@ from app.api.v1.schemas.response.notification.notification_delete_response impor
 from app.api.v1.schemas.response.notification.notification_list_response import (
     NotificationListResponse,
 )
-from app.api.v1.schemas.response.notification.notification_preferences_response import (
-    NotificationPreferencesResponse,
-)
 from app.api.v1.schemas.response.notification.notification_read_all_response import (
     NotificationReadAllResponse,
 )
 from app.api.v1.schemas.response.notification.notification_read_response import (
     NotificationReadResponse,
+)
+from app.api.v1.schemas.response.preference.user_preference_response import (
+    UserPreferenceResponse,
 )
 from app.db.sql.sql_database_manager import get_db
 from app.db.sql.sql_database_session import SqlDatabaseSession
@@ -317,10 +317,10 @@ async def delete_notifications(
     tags=["notifications"],
     summary="Get notification preferences",
     description="Retrieve user's notification preferences",
-    response_model=NotificationPreferencesResponse,
+    response_model=UserPreferenceResponse,
     responses={
         HTTPStatus.OK: {
-            "model": NotificationPreferencesResponse,
+            "model": UserPreferenceResponse,
             "description": "Notification preferences retrieved successfully",
         },
         HTTPStatus.BAD_REQUEST: {
@@ -355,7 +355,7 @@ async def get_notification_preferences(
         NotificationService,
         Depends(get_notification_service),
     ],
-) -> NotificationPreferencesResponse:
+) -> UserPreferenceResponse:
     """Get notification preferences.
 
     Returns:

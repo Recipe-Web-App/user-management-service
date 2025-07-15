@@ -3,4 +3,7 @@
 from .notification import Notification
 from .user import User
 
-__all__ = ["Notification", "User"]
+__all__ = [
+    "Notification",
+    "User",
+]

@@ -17,6 +17,9 @@ from app.api.v1.schemas.response.notification.notification_delete_response impor
 from app.api.v1.schemas.response.notification.notification_list_response import (
     NotificationListResponse,
 )
+from app.api.v1.schemas.response.notification.notification_preferences_response import (
+    NotificationPreferencesResponse,
+)
 from app.api.v1.schemas.response.notification.notification_read_all_response import (
     NotificationReadAllResponse,
 )
@@ -353,3 +356,73 @@ class NotificationService:
             ) from e
         else:
             return response, not_found_count > 0
+
+    async def get_notification_preferences(
+        self, user_id: UUID
+    ) -> NotificationPreferencesResponse:
+        """Get notification preferences for a user.
+
+        Args:
+            user_id: The user's unique identifier
+
+        Returns:
+            NotificationPreferencesResponse: User's notification preferences
+
+        Raises:
+            HTTPException: If user not found or database services are unavailable
+        """
+        _log.info(f"Getting notification preferences for user: {user_id}")
+        try:
+            # Verify user exists and eager load notification_preferences
+            user = await self.db.get_user_by_id(str(user_id))
+            if not user:
+                _log.warning(f"User not found: {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found",
+                )
+
+            # Fetch notification preferences via relationship
+            preferences_obj = user.notification_preferences
+            if not preferences_obj:
+                _log.info(f"No notification preferences found for user {user_id}")
+                preferences_dict = {}
+            else:
+                preferences_dict = {
+                    "email_notifications": preferences_obj.email_notifications,
+                    "push_notifications": preferences_obj.push_notifications,
+                    "sms_notifications": preferences_obj.sms_notifications,
+                    "marketing_emails": preferences_obj.marketing_emails,
+                    "security_alerts": preferences_obj.security_alerts,
+                    "activity_summaries": preferences_obj.activity_summaries,
+                    "recipe_recommendations": preferences_obj.recipe_recommendations,
+                    "social_interactions": preferences_obj.social_interactions,
+                }
+
+            _log.info(
+                f"Retrieved {len(preferences_dict)} notification preferences "
+                f"for user {user_id}"
+            )
+
+            return NotificationPreferencesResponse(
+                user_id=str(user_id),
+                preferences=preferences_dict,
+            )
+
+        except DatabaseError as e:
+            _log.error(f"Database error while getting notification preferences: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
+        except (DisconnectionError, SQLTimeoutError) as e:
+            _log.error(
+                f"Database connection error while getting notification preferences: {e}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Database service is temporarily unavailable. "
+                    "Please try again later."
+                ),
+            ) from e

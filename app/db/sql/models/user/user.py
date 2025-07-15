@@ -37,7 +37,33 @@ class User(BaseSqlModel):
     )
 
     notifications = relationship("Notification", back_populates="user")
-    preferences = relationship("UserPreferences", back_populates="user")
+    notification_preferences = relationship(
+        "UserNotificationPreferences", uselist=False, back_populates="user"
+    )
+    display_preferences = relationship(
+        "UserDisplayPreferences", uselist=False, back_populates="user"
+    )
+    theme_preferences = relationship(
+        "UserThemePreferences", uselist=False, back_populates="user"
+    )
+    privacy_preferences = relationship(
+        "UserPrivacyPreferences", uselist=False, back_populates="user"
+    )
+    security_preferences = relationship(
+        "UserSecurityPreferences", uselist=False, back_populates="user"
+    )
+    sound_preferences = relationship(
+        "UserSoundPreferences", uselist=False, back_populates="user"
+    )
+    social_preferences = relationship(
+        "UserSocialPreferences", uselist=False, back_populates="user"
+    )
+    language_preferences = relationship(
+        "UserLanguagePreferences", uselist=False, back_populates="user"
+    )
+    accessibility_preferences = relationship(
+        "UserAccessibilityPreferences", uselist=False, back_populates="user"
+    )
 
     def __repr__(self) -> str:
         """Return string representation of the User model."""

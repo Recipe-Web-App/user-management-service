@@ -23,6 +23,9 @@ from app.api.v1.schemas.response.notification.notification_delete_response impor
 from app.api.v1.schemas.response.notification.notification_list_response import (
     NotificationListResponse,
 )
+from app.api.v1.schemas.response.notification.notification_preferences_response import (
+    NotificationPreferencesResponse,
+)
 from app.api.v1.schemas.response.notification.notification_read_all_response import (
     NotificationReadAllResponse,
 )
@@ -310,31 +313,67 @@ async def delete_notifications(
 
 
 @router.get(
-    "/user-management/users/{user_id}/notifications/preferences",
+    "/user-management/notifications/preferences",
     tags=["notifications"],
     summary="Get notification preferences",
     description="Retrieve user's notification preferences",
+    response_model=NotificationPreferencesResponse,
+    responses={
+        HTTPStatus.OK: {
+            "model": NotificationPreferencesResponse,
+            "description": "Notification preferences retrieved successfully",
+        },
+        HTTPStatus.BAD_REQUEST: {
+            "model": ErrorResponse,
+            "description": "Bad request",
+        },
+        HTTPStatus.UNAUTHORIZED: {
+            "model": ErrorResponse,
+            "description": "Invalid or missing authorization token",
+        },
+        HTTPStatus.NOT_FOUND: {
+            "model": ErrorResponse,
+            "description": "User not found",
+        },
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+            "model": ErrorResponse,
+            "description": "Validation error",
+        },
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "model": ErrorResponse,
+            "description": "Internal server error",
+        },
+        HTTPStatus.SERVICE_UNAVAILABLE: {
+            "model": ErrorResponse,
+            "description": "Service temporarily unavailable",
+        },
+    },
 )
 async def get_notification_preferences(
-    user_id: Annotated[UUID, Path(description="User ID")],
-) -> JSONResponse:
+    authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
+    notification_service: Annotated[
+        NotificationService,
+        Depends(get_notification_service),
+    ],
+) -> NotificationPreferencesResponse:
     """Get notification preferences.
 
     Returns:
-        JSONResponse: Notification preferences
+        NotificationPreferencesResponse: Notification preferences
     """
-    # TODO: Implement get notification preferences
-    return JSONResponse(content={"message": f"Get {user_id} preferences endpoint"})
+    return await notification_service.get_notification_preferences(
+        user_id=UUID(authenticated_user_id)
+    )
 
 
 @router.put(
-    "/user-management/users/{user_id}/notifications/preferences",
+    "/user-management/notifications/preferences",
     tags=["notifications"],
     summary="Update notification preferences",
     description="Update user's notification preferences",
 )
 async def update_notification_preferences(
-    user_id: Annotated[UUID, Path(description="User ID")],
+    authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
 ) -> JSONResponse:
     """Update notification preferences.
 
@@ -342,4 +381,6 @@ async def update_notification_preferences(
         JSONResponse: Updated preferences
     """
     # TODO: Implement update notification preferences
-    return JSONResponse(content={"message": f"Update {user_id} preferences endpoint"})
+    return JSONResponse(
+        content={"message": f"Update {authenticated_user_id} preferences endpoint"}
+    )

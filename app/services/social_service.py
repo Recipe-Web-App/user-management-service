@@ -25,7 +25,7 @@ class SocialService:
         """Initialize social service with database session."""
         self.db = db
 
-    async def get_following(
+    async def get_followed_users(
         self, user_id: UUID, limit: int = 20, offset: int = 0, count_only: bool = False
     ) -> GetFollowedUsersResponse:
         """Get users that a user is following."""
@@ -89,6 +89,76 @@ class SocialService:
             ) from e
         except (DisconnectionError, SQLTimeoutError) as e:
             _log.error(f"Database connection error while getting following list: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Database service is temporarily unavailable. "
+                    "Please try again later."
+                ),
+            ) from e
+
+    async def get_followers(
+        self, user_id: UUID, limit: int = 20, offset: int = 0, count_only: bool = False
+    ) -> GetFollowedUsersResponse:
+        """Get users who follow the given user (followers)."""
+        _log.info(f"Getting followers list for user: {user_id}")
+        try:
+            user = await self.db.get_user_by_id(str(user_id))
+            if not user:
+                _log.warning(f"User not found: {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found",
+                )
+
+            # Get total count
+            count_result = await self.db.execute(
+                select(func.count(UserFollows.follower_id)).where(
+                    UserFollows.followee_id == user_id
+                )
+            )
+            total_count = count_result.scalar()
+            _log.info(f"Followers count for user {user_id}: {total_count}")
+
+            if count_only:
+                return GetFollowedUsersResponse(
+                    total_count=total_count,
+                    followed_users=None,
+                    limit=None,
+                    offset=None,
+                )
+
+            # Get follower relationships with user details
+            followers_result = await self.db.execute(
+                select(User)
+                .join(UserFollows, User.user_id == UserFollows.follower_id)
+                .where(UserFollows.followee_id == user_id)
+                .order_by(UserFollows.followed_at.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+            follower_users = followers_result.scalars().all()
+            user_schemas = [
+                UserSchema.model_validate(u).model_copy(update={"email": None})
+                for u in follower_users
+            ]
+            _log.info(f"Retrieved {len(user_schemas)} followers for user {user_id}")
+
+            return GetFollowedUsersResponse(
+                total_count=total_count,
+                followed_users=user_schemas,
+                limit=limit,
+                offset=offset,
+            )
+
+        except DatabaseError as e:
+            _log.error(f"Database error while getting followers list: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
+        except (DisconnectionError, SQLTimeoutError) as e:
+            _log.error(f"Database connection error while getting followers list: {e}")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=(

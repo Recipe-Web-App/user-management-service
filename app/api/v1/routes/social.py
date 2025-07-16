@@ -70,7 +70,7 @@ async def get_social_service(
         },
     },
 )
-async def get_following(
+async def get_followed_users(
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
     social_service: Annotated[
         SocialService,
@@ -101,7 +101,7 @@ async def get_following(
             status_code=HTTPStatus.BAD_REQUEST,
             detail="Offset cannot be greater than limit.",
         )
-    return await social_service.get_following(
+    return await social_service.get_followed_users(
         user_id=UUID(authenticated_user_id),
         limit=limit,
         offset=offset,
@@ -114,9 +114,40 @@ async def get_following(
     tags=["social"],
     summary="Get followers list",
     description="Retrieve list of users following the current user",
+    response_model=GetFollowedUsersResponse,
+    responses={
+        HTTPStatus.OK: {
+            "model": GetFollowedUsersResponse,
+            "description": "Followers list retrieved successfully",
+        },
+        HTTPStatus.BAD_REQUEST: {
+            "model": ErrorResponse,
+            "description": "Bad request",
+        },
+        HTTPStatus.NOT_FOUND: {
+            "model": ErrorResponse,
+            "description": "User not found",
+        },
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+            "model": ErrorResponse,
+            "description": "Validation error",
+        },
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "model": ErrorResponse,
+            "description": "Internal server error",
+        },
+        HTTPStatus.SERVICE_UNAVAILABLE: {
+            "model": ErrorResponse,
+            "description": "Service temporarily unavailable",
+        },
+    },
 )
 async def get_followers(
     user_id: Annotated[UUID, Path(description="User ID")],
+    social_service: Annotated[
+        SocialService,
+        Depends(get_social_service),
+    ],
     limit: Annotated[
         int, Query(ge=1, le=100, description="Number of results to return")
     ] = 20,
@@ -124,7 +155,7 @@ async def get_followers(
     count_only: Annotated[
         bool, Query(description="Return only the count of results")
     ] = False,
-) -> dict:
+) -> GetFollowedUsersResponse:
     """Get followers list.
 
     Args:
@@ -132,19 +163,22 @@ async def get_followers(
         limit: Number of results to return (1-100)
         offset: Number of results to skip
         count_only: Return only the count of results
+        social_service: Social service instance
 
     Returns:
-        dict: List of followers or count
+        GetFollowedUsersResponse: List of followers or count
     """
-    # TODO: Implement get followers list
-    return {
-        "message": f"Get {user_id} followers endpoint",
-        "pagination": {
-            "limit": limit,
-            "offset": offset,
-            "count_only": count_only,
-        },
-    }
+    if offset > limit:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail="Offset cannot be greater than limit.",
+        )
+    return await social_service.get_followers(
+        user_id=user_id,
+        limit=limit,
+        offset=offset,
+        count_only=count_only,
+    )
 
 
 @router.post(

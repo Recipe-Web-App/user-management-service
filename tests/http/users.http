@@ -1,13 +1,26 @@
 ### User Management Tests
+###
+### Note: This file uses {{accessToken}} variable which should be set from the auth.http file
+### Run the login request in auth.http first to get a valid access token
+###
 
 ### Get User Profile
-GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/profile
+GET http://user-management.local/api/v1/user-management/users/0eb81006-a945-4433-ae59-efa779ebfd34/profile
+Authorization: Bearer {{accessToken}}
 
 ###
 
 ### Update User Profile
-PUT http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/profile
+PUT http://user-management.local/api/v1/user-management/users/profile
+Authorization: Bearer {{accessToken}}
 Content-Type: application/json
+
+{
+  "username": "updated_username",
+  "email": "updated_email@example.com",
+  "full_name": "Updated Full Name",
+  "bio": "This is an updated bio with more details about the user."
+}
 
 ###
 

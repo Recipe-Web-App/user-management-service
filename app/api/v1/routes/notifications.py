@@ -7,7 +7,7 @@ from http import HTTPStatus
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Path, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
 
 from app.api.v1.schemas.request.notification.notification_delete_request import (
     NotificationDeleteRequest,
@@ -116,6 +116,12 @@ async def get_notifications(
         NotificationListResponse | NotificationCountResponse:
             List of notifications or count
     """
+    if offset > limit:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail="Offset cannot be greater than limit",
+        )
+
     return await notification_service.get_notifications(
         user_id=UUID(authenticated_user_id),
         limit=limit,

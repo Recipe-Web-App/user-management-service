@@ -65,6 +65,30 @@ class User(BaseSqlModel):
         "UserAccessibilityPreferences", uselist=False, back_populates="user"
     )
 
+    # Association table relationships for followers/following
+    following_associations = relationship(
+        "UserFollows",
+        foreign_keys="UserFollows.follower_id",
+        back_populates="follower",
+        cascade="all, delete-orphan",
+    )
+    follower_associations = relationship(
+        "UserFollows",
+        foreign_keys="UserFollows.followee_id",
+        back_populates="followee",
+        cascade="all, delete-orphan",
+    )
+
+    # Convenient access to User objects
+    following = relationship(
+        "User",
+        secondary="recipe_manager.user_follows",
+        primaryjoin="User.user_id==UserFollows.follower_id",
+        secondaryjoin="User.user_id==UserFollows.followee_id",
+        viewonly=True,
+        backref="followers",
+    )
+
     def __repr__(self) -> str:
         """Return string representation of the User model."""
         return (

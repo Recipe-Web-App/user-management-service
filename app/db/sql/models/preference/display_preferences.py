@@ -3,7 +3,8 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey
+from sqlalchemy import Boolean, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import ENUM as SAEnum  # noqa: N811
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID  # noqa: N811
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,17 +28,35 @@ class UserDisplayPreferences(BaseSqlModel):
         unique=True,
     )
     font_size: Mapped[str] = mapped_column(
-        Enum(FontSizeEnum, name="font_size_enum", create_constraint=False),
+        SAEnum(
+            FontSizeEnum,
+            name="font_size_enum",
+            schema="recipe_manager",
+            native_enum=False,
+            create_constraint=False,
+        ),
         nullable=False,
         default=FontSizeEnum.MEDIUM,
     )
     color_scheme: Mapped[str] = mapped_column(
-        Enum(ColorSchemeEnum, name="color_scheme_enum", create_constraint=False),
+        SAEnum(
+            ColorSchemeEnum,
+            name="color_scheme_enum",
+            schema="recipe_manager",
+            native_enum=False,
+            create_constraint=False,
+        ),
         nullable=False,
         default=ColorSchemeEnum.LIGHT,
     )
     layout_density: Mapped[str] = mapped_column(
-        Enum(LayoutDensityEnum, name="layout_density_enum", create_constraint=False),
+        SAEnum(
+            LayoutDensityEnum,
+            name="layout_density_enum",
+            schema="recipe_manager",
+            native_enum=False,
+            create_constraint=False,
+        ),
         nullable=False,
         default=LayoutDensityEnum.COMFORTABLE,
     )

@@ -10,10 +10,14 @@ from app.enums.preferences.layout_density_enum import LayoutDensityEnum
 class DisplayPreferences(BaseModel):
     """Schema for user display preferences."""
 
-    font_size: FontSizeEnum = Field(..., description="Font size preference")
-    color_scheme: ColorSchemeEnum = Field(..., description="Color scheme preference")
-    layout_density: LayoutDensityEnum = Field(
-        ..., description="Layout density preference"
+    font_size: FontSizeEnum | None = Field(None, description="Font size preference")
+    color_scheme: ColorSchemeEnum | None = Field(
+        None, description="Color scheme preference"
     )
-    show_images: bool = Field(..., description="Whether to show images")
-    compact_mode: bool = Field(..., description="Whether compact mode is enabled")
+    layout_density: LayoutDensityEnum | None = Field(
+        None, description="Layout density preference"
+    )
+    show_images: bool | None = Field(None, description="Whether to show images")
+    compact_mode: bool | None = Field(
+        None, description="Whether compact mode is enabled"
+    )

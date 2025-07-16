@@ -3,7 +3,8 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey
+from sqlalchemy import Boolean, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import ENUM as SAEnum  # noqa: N811
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID  # noqa: N811
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -25,12 +26,25 @@ class UserLanguagePreferences(BaseSqlModel):
         unique=True,
     )
     primary_language: Mapped[str] = mapped_column(
-        Enum(LanguageEnum, name="language_enum", create_constraint=False),
+        SAEnum(
+            LanguageEnum,
+            name="language_enum",
+            schema="recipe_manager",
+            native_enum=False,
+            create_constraint=False,
+        ),
         nullable=False,
         default=LanguageEnum.EN,
     )
     secondary_language: Mapped[str] = mapped_column(
-        Enum(LanguageEnum, name="language_enum", create_constraint=False), nullable=True
+        SAEnum(
+            LanguageEnum,
+            name="language_enum",
+            schema="recipe_manager",
+            native_enum=False,
+            create_constraint=False,
+        ),
+        nullable=True,
     )
     translation_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False

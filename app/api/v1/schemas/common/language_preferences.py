@@ -8,10 +8,12 @@ from app.enums.preferences.language_enum import LanguageEnum
 class LanguagePreferences(BaseModel):
     """Schema for user language preferences."""
 
-    primary_language: LanguageEnum = Field(
-        ..., description="Primary language preference"
+    primary_language: LanguageEnum | None = Field(
+        None, description="Primary language preference"
     )
     secondary_language: LanguageEnum | None = Field(
         None, description="Secondary language preference, if set"
     )
-    translation_enabled: bool = Field(..., description="Whether translation is enabled")
+    translation_enabled: bool | None = Field(
+        None, description="Whether translation is enabled"
+    )

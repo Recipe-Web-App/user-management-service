@@ -19,41 +19,37 @@ Authorization: Bearer {{accessToken}}
 ###
 
 ### Get Followers List - Default Pagination
-GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/followers
+GET http://user-management.local/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/followers
+Authorization: Bearer {{accessToken}}
 
 ###
 
 ### Get Followers List - Custom Pagination
-GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/followers?limit=15&offset=10
+GET http://user-management.local/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/followers?limit=15&offset=10
+Authorization: Bearer {{accessToken}}
 
 ###
 
 ### Get Followers List - Count Only
-GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/followers?count_only=true
+GET http://user-management.local/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/followers?count_only=true
+Authorization: Bearer {{accessToken}}
 
 ###
 
 ### Follow User
-POST http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/follow/456e7890-e89b-12d3-a456-426614174001
+POST http://user-management.local/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/follow/456e7890-e89b-12d3-a456-426614174001
+Authorization: Bearer {{accessToken}}
 
 ###
 
 ### Unfollow User
-DELETE http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/follow/456e7890-e89b-12d3-a456-426614174001
+DELETE http://user-management.local/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/follow/456e7890-e89b-12d3-a456-426614174001
+Authorization: Bearer {{accessToken}}
 
 ###
 
-### Get User Activity - Default Pagination
-GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/activity
-
-###
-
-### Get User Activity - Custom Pagination
-GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/activity?limit=25&offset=0
-
-###
-
-### Get User Activity - Count Only
-GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/activity?count_only=true
+### Get User Activity - Default Limit
+GET http://user-management.local/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/activity?per_type_limit=5
+Authorization: Bearer {{accessToken}}
 
 ###

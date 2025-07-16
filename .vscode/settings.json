@@ -33,7 +33,10 @@
   "cSpell.words": [
     "autoflush",
     "conlist",
+    "favorited",
     "followee",
+    "ondelete",
+    "onupdate",
     "prefs",
     "renderable",
     "sadd",

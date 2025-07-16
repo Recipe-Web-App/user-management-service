@@ -1,5 +1,6 @@
 """Enums package."""
 
+from .difficulty_level_enum import DifficultyLevelEnum
 from .preferences.color_scheme_enum import ColorSchemeEnum
 from .preferences.font_size_enum import FontSizeEnum
 from .preferences.language_enum import LanguageEnum
@@ -10,6 +11,7 @@ from .token_type import TokenType
 
 __all__ = [
     "ColorSchemeEnum",
+    "DifficultyLevelEnum",
     "FontSizeEnum",
     "LanguageEnum",
     "LayoutDensityEnum",

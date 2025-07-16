@@ -3,14 +3,24 @@
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.exc import DisconnectionError, IntegrityError
 from sqlalchemy.exc import TimeoutError as SQLTimeoutError
 
 from app.api.v1.schemas.common.user import User as UserSchema
 from app.api.v1.schemas.response.social import FollowResponse, GetFollowedUsersResponse
+from app.api.v1.schemas.response.user_activity.favorite_summary import FavoriteSummary
+from app.api.v1.schemas.response.user_activity.recipe_summary import RecipeSummary
+from app.api.v1.schemas.response.user_activity.review_summary import ReviewSummary
+from app.api.v1.schemas.response.user_activity.user_activity_response import (
+    UserActivityResponse,
+)
+from app.api.v1.schemas.response.user_activity.user_summary import UserSummary
 from app.core.logging import get_logger
 from app.db.sql.models.preference.privacy_preferences import UserPrivacyPreferences
+from app.db.sql.models.recipe.recipe import Recipe
+from app.db.sql.models.recipe.recipe_favorite import RecipeFavorite
+from app.db.sql.models.recipe.recipe_review import RecipeReview
 from app.db.sql.models.user.user import User
 from app.db.sql.models.user.user_follows import UserFollows
 from app.db.sql.sql_database_session import SqlDatabaseSession
@@ -481,6 +491,145 @@ class SocialService:
         except (DisconnectionError, SQLTimeoutError) as e:
             await self.db.rollback()
             _log.error(f"Database connection error while unfollowing user: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Database service is temporarily unavailable. "
+                    "Please try again later."
+                ),
+            ) from e
+
+    async def get_user_activity(
+        self,
+        user_id: UUID,
+        requester_user_id: UUID,
+        per_type_limit: int = 15,
+    ) -> UserActivityResponse:
+        """Get recent user activity (recipes, follows, reviews, favorites).
+
+        Args:
+            user_id: The user's unique identifier
+            requester_user_id: The user making the request
+            per_type_limit: Number of results per activity type
+
+        Returns:
+            UserActivityResponse: Aggregated user activity
+
+        Raises:
+            HTTPException: If user not found, forbidden, or DB error
+        """
+        _log.info(f"Getting activity for user: {user_id}")
+        try:
+            user = await self.db.get_user_by_id(str(user_id))
+            if not user:
+                _log.warning(f"User not found: {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found",
+                )
+            await self._check_social_privacy(user_id, requester_user_id)
+
+            # Recipes
+            recipes_q = (
+                select(Recipe)
+                .where(Recipe.user_id == user_id)
+                .order_by(desc(Recipe.created_at))
+                .limit(per_type_limit)
+            )
+            recipes_result = await self.db.execute(recipes_q)
+            recipes = recipes_result.scalars().all()
+
+            # Follows (recently followed users)
+            follows_q = (
+                select(UserFollows)
+                .where(UserFollows.follower_id == user_id)
+                .order_by(desc(UserFollows.followed_at))
+                .limit(per_type_limit)
+            )
+            follows_result = await self.db.execute(follows_q)
+            follows = follows_result.scalars().all()
+
+            # Reviews
+            reviews_q = (
+                select(RecipeReview)
+                .where(RecipeReview.user_id == user_id)
+                .order_by(desc(RecipeReview.created_at))
+                .limit(per_type_limit)
+            )
+            reviews_result = await self.db.execute(reviews_q)
+            reviews = reviews_result.scalars().all()
+
+            # Favorites
+            favorites_q = (
+                select(RecipeFavorite)
+                .where(RecipeFavorite.user_id == user_id)
+                .order_by(desc(RecipeFavorite.favorited_at))
+                .limit(per_type_limit)
+            )
+            favorites_result = await self.db.execute(favorites_q)
+            favorites = favorites_result.scalars().all()
+
+            # Map DB models to response summaries
+            recipe_summaries = [
+                RecipeSummary(
+                    recipe_id=r.recipe_id,
+                    title=r.title,
+                    created_at=r.created_at,
+                )
+                for r in recipes
+            ]
+            follow_summaries = []
+            for f in follows:
+                user_obj = await self.db.get_user_by_id(str(f.followee_id))
+                username = user_obj.username if user_obj is not None else "unknown"
+                follow_summaries.append(
+                    UserSummary(
+                        user_id=f.followee_id,
+                        username=str(username),
+                        followed_at=f.followed_at,
+                    )
+                )
+
+            review_summaries = [
+                ReviewSummary(
+                    review_id=rv.review_id,
+                    recipe_id=rv.recipe_id,
+                    rating=float(rv.rating),
+                    comment=rv.comment,
+                    created_at=rv.created_at,
+                )
+                for rv in reviews
+            ]
+            favorite_summaries = []
+            for fv in favorites:
+                recipe_obj = await self.db.execute(
+                    select(Recipe).where(Recipe.recipe_id == fv.recipe_id)
+                )
+                recipe = recipe_obj.scalar_one_or_none()
+                title = recipe.title if recipe is not None else "unknown"
+                favorite_summaries.append(
+                    FavoriteSummary(
+                        recipe_id=fv.recipe_id,
+                        title=title,
+                        favorited_at=fv.favorited_at,
+                    )
+                )
+
+            return UserActivityResponse(
+                user_id=user_id,
+                recent_recipes=recipe_summaries,
+                recent_follows=follow_summaries,
+                recent_reviews=review_summaries,
+                recent_favorites=favorite_summaries,
+            )
+        except DatabaseError as e:
+            _log.error(f"Database error while getting user activity: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
+        except (DisconnectionError, SQLTimeoutError) as e:
+            _log.error(f"Database connection error while getting user activity: {e}")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=(

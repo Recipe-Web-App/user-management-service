@@ -33,7 +33,6 @@ class UserThemePreferences(BaseSqlModel):
             ThemeEnum,
             name="theme_enum",
             schema="recipe_manager",
-            native_enum=False,
             create_constraint=False,
         ),
         nullable=True,

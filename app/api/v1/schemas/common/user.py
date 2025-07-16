@@ -21,8 +21,8 @@ class User(BaseSchemaModel):
         min_length=1,
         max_length=50,
     )
-    email: str = Field(
-        ...,
+    email: str | None = Field(
+        None,
         description="Email address for the user account",
     )
     full_name: str | None = Field(

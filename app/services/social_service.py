@@ -1,10 +1,10 @@
-"""Social service for user management."""
+"""Social service for user social interactions."""
 
 from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import desc, func, select
-from sqlalchemy.exc import DisconnectionError, IntegrityError
+from sqlalchemy.exc import DisconnectionError
 from sqlalchemy.exc import TimeoutError as SQLTimeoutError
 
 from app.api.v1.schemas.common.user import User as UserSchema
@@ -17,15 +17,14 @@ from app.api.v1.schemas.response.user_activity.user_activity_response import (
 )
 from app.api.v1.schemas.response.user_activity.user_summary import UserSummary
 from app.core.logging import get_logger
-from app.db.sql.models.preference.privacy_preferences import UserPrivacyPreferences
 from app.db.sql.models.recipe.recipe import Recipe
 from app.db.sql.models.recipe.recipe_favorite import RecipeFavorite
 from app.db.sql.models.recipe.recipe_review import RecipeReview
 from app.db.sql.models.user.user import User
 from app.db.sql.models.user.user_follows import UserFollows
 from app.db.sql.sql_database_session import SqlDatabaseSession
-from app.enums.preferences.profile_visibility_enum import ProfileVisibilityEnum
 from app.exceptions.custom_exceptions.database_exceptions import DatabaseError
+from app.utils.privacy import PrivacyChecker
 
 _log = get_logger(__name__)
 
@@ -36,100 +35,7 @@ class SocialService:
     def __init__(self, db: SqlDatabaseSession) -> None:
         """Initialize social service with database session."""
         self.db = db
-
-    async def _check_social_privacy(
-        self,
-        target_user_id: UUID,
-        requester_user_id: UUID,
-    ) -> None:
-        """Raise 403 if requester is not allowed to view target user's socials.
-
-        Checks the privacy preferences of the target user and raises an HTTPException if
-        the requester is not permitted to view the target user's social relationships.
-        """
-        result = await self.db.execute(
-            select(UserPrivacyPreferences).where(
-                UserPrivacyPreferences.user_id == target_user_id
-            )
-        )
-        prefs = result.scalar_one_or_none()
-        if not prefs:
-            # If no preferences, default to PUBLIC
-            return
-
-        # If profile is PRIVATE, only self or admin can view
-        if (
-            prefs.profile_visibility == ProfileVisibilityEnum.PRIVATE
-            and requester_user_id != target_user_id
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="This user's profile is private.",
-            )
-
-        # Enforce activity_visibility
-        if prefs.activity_visibility == ProfileVisibilityEnum.PUBLIC:
-            return
-
-        if prefs.activity_visibility == ProfileVisibilityEnum.FRIENDS_ONLY:
-            if requester_user_id == target_user_id:
-                return
-            # Check if mutual follow (friend)
-            mutual = await self.db.execute(
-                select(UserFollows).where(
-                    UserFollows.follower_id == requester_user_id,
-                    UserFollows.followee_id == target_user_id,
-                )
-            )
-            if not mutual.scalar_one_or_none():
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=(
-                        "This user's social relationships are visible to friends only."
-                    ),
-                )
-        elif prefs.activity_visibility == ProfileVisibilityEnum.PRIVATE:
-            if requester_user_id != target_user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="This user's social relationships are private.",
-                )
-
-    async def _can_share_user_in_social_response(
-        self,
-        user_id: UUID,
-        prefs: UserPrivacyPreferences | None,
-        requester_user_id: UUID,
-    ) -> bool:
-        """Return True if the user can be included in a social response."""
-        profile_visibility = getattr(
-            prefs, "profile_visibility", ProfileVisibilityEnum.PUBLIC
-        )
-        activity_visibility = getattr(
-            prefs, "activity_visibility", ProfileVisibilityEnum.PUBLIC
-        )
-        if (
-            profile_visibility == ProfileVisibilityEnum.PUBLIC
-            and activity_visibility == ProfileVisibilityEnum.PUBLIC
-        ):
-            return True
-        if profile_visibility == ProfileVisibilityEnum.PRIVATE:
-            return requester_user_id == user_id
-        if ProfileVisibilityEnum.FRIENDS_ONLY in (
-            profile_visibility,
-            activity_visibility,
-        ):
-            if requester_user_id == user_id:
-                return True
-            # Check if mutual follow
-            mutual = await self.db.execute(
-                select(UserFollows).where(
-                    UserFollows.follower_id == requester_user_id,
-                    UserFollows.followee_id == user_id,
-                )
-            )
-            return mutual.scalar_one_or_none() is not None
-        return False
+        self.privacy_checker = PrivacyChecker(db)
 
     async def get_followed_users(
         self,
@@ -149,8 +55,14 @@ class SocialService:
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="User not found",
                 )
-            if requester_user_id is not None:
-                await self._check_social_privacy(user_id, requester_user_id)
+            if (
+                requester_user_id is not None
+                and not await self.privacy_checker.check_access(user, requester_user_id)
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied due to privacy settings",
+                )
 
             # Get total count (before filtering)
             count_result = await self.db.execute(
@@ -183,15 +95,8 @@ class SocialService:
             # Per-user privacy filtering
             filtered_users = []
             for u in following_users:
-                prefs_result = await self.db.execute(
-                    select(UserPrivacyPreferences).where(
-                        UserPrivacyPreferences.user_id == u.user_id
-                    )
-                )
-                prefs = prefs_result.scalar_one_or_none()
-                if await self._can_share_user_in_social_response(
-                    u.user_id, prefs, requester_user_id
-                ):
+                # Check if requester can see this user based on privacy settings
+                if await self.privacy_checker.check_access(u, requester_user_id):
                     filtered_users.append(u)
             user_schemas = [
                 UserSchema.model_validate(u).model_copy(update={"email": None})
@@ -243,8 +148,14 @@ class SocialService:
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="User not found",
                 )
-            if requester_user_id is not None:
-                await self._check_social_privacy(user_id, requester_user_id)
+            if (
+                requester_user_id is not None
+                and not await self.privacy_checker.check_access(user, requester_user_id)
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied due to privacy settings",
+                )
 
             # Get total count (before filtering)
             count_result = await self.db.execute(
@@ -272,20 +183,13 @@ class SocialService:
                 .limit(limit)
                 .offset(offset)
             )
-            follower_users = followers_result.scalars().all()
+            followers = followers_result.scalars().all()
 
             # Per-user privacy filtering
             filtered_users = []
-            for u in follower_users:
-                prefs_result = await self.db.execute(
-                    select(UserPrivacyPreferences).where(
-                        UserPrivacyPreferences.user_id == u.user_id
-                    )
-                )
-                prefs = prefs_result.scalar_one_or_none()
-                if await self._can_share_user_in_social_response(
-                    u.user_id, prefs, requester_user_id
-                ):
+            for u in followers:
+                # Check if requester can see this user based on privacy settings
+                if await self.privacy_checker.check_access(u, requester_user_id):
                     filtered_users.append(u)
             user_schemas = [
                 UserSchema.model_validate(u).model_copy(update={"email": None})
@@ -325,25 +229,25 @@ class SocialService:
         """Follow a user.
 
         Args:
-            follower_id: The user's unique identifier who is following
-            target_user_id: The user's unique identifier to follow
+            follower_id: The user who wants to follow
+            target_user_id: The user to be followed
 
         Returns:
             FollowResponse: Confirmation of following action
 
         Raises:
-            HTTPException: If users not found, already following, or DB error
+            HTTPException: If users not found, already following, or database error
         """
         _log.info(f"User {follower_id} attempting to follow user {target_user_id}")
 
         try:
-            # Verify both users exist
+            # Check if both users exist
             follower = await self.db.get_user_by_id(str(follower_id))
             if not follower:
-                _log.warning(f"Follower user not found: {follower_id}")
+                _log.warning(f"Follower not found: {follower_id}")
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Follower user not found",
+                    detail="Follower not found",
                 )
 
             target_user = await self.db.get_user_by_id(str(target_user_id))
@@ -352,6 +256,21 @@ class SocialService:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Target user not found",
+                )
+
+            # Check if users are active
+            if not follower.is_active:
+                _log.warning(f"Inactive follower: {follower_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Follower account is inactive",
+                )
+
+            if not target_user.is_active:
+                _log.warning(f"Inactive target user: {target_user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Target user account is inactive",
                 )
 
             # Prevent self-following
@@ -370,44 +289,33 @@ class SocialService:
                 )
             )
             if existing_follow.scalar_one_or_none():
-                _log.info(f"User {follower_id} already following user {target_user_id}")
+                _log.info(f"User {follower_id} already following {target_user_id}")
                 return FollowResponse(
                     message="Already following this user",
                     is_following=True,
                 )
 
-            # Create following relationship
-            new_follow = UserFollows(
+            # Create follow relationship
+            follow_relationship = UserFollows(
                 follower_id=follower_id,
                 followee_id=target_user_id,
             )
-            self.db.add(new_follow)
+            self.db.add(follow_relationship)
             await self.db.commit()
-            await self.db.refresh(new_follow)
 
-            _log.info(f"User {follower_id} successfully followed user {target_user_id}")
-
+            _log.info(f"User {follower_id} successfully followed {target_user_id}")
             return FollowResponse(
                 message="Successfully followed user",
                 is_following=True,
             )
 
-        except IntegrityError as e:
-            await self.db.rollback()
-            _log.error(f"Integrity error while following user: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Unable to follow user. Please try again.",
-            ) from e
         except DatabaseError as e:
-            await self.db.rollback()
             _log.error(f"Database error while following user: {e}")
             raise HTTPException(
                 status_code=e.status_code,
                 detail=str(e),
             ) from e
         except (DisconnectionError, SQLTimeoutError) as e:
-            await self.db.rollback()
             _log.error(f"Database connection error while following user: {e}")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -423,25 +331,25 @@ class SocialService:
         """Unfollow a user.
 
         Args:
-            follower_id: The user's unique identifier who is unfollowing
-            target_user_id: The user's unique identifier to unfollow
+            follower_id: The user who wants to unfollow
+            target_user_id: The user to be unfollowed
 
         Returns:
             FollowResponse: Confirmation of unfollowing action
 
         Raises:
-            HTTPException: If users not found, not following, or DB error
+            HTTPException: If users not found, not following, or database error
         """
         _log.info(f"User {follower_id} attempting to unfollow user {target_user_id}")
 
         try:
-            # Verify both users exist
+            # Check if both users exist
             follower = await self.db.get_user_by_id(str(follower_id))
             if not follower:
-                _log.warning(f"Follower user not found: {follower_id}")
+                _log.warning(f"Follower not found: {follower_id}")
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Follower user not found",
+                    detail="Follower not found",
                 )
 
             target_user = await self.db.get_user_by_id(str(target_user_id))
@@ -452,7 +360,30 @@ class SocialService:
                     detail="Target user not found",
                 )
 
-            # Find existing following relationship
+            # Check if users are active
+            if not follower.is_active:
+                _log.warning(f"Inactive follower: {follower_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Follower account is inactive",
+                )
+
+            if not target_user.is_active:
+                _log.warning(f"Inactive target user: {target_user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Target user account is inactive",
+                )
+
+            # Prevent self-unfollowing
+            if follower_id == target_user_id:
+                _log.warning(f"User {follower_id} attempted to unfollow themselves")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot unfollow yourself",
+                )
+
+            # Check if currently following
             existing_follow = await self.db.execute(
                 select(UserFollows).where(
                     UserFollows.follower_id == follower_id,
@@ -460,36 +391,30 @@ class SocialService:
                 )
             )
             follow_relationship = existing_follow.scalar_one_or_none()
-
             if not follow_relationship:
-                _log.info(f"User {follower_id} not following user {target_user_id}")
+                _log.info(f"User {follower_id} not following {target_user_id}")
                 return FollowResponse(
                     message="Not following this user",
                     is_following=False,
                 )
 
-            # Remove following relationship
+            # Remove follow relationship
             await self.db.delete(follow_relationship)
             await self.db.commit()
 
-            _log.info(
-                f"User {follower_id} successfully unfollowed user {target_user_id}"
-            )
-
+            _log.info(f"User {follower_id} successfully unfollowed {target_user_id}")
             return FollowResponse(
                 message="Successfully unfollowed user",
                 is_following=False,
             )
 
         except DatabaseError as e:
-            await self.db.rollback()
             _log.error(f"Database error while unfollowing user: {e}")
             raise HTTPException(
                 status_code=e.status_code,
                 detail=str(e),
             ) from e
         except (DisconnectionError, SQLTimeoutError) as e:
-            await self.db.rollback()
             _log.error(f"Database connection error while unfollowing user: {e}")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -527,7 +452,11 @@ class SocialService:
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="User not found",
                 )
-            await self._check_social_privacy(user_id, requester_user_id)
+            if not await self.privacy_checker.check_access(user, requester_user_id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied due to privacy settings",
+                )
 
             # Recipes
             recipes_q = (
@@ -569,59 +498,39 @@ class SocialService:
             favorites_result = await self.db.execute(favorites_q)
             favorites = favorites_result.scalars().all()
 
-            # Map DB models to response summaries
+            # Transform to response schemas
             recipe_summaries = [
-                RecipeSummary(
-                    recipe_id=r.recipe_id,
-                    title=r.title,
-                    created_at=r.created_at,
-                )
-                for r in recipes
+                RecipeSummary.model_validate(recipe) for recipe in recipes
             ]
-            follow_summaries = []
-            for f in follows:
-                user_obj = await self.db.get_user_by_id(str(f.followee_id))
-                username = user_obj.username if user_obj is not None else "unknown"
-                follow_summaries.append(
-                    UserSummary(
-                        user_id=f.followee_id,
-                        username=str(username),
-                        followed_at=f.followed_at,
-                    )
-                )
-
             review_summaries = [
-                ReviewSummary(
-                    review_id=rv.review_id,
-                    recipe_id=rv.recipe_id,
-                    rating=float(rv.rating),
-                    comment=rv.comment,
-                    created_at=rv.created_at,
-                )
-                for rv in reviews
+                ReviewSummary.model_validate(review) for review in reviews
             ]
-            favorite_summaries = []
-            for fv in favorites:
-                recipe_obj = await self.db.execute(
-                    select(Recipe).where(Recipe.recipe_id == fv.recipe_id)
-                )
-                recipe = recipe_obj.scalar_one_or_none()
-                title = recipe.title if recipe is not None else "unknown"
-                favorite_summaries.append(
-                    FavoriteSummary(
-                        recipe_id=fv.recipe_id,
-                        title=title,
-                        favorited_at=fv.favorited_at,
+            favorite_summaries = [
+                FavoriteSummary.model_validate(favorite) for favorite in favorites
+            ]
+
+            # For follows, we need to get the followed user details
+            followed_users = []
+            for follow in follows:
+                followed_user = await self.db.get_user_by_id(str(follow.followee_id))
+                if followed_user:
+                    followed_users.append(
+                        UserSummary.model_validate(follow).model_copy(
+                            update={
+                                "user_id": followed_user.user_id,
+                                "username": followed_user.username,
+                            }
+                        )
                     )
-                )
 
             return UserActivityResponse(
                 user_id=user_id,
                 recent_recipes=recipe_summaries,
-                recent_follows=follow_summaries,
+                recent_follows=followed_users,
                 recent_reviews=review_summaries,
                 recent_favorites=favorite_summaries,
             )
+
         except DatabaseError as e:
             _log.error(f"Database error while getting user activity: {e}")
             raise HTTPException(

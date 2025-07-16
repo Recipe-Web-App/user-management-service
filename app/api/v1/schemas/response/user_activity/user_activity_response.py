@@ -1,7 +1,7 @@
 """User activity response schema for the user activity endpoint.
 
 Defines the UserActivityResponse model, which aggregates recent user activities such as
-created recipes, followed users, reviews, and favorites, each limited by per_type_limit.
+created recipes, followed users, reviews, and favorites.
 """
 
 from uuid import UUID
@@ -31,4 +31,3 @@ class UserActivityResponse(BaseSchemaModel):
     recent_favorites: list[FavoriteSummary] = Field(
         ..., description="List of recently favorited recipes."
     )
-    per_type_limit: int = Field(..., description="Limit applied to each activity type.")

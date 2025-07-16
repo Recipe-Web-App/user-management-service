@@ -11,6 +11,9 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
 from app.api.v1.schemas.response.error_response import ErrorResponse
 from app.api.v1.schemas.response.social import FollowResponse, GetFollowedUsersResponse
+from app.api.v1.schemas.response.user_activity.user_activity_response import (
+    UserActivityResponse,
+)
 from app.db.sql.sql_database_manager import get_db
 from app.db.sql.sql_database_session import SqlDatabaseSession
 from app.middleware.auth_middleware import get_current_user_id
@@ -313,10 +316,14 @@ async def unfollow_user(
     "/user-management/users/{user_id}/activity",
     tags=["social"],
     summary="Get user activity",
-    description="Retrieve activity from a specific user (stub; not yet implemented)",
+    description=(
+        "Retrieve activity from a specific user (recipes, follows, reviews, favorites)"
+    ),
+    response_model=UserActivityResponse,
     responses={
         HTTPStatus.OK: {
-            "description": "User activity data (stub)",
+            "model": UserActivityResponse,
+            "description": "User activity data",
         },
         HTTPStatus.UNAUTHORIZED: {
             "model": ErrorResponse,
@@ -334,36 +341,30 @@ async def unfollow_user(
 )
 async def get_user_activity(
     user_id: Annotated[UUID, Path(description="User ID")],
-    _authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
-    _social_service: Annotated[
+    authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
+    social_service: Annotated[
         SocialService,
         Depends(get_social_service),
     ],
-    limit: Annotated[
-        int, Query(ge=1, le=100, description="Number of results to return")
-    ] = 20,
-    offset: Annotated[int, Query(ge=0, description="Number of results to skip")] = 0,
-    count_only: Annotated[
-        bool, Query(description="Return only the count of results")
-    ] = False,
-) -> dict:
-    """Get user activity (stub).
+    per_type_limit: Annotated[
+        int,
+        Query(
+            ge=1, le=100, description="Number of results to return per activity type"
+        ),
+    ] = 15,
+) -> UserActivityResponse:
+    """Get user activity (recipes, follows, reviews, favorites).
 
     Args:
         user_id: The user's unique identifier
-        limit: Number of results to return (1-100)
-        offset: Number of results to skip
-        count_only: Return only the count of results
+        per_type_limit: Number of results to return per activity type (1-100)
         social_service: Social service instance
 
     Returns:
-        dict: User activity data or count (stub)
+        UserActivityResponse: Aggregated user activity
     """
-    return {
-        "message": f"Get activity for user {user_id} (not yet implemented)",
-        "pagination": {
-            "limit": limit,
-            "offset": offset,
-            "count_only": count_only,
-        },
-    }
+    return await social_service.get_user_activity(
+        user_id=user_id,
+        requester_user_id=UUID(authenticated_user_id),
+        per_type_limit=per_type_limit,
+    )

@@ -89,6 +89,27 @@ class User(BaseSqlModel):
         backref="followers",
     )
 
+    recipes = relationship(
+        "Recipe",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        doc="List of recipes created by the user.",
+    )
+
+    recipe_reviews = relationship(
+        "RecipeReview",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        doc="List of recipe reviews written by the user.",
+    )
+
+    recipe_favorites = relationship(
+        "RecipeFavorite",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        doc="List of recipes favorited by the user.",
+    )
+
     def __repr__(self) -> str:
         """Return string representation of the User model."""
         return (

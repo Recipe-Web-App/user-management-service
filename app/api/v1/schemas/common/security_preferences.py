@@ -6,13 +6,15 @@ from pydantic import BaseModel, Field
 class SecurityPreferences(BaseModel):
     """Schema for user security preferences."""
 
-    two_factor_auth: bool = Field(
-        ..., description="Whether two-factor authentication is enabled"
+    two_factor_auth: bool | None = Field(
+        None, description="Whether two-factor authentication is enabled"
     )
-    login_notifications: bool = Field(
-        ..., description="Whether login notifications are enabled"
+    login_notifications: bool | None = Field(
+        None, description="Whether login notifications are enabled"
     )
-    session_timeout: bool = Field(..., description="Whether session timeout is enabled")
-    password_requirements: bool = Field(
-        ..., description="Whether password requirements are enforced"
+    session_timeout: bool | None = Field(
+        None, description="Whether session timeout is enabled"
+    )
+    password_requirements: bool | None = Field(
+        None, description="Whether password requirements are enforced"
     )

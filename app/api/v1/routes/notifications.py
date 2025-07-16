@@ -8,10 +8,12 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path, Query, Response
-from fastapi.responses import JSONResponse
 
 from app.api.v1.schemas.request.notification.notification_delete_request import (
     NotificationDeleteRequest,
+)
+from app.api.v1.schemas.request.preference.update_user_preference_request import (
+    UpdateUserPreferenceRequest,
 )
 from app.api.v1.schemas.response.error_response import ErrorResponse
 from app.api.v1.schemas.response.notification.notification_count_response import (
@@ -371,16 +373,56 @@ async def get_notification_preferences(
     tags=["notifications"],
     summary="Update notification preferences",
     description="Update user's notification preferences",
+    response_model=UserPreferenceResponse,
+    responses={
+        HTTPStatus.OK: {
+            "model": UserPreferenceResponse,
+            "description": "Notification preferences updated successfully",
+        },
+        HTTPStatus.BAD_REQUEST: {
+            "model": ErrorResponse,
+            "description": "Bad request",
+        },
+        HTTPStatus.UNAUTHORIZED: {
+            "model": ErrorResponse,
+            "description": "Invalid or missing authorization token",
+        },
+        HTTPStatus.NOT_FOUND: {
+            "model": ErrorResponse,
+            "description": "User not found",
+        },
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+            "model": ErrorResponse,
+            "description": "Validation error",
+        },
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "model": ErrorResponse,
+            "description": "Internal server error",
+        },
+        HTTPStatus.SERVICE_UNAVAILABLE: {
+            "model": ErrorResponse,
+            "description": "Service temporarily unavailable",
+        },
+    },
 )
 async def update_notification_preferences(
+    preferences: UpdateUserPreferenceRequest,
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
-) -> JSONResponse:
+    notification_service: Annotated[
+        NotificationService,
+        Depends(get_notification_service),
+    ],
+) -> UserPreferenceResponse:
     """Update notification preferences.
 
+    Args:
+        preferences: UpdateUserPreferenceRequest body
+        authenticated_user_id: User ID from JWT token
+        notification_service: Notification service instance
+
     Returns:
-        JSONResponse: Updated preferences
+        UserPreferenceResponse: Updated preferences
     """
-    # TODO: Implement update notification preferences
-    return JSONResponse(
-        content={"message": f"Update {authenticated_user_id} preferences endpoint"}
+    return await notification_service.update_user_preferences(
+        UUID(authenticated_user_id), preferences
     )

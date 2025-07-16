@@ -3,7 +3,8 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey
+from sqlalchemy import Boolean, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import ENUM as SAEnum  # noqa: N811
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID  # noqa: N811
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -28,7 +29,14 @@ class UserThemePreferences(BaseSqlModel):
     light_mode: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     auto_theme: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     custom_theme: Mapped[str] = mapped_column(
-        Enum(ThemeEnum, name="theme_enum", create_constraint=False), nullable=True
+        SAEnum(
+            ThemeEnum,
+            name="theme_enum",
+            schema="recipe_manager",
+            native_enum=False,
+            create_constraint=False,
+        ),
+        nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=datetime.now(UTC)

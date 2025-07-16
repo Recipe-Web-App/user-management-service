@@ -3,7 +3,8 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey
+from sqlalchemy import Boolean, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import ENUM as SAEnum  # noqa: N811
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID  # noqa: N811
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -25,36 +26,44 @@ class UserPrivacyPreferences(BaseSqlModel):
         unique=True,
     )
     profile_visibility: Mapped[str] = mapped_column(
-        Enum(
+        SAEnum(
             ProfileVisibilityEnum,
             name="profile_visibility_enum",
+            schema="recipe_manager",
+            native_enum=False,
             create_constraint=False,
         ),
         nullable=False,
         default=ProfileVisibilityEnum.PUBLIC,
     )
     recipe_visibility: Mapped[str] = mapped_column(
-        Enum(
+        SAEnum(
             ProfileVisibilityEnum,
             name="profile_visibility_enum",
+            schema="recipe_manager",
+            native_enum=False,
             create_constraint=False,
         ),
         nullable=False,
         default=ProfileVisibilityEnum.PUBLIC,
     )
     activity_visibility: Mapped[str] = mapped_column(
-        Enum(
+        SAEnum(
             ProfileVisibilityEnum,
             name="profile_visibility_enum",
+            schema="recipe_manager",
+            native_enum=False,
             create_constraint=False,
         ),
         nullable=False,
         default=ProfileVisibilityEnum.PUBLIC,
     )
     contact_info_visibility: Mapped[str] = mapped_column(
-        Enum(
+        SAEnum(
             ProfileVisibilityEnum,
             name="profile_visibility_enum",
+            schema="recipe_manager",
+            native_enum=False,
             create_constraint=False,
         ),
         nullable=False,

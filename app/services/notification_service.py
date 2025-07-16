@@ -11,6 +11,9 @@ from sqlalchemy.exc import TimeoutError as SQLTimeoutError
 from sqlalchemy.orm import selectinload
 
 from app.api.v1.schemas.common.notification import Notification as NotificationSchema
+from app.api.v1.schemas.request.preference.update_user_preference_request import (
+    UpdateUserPreferenceRequest,
+)
 from app.api.v1.schemas.response.notification.notification_count_response import (
     NotificationCountResponse,
 )
@@ -30,6 +33,7 @@ from app.api.v1.schemas.response.preference.user_preference_response import (
     UserPreferenceResponse,
 )
 from app.core.logging import get_logger
+from app.db.sql.models.base_sql_model import BaseSqlModel
 from app.db.sql.models.user.notification import Notification as NotificationModel
 from app.db.sql.models.user.user import User
 from app.db.sql.sql_database_session import SqlDatabaseSession
@@ -429,6 +433,85 @@ class NotificationService:
             _log.error(
                 f"Database connection error while getting notification preferences: {e}"
             )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Database service is temporarily unavailable. "
+                    "Please try again later."
+                ),
+            ) from e
+
+    async def update_user_preferences(
+        self, user_id: UUID, preferences: UpdateUserPreferenceRequest
+    ) -> UserPreferenceResponse:
+        """Update user preferences for all categories.
+
+        Args:
+            user_id: The user's unique identifier
+            preferences: UpdateUserPreferenceRequest with optional fields
+
+        Returns:
+            UserPreferenceResponse: Updated preferences
+
+        Raises:
+            HTTPException: If user not found or database services are unavailable
+        """
+        _log.info(f"Updating preferences for user: {user_id}")
+        try:
+            result = await self.db.execute(
+                select(User)
+                .options(
+                    selectinload(User.notification_preferences),
+                    selectinload(User.display_preferences),
+                    selectinload(User.theme_preferences),
+                    selectinload(User.privacy_preferences),
+                    selectinload(User.security_preferences),
+                    selectinload(User.sound_preferences),
+                    selectinload(User.social_preferences),
+                    selectinload(User.language_preferences),
+                    selectinload(User.accessibility_preferences),
+                )
+                .where(User.user_id == str(user_id))
+            )
+            user = result.scalars().first()
+            if not user:
+                _log.warning(f"User not found: {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found",
+                )
+
+            # Helper to update a model from a pydantic schema, skipping None values
+            def update_model(model: BaseSqlModel, schema: BaseModel | None) -> None:
+                if model and schema:
+                    for field, value in schema.model_dump(exclude_unset=True).items():
+                        if value is not None:
+                            setattr(model, field, value)
+
+            update_model(user.notification_preferences, preferences.notification)
+            update_model(user.display_preferences, preferences.display)
+            update_model(user.theme_preferences, preferences.theme)
+            update_model(user.privacy_preferences, preferences.privacy)
+            update_model(user.security_preferences, preferences.security)
+            update_model(user.sound_preferences, preferences.sound)
+            update_model(user.social_preferences, preferences.social)
+            update_model(user.language_preferences, preferences.language)
+            update_model(user.accessibility_preferences, preferences.accessibility)
+
+            await self.db.commit()
+            await self.db.refresh(user)
+
+            _log.info(f"Preferences updated for user: {user_id}")
+            return await self.get_notification_preferences(user_id)
+
+        except DatabaseError as e:
+            _log.error(f"Database error while updating preferences: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
+        except (DisconnectionError, SQLTimeoutError) as e:
+            _log.error(f"Database connection error while updating preferences: {e}")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=(

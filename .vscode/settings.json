@@ -33,6 +33,8 @@
   "cSpell.words": [
     "autoflush",
     "conlist",
+    "followee",
+    "prefs",
     "renderable",
     "sadd",
     "selectinload",
@@ -44,6 +46,7 @@
     "sqlstate",
     "srem",
     "testuser",
+    "unfollowing",
     "zadd",
     "zcard",
     "zcount",

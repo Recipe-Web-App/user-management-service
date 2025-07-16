@@ -10,9 +10,11 @@ from sqlalchemy.exc import TimeoutError as SQLTimeoutError
 from app.api.v1.schemas.common.user import User as UserSchema
 from app.api.v1.schemas.response.social import FollowResponse, GetFollowedUsersResponse
 from app.core.logging import get_logger
+from app.db.sql.models.preference.privacy_preferences import UserPrivacyPreferences
 from app.db.sql.models.user.user import User
 from app.db.sql.models.user.user_follows import UserFollows
 from app.db.sql.sql_database_session import SqlDatabaseSession
+from app.enums.preferences.profile_visibility_enum import ProfileVisibilityEnum
 from app.exceptions.custom_exceptions.database_exceptions import DatabaseError
 
 _log = get_logger(__name__)
@@ -25,10 +27,109 @@ class SocialService:
         """Initialize social service with database session."""
         self.db = db
 
+    async def _check_social_privacy(
+        self,
+        target_user_id: UUID,
+        requester_user_id: UUID,
+    ) -> None:
+        """Raise 403 if requester is not allowed to view target user's socials.
+
+        Checks the privacy preferences of the target user and raises an HTTPException if
+        the requester is not permitted to view the target user's social relationships.
+        """
+        result = await self.db.execute(
+            select(UserPrivacyPreferences).where(
+                UserPrivacyPreferences.user_id == target_user_id
+            )
+        )
+        prefs = result.scalar_one_or_none()
+        if not prefs:
+            # If no preferences, default to PUBLIC
+            return
+
+        # If profile is PRIVATE, only self or admin can view
+        if (
+            prefs.profile_visibility == ProfileVisibilityEnum.PRIVATE
+            and requester_user_id != target_user_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This user's profile is private.",
+            )
+
+        # Enforce activity_visibility
+        if prefs.activity_visibility == ProfileVisibilityEnum.PUBLIC:
+            return
+
+        if prefs.activity_visibility == ProfileVisibilityEnum.FRIENDS_ONLY:
+            if requester_user_id == target_user_id:
+                return
+            # Check if mutual follow (friend)
+            mutual = await self.db.execute(
+                select(UserFollows).where(
+                    UserFollows.follower_id == requester_user_id,
+                    UserFollows.followee_id == target_user_id,
+                )
+            )
+            if not mutual.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=(
+                        "This user's social relationships are visible to friends only."
+                    ),
+                )
+        elif prefs.activity_visibility == ProfileVisibilityEnum.PRIVATE:
+            if requester_user_id != target_user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This user's social relationships are private.",
+                )
+
+    async def _can_share_user_in_social_response(
+        self,
+        user_id: UUID,
+        prefs: UserPrivacyPreferences | None,
+        requester_user_id: UUID,
+    ) -> bool:
+        """Return True if the user can be included in a social response."""
+        profile_visibility = getattr(
+            prefs, "profile_visibility", ProfileVisibilityEnum.PUBLIC
+        )
+        activity_visibility = getattr(
+            prefs, "activity_visibility", ProfileVisibilityEnum.PUBLIC
+        )
+        if (
+            profile_visibility == ProfileVisibilityEnum.PUBLIC
+            and activity_visibility == ProfileVisibilityEnum.PUBLIC
+        ):
+            return True
+        if profile_visibility == ProfileVisibilityEnum.PRIVATE:
+            return requester_user_id == user_id
+        if ProfileVisibilityEnum.FRIENDS_ONLY in (
+            profile_visibility,
+            activity_visibility,
+        ):
+            if requester_user_id == user_id:
+                return True
+            # Check if mutual follow
+            mutual = await self.db.execute(
+                select(UserFollows).where(
+                    UserFollows.follower_id == requester_user_id,
+                    UserFollows.followee_id == user_id,
+                )
+            )
+            return mutual.scalar_one_or_none() is not None
+        return False
+
     async def get_followed_users(
-        self, user_id: UUID, limit: int = 20, offset: int = 0, count_only: bool = False
+        self,
+        user_id: UUID,
+        requester_user_id: UUID,
+        limit: int = 20,
+        offset: int = 0,
+        count_only: bool = False,
     ) -> GetFollowedUsersResponse:
-        """Get users that a user is following."""
+        """Get users that a user is following, respecting privacy preferences."""
         _log.info(f"Getting following list for user: {user_id}")
         try:
             user = await self.db.get_user_by_id(str(user_id))
@@ -38,8 +139,10 @@ class SocialService:
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="User not found",
                 )
+            if requester_user_id is not None:
+                await self._check_social_privacy(user_id, requester_user_id)
 
-            # Get total count
+            # Get total count (before filtering)
             count_result = await self.db.execute(
                 select(func.count(UserFollows.followee_id)).where(
                     UserFollows.follower_id == user_id
@@ -66,12 +169,27 @@ class SocialService:
                 .offset(offset)
             )
             following_users = following_result.scalars().all()
+
+            # Per-user privacy filtering
+            filtered_users = []
+            for u in following_users:
+                prefs_result = await self.db.execute(
+                    select(UserPrivacyPreferences).where(
+                        UserPrivacyPreferences.user_id == u.user_id
+                    )
+                )
+                prefs = prefs_result.scalar_one_or_none()
+                if await self._can_share_user_in_social_response(
+                    u.user_id, prefs, requester_user_id
+                ):
+                    filtered_users.append(u)
             user_schemas = [
                 UserSchema.model_validate(u).model_copy(update={"email": None})
-                for u in following_users
+                for u in filtered_users
             ]
             _log.info(
-                f"Retrieved {len(user_schemas)} following users for user {user_id}"
+                f"Retrieved {len(user_schemas)} following users for user {user_id} "
+                f"(after privacy filtering)"
             )
 
             return GetFollowedUsersResponse(
@@ -98,9 +216,14 @@ class SocialService:
             ) from e
 
     async def get_followers(
-        self, user_id: UUID, limit: int = 20, offset: int = 0, count_only: bool = False
+        self,
+        user_id: UUID,
+        requester_user_id: UUID,
+        limit: int = 20,
+        offset: int = 0,
+        count_only: bool = False,
     ) -> GetFollowedUsersResponse:
-        """Get users who follow the given user (followers)."""
+        """Get users who follow the given user, respecting privacy preferences."""
         _log.info(f"Getting followers list for user: {user_id}")
         try:
             user = await self.db.get_user_by_id(str(user_id))
@@ -110,8 +233,10 @@ class SocialService:
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="User not found",
                 )
+            if requester_user_id is not None:
+                await self._check_social_privacy(user_id, requester_user_id)
 
-            # Get total count
+            # Get total count (before filtering)
             count_result = await self.db.execute(
                 select(func.count(UserFollows.follower_id)).where(
                     UserFollows.followee_id == user_id
@@ -138,11 +263,28 @@ class SocialService:
                 .offset(offset)
             )
             follower_users = followers_result.scalars().all()
+
+            # Per-user privacy filtering
+            filtered_users = []
+            for u in follower_users:
+                prefs_result = await self.db.execute(
+                    select(UserPrivacyPreferences).where(
+                        UserPrivacyPreferences.user_id == u.user_id
+                    )
+                )
+                prefs = prefs_result.scalar_one_or_none()
+                if await self._can_share_user_in_social_response(
+                    u.user_id, prefs, requester_user_id
+                ):
+                    filtered_users.append(u)
             user_schemas = [
                 UserSchema.model_validate(u).model_copy(update={"email": None})
-                for u in follower_users
+                for u in filtered_users
             ]
-            _log.info(f"Retrieved {len(user_schemas)} followers for user {user_id}")
+            _log.info(
+                f"Retrieved {len(user_schemas)} followers for user {user_id} "
+                f"(after privacy filtering)"
+            )
 
             return GetFollowedUsersResponse(
                 total_count=total_count,

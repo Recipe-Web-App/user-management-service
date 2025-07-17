@@ -52,6 +52,7 @@
     "srem",
     "testuser",
     "unfollowing",
+    "uselist",
     "zadd",
     "zcard",
     "zcount",

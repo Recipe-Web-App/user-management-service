@@ -382,3 +382,33 @@ class RedisDatabaseSession:
             return bool(await self.redis.ping())
         except redis.ConnectionError:
             return False
+
+    # --- Deletion Token Management ---
+    deletion_token_prefix = "deletion_token:"  # nosec B105
+    deletion_token_ttl_seconds = 24 * 3600  # 24 hours
+
+    async def store_deletion_token(
+        self, user_id: str, token: str, expires_at: datetime
+    ) -> None:
+        """Store a deletion confirmation token for a user with expiration."""
+        key = f"{self.deletion_token_prefix}{user_id}"
+        await self.redis.hset(
+            key,
+            mapping={
+                "token": token,
+                "expires_at": expires_at.isoformat(),
+                "user_id": user_id,
+            },
+        )
+        await self.redis.expire(key, self.deletion_token_ttl_seconds)
+
+    async def get_deletion_token(self, user_id: str) -> dict[str, str] | None:
+        """Retrieve the deletion confirmation token for a user."""
+        key = f"{self.deletion_token_prefix}{user_id}"
+        data = await self.redis.hgetall(key)
+        return data if data else None
+
+    async def delete_deletion_token(self, user_id: str) -> None:
+        """Delete the deletion confirmation token for a user."""
+        key = f"{self.deletion_token_prefix}{user_id}"
+        await self.redis.delete(key)

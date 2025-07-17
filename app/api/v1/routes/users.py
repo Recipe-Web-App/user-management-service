@@ -7,7 +7,7 @@ from http import HTTPStatus
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from fastapi.responses import JSONResponse
 
 from app.api.v1.schemas.request.user.user_account_delete_request import (
@@ -21,6 +21,7 @@ from app.api.v1.schemas.response.user.user_account_delete_response import (
     UserAccountDeleteRequestResponse,
 )
 from app.api.v1.schemas.response.user.user_profile_response import UserProfileResponse
+from app.api.v1.schemas.response.user.user_search_response import UserSearchResponse
 from app.db.redis.redis_database_manager import get_redis_session
 from app.db.redis.redis_database_session import RedisDatabaseSession
 from app.db.sql.sql_database_manager import get_db
@@ -281,8 +282,36 @@ async def confirm_account_deletion(
     tags=["users"],
     summary="Search users",
     description="Search for users by username or display name",
+    response_model=UserSearchResponse,
+    responses={
+        HTTPStatus.OK: {
+            "model": UserSearchResponse,
+            "description": "User search results retrieved successfully",
+        },
+        HTTPStatus.BAD_REQUEST: {
+            "model": ErrorResponse,
+            "description": "Bad request",
+        },
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+            "model": ErrorResponse,
+            "description": "Validation error",
+        },
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "model": ErrorResponse,
+            "description": "Internal server error",
+        },
+        HTTPStatus.SERVICE_UNAVAILABLE: {
+            "model": ErrorResponse,
+            "description": "Service temporarily unavailable",
+        },
+    },
 )
-async def search_users(
+async def search_users(  # noqa: PLR0913
+    authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
+    user_service: Annotated[UserService, Depends(get_user_service)],
+    query: Annotated[
+        str | None, Query(description="Search query for username or display name")
+    ] = None,
     limit: Annotated[
         int, Query(ge=1, le=100, description="Number of results to return")
     ] = 20,
@@ -290,27 +319,31 @@ async def search_users(
     count_only: Annotated[
         bool, Query(description="Return only the count of results")
     ] = False,
-) -> JSONResponse:
-    """Search users.
+) -> UserSearchResponse:
+    """Search users with privacy checks.
 
     Args:
+        authenticated_user_id: The authenticated user making the request
+        user_service: User service instance
+        query: Search query for username or display name
         limit: Number of results to return (1-100)
         offset: Number of results to skip
         count_only: Return only the count of results
 
     Returns:
-        JSONResponse: Search results or count
+        UserSearchResponse: Paginated user search results
     """
-    # TODO: Implement user search
-    return JSONResponse(
-        content={
-            "message": "Search users endpoint",
-            "pagination": {
-                "limit": limit,
-                "offset": offset,
-                "count_only": count_only,
-            },
-        }
+    if offset > limit:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail="Offset cannot be greater than limit.",
+        )
+    return await user_service.search_users(
+        requester_user_id=UUID(authenticated_user_id),
+        query=query,
+        limit=limit,
+        offset=offset,
+        count_only=count_only,
     )
 
 

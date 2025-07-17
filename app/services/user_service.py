@@ -1,16 +1,25 @@
 """User service for profile management operations."""
 
+import secrets
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from app.api.v1.schemas.request.user.user_account_delete_request import (
+    UserAccountDeleteRequest,
+)
 from app.api.v1.schemas.request.user.user_profile_update_request import (
     UserProfileUpdateRequest,
 )
+from app.api.v1.schemas.response.user.user_account_delete_response import (
+    UserAccountDeleteRequestResponse,
+)
 from app.api.v1.schemas.response.user.user_profile_response import UserProfileResponse
 from app.core.logging import get_logger
+from app.db.redis.redis_database_session import RedisDatabaseSession
 from app.db.sql.models.user.user import User
 from app.db.sql.sql_database_session import SqlDatabaseSession
 from app.exceptions.custom_exceptions.database_exceptions import DatabaseError
@@ -22,9 +31,10 @@ _log = get_logger(__name__)
 class UserService:
     """Service for user profile operations."""
 
-    def __init__(self, db: SqlDatabaseSession) -> None:
+    def __init__(self, db: SqlDatabaseSession, redis: RedisDatabaseSession) -> None:
         """Initialize user service with database session."""
         self.db = db
+        self.redis = redis
         self.privacy_checker = PrivacyChecker(db)
 
     async def get_user_profile(
@@ -218,6 +228,154 @@ class UserService:
 
         except DatabaseError as e:
             _log.error(f"Database error updating user profile: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
+
+    async def request_account_deletion(
+        self, user_id: UUID
+    ) -> UserAccountDeleteRequestResponse:
+        """Request account deletion and generate confirmation token.
+
+        Args:
+            user_id: The user's unique identifier
+
+        Returns:
+            UserAccountDeleteRequestResponse: Deletion request with confirmation token
+
+        Raises:
+            HTTPException: If user not found or database error
+        """
+        _log.info(f"Requesting account deletion for user: {user_id}")
+
+        try:
+            # Get user
+            result = await self.db.execute(select(User).where(User.user_id == user_id))
+            user = result.scalar_one_or_none()
+
+            if not user:
+                _log.warning(f"User not found: {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found",
+                )
+
+            # Check if user is already inactive
+            if not user.is_active:
+                _log.warning(f"Account already inactive: {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Account is already inactive",
+                )
+
+            # Generate confirmation token
+            confirmation_token = secrets.token_urlsafe(32)
+            expires_at = datetime.now(UTC) + timedelta(hours=24)
+
+            # Store in Redis (refreshes any existing token)
+            await self.redis.store_deletion_token(
+                str(user_id), confirmation_token, expires_at
+            )
+
+            _log.info(f"Account deletion request created for user: {user_id}")
+
+            return UserAccountDeleteRequestResponse(
+                user_id=user.user_id,
+                confirmation_token=confirmation_token,
+                expires_at=expires_at,
+            )
+
+        except DatabaseError as e:
+            _log.error(f"Database error requesting account deletion: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
+
+    async def confirm_account_deletion(
+        self, user_id: UUID, delete_request: UserAccountDeleteRequest
+    ) -> dict:
+        """Confirm account deletion and deactivate the user.
+
+        Args:
+            user_id: The user's unique identifier
+            delete_request: The deletion confirmation request
+
+        Returns:
+            dict: Simple success response
+
+        Raises:
+            HTTPException: If user not found, invalid token, or database error
+        """
+        _log.info(f"Confirming account deletion for user: {user_id}")
+
+        try:
+            # Get user
+            result = await self.db.execute(select(User).where(User.user_id == user_id))
+            user = result.scalar_one_or_none()
+
+            if not user:
+                _log.warning(f"User not found: {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found",
+                )
+
+            # Check if user is already inactive
+            if not user.is_active:
+                _log.warning(f"Account already inactive: {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Account is already inactive",
+                )
+
+            # Retrieve from Redis
+            token_data = await self.redis.get_deletion_token(str(user_id))
+            if not token_data:
+                _log.warning(f"No deletion request found for user: {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "No deletion request found. Please request deletion first."
+                    ),
+                )
+            if token_data["token"] != delete_request.confirmation_token:
+                _log.warning(f"Invalid confirmation token for user: {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid confirmation token",
+                )
+            # Check if token has expired
+            expires_at = datetime.fromisoformat(token_data["expires_at"])
+            current_time = datetime.now(UTC)
+            if current_time > expires_at:
+                _log.warning(f"Expired confirmation token for user: {user_id}")
+                await self.redis.delete_deletion_token(str(user_id))
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "Confirmation token has expired. Please request deletion again."
+                    ),
+                )
+            # Deactivate the user (soft delete)
+            user.is_active = False
+
+            # Commit changes
+            await self.db.commit()
+
+            # Clean up the token
+            await self.redis.delete_deletion_token(str(user_id))
+
+            _log.info(f"Account successfully deactivated for user: {user_id}")
+
+            return {
+                "user_id": str(user.user_id),
+                "deactivated_at": datetime.now(UTC),
+            }
+
+        except DatabaseError as e:
+            _log.error(f"Database error confirming account deletion: {e}")
             raise HTTPException(
                 status_code=e.status_code,
                 detail=str(e),

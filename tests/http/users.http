@@ -24,13 +24,20 @@ Content-Type: application/json
 
 ###
 
-### Delete User Account
-DELETE http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000/account
+### Request Account Deletion
+POST http://user-management.local/api/v1/user-management/users/account/delete-request
+Authorization: Bearer {{accessToken}}
 
 ###
 
-### Get User by ID
-GET http://127.0.0.1:8000/api/v1/user-management/users/123e4567-e89b-12d3-a456-426614174000
+### Confirm Account Deletion
+DELETE http://user-management.local/api/v1/user-management/users/account
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "confirmation_token": "your_confirmation_token_here"
+}
 
 ###
 

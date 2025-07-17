@@ -10,11 +10,19 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Path, Query
 from fastapi.responses import JSONResponse
 
+from app.api.v1.schemas.request.user.user_account_delete_request import (
+    UserAccountDeleteRequest,
+)
 from app.api.v1.schemas.request.user.user_profile_update_request import (
     UserProfileUpdateRequest,
 )
 from app.api.v1.schemas.response.error_response import ErrorResponse
+from app.api.v1.schemas.response.user.user_account_delete_response import (
+    UserAccountDeleteRequestResponse,
+)
 from app.api.v1.schemas.response.user.user_profile_response import UserProfileResponse
+from app.db.redis.redis_database_manager import get_redis_session
+from app.db.redis.redis_database_session import RedisDatabaseSession
 from app.db.sql.sql_database_manager import get_db
 from app.db.sql.sql_database_session import SqlDatabaseSession
 from app.middleware.auth_middleware import get_current_user_id
@@ -25,16 +33,10 @@ router = APIRouter()
 
 async def get_user_service(
     db: Annotated[SqlDatabaseSession, Depends(get_db)],
+    redis_session: Annotated[RedisDatabaseSession, Depends(get_redis_session)],
 ) -> UserService:
-    """Get user service instance.
-
-    Args:
-        db: Database session
-
-    Returns:
-        UserService: User service instance
-    """
-    return UserService(db)
+    """Get user service instance with SQL and Redis sessions."""
+    return UserService(db, redis_session)
 
 
 @router.get(
@@ -163,22 +165,115 @@ async def update_profile(
     )
 
 
-@router.delete(
-    "/user-management/users/{user_id}/account",
+@router.post(
+    "/user-management/users/account/delete-request",
     tags=["users"],
-    summary="Delete user account",
-    description="Permanently delete user account",
+    summary="Request account deletion",
+    description="Request account deletion and receive a confirmation token",
+    response_model=UserAccountDeleteRequestResponse,
+    responses={
+        HTTPStatus.OK: {
+            "model": UserAccountDeleteRequestResponse,
+            "description": "Deletion request created successfully",
+        },
+        HTTPStatus.BAD_REQUEST: {
+            "model": ErrorResponse,
+            "description": "Account already inactive",
+        },
+        HTTPStatus.UNAUTHORIZED: {
+            "model": ErrorResponse,
+            "description": "Invalid or missing authorization token",
+        },
+        HTTPStatus.NOT_FOUND: {
+            "model": ErrorResponse,
+            "description": "User not found",
+        },
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "model": ErrorResponse,
+            "description": "Internal server error",
+        },
+        HTTPStatus.SERVICE_UNAVAILABLE: {
+            "model": ErrorResponse,
+            "description": "Service temporarily unavailable",
+        },
+    },
 )
-async def delete_account(
-    user_id: Annotated[UUID, Path(description="User ID")],
-) -> JSONResponse:
-    """Delete user account.
+async def request_account_deletion(
+    authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
+    user_service: Annotated[UserService, Depends(get_user_service)],
+) -> UserAccountDeleteRequestResponse:
+    """Request account deletion.
+
+    Args:
+        authenticated_user_id: The authenticated user making the request
+        user_service: User service instance
 
     Returns:
-        JSONResponse: Account deletion confirmation
+        UserAccountDeleteRequestResponse: Deletion request with confirmation token
+
+    Raises:
+        HTTPException: If user not found or database error
     """
-    # TODO: Implement delete user account
-    return JSONResponse(content={"message": f"Delete {user_id} account endpoint"})
+    return await user_service.request_account_deletion(
+        user_id=UUID(authenticated_user_id),
+    )
+
+
+@router.delete(
+    "/user-management/users/account",
+    tags=["users"],
+    summary="Confirm account deletion",
+    description="Confirm account deletion using the confirmation token",
+    response_model=dict,
+    responses={
+        HTTPStatus.OK: {
+            "model": dict,
+            "description": "Account successfully deactivated",
+        },
+        HTTPStatus.BAD_REQUEST: {
+            "model": ErrorResponse,
+            "description": "Invalid or expired confirmation token",
+        },
+        HTTPStatus.UNAUTHORIZED: {
+            "model": ErrorResponse,
+            "description": "Invalid or missing authorization token",
+        },
+        HTTPStatus.NOT_FOUND: {
+            "model": ErrorResponse,
+            "description": "User not found",
+        },
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "model": ErrorResponse,
+            "description": "Internal server error",
+        },
+        HTTPStatus.SERVICE_UNAVAILABLE: {
+            "model": ErrorResponse,
+            "description": "Service temporarily unavailable",
+        },
+    },
+)
+async def confirm_account_deletion(
+    delete_request: UserAccountDeleteRequest,
+    authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
+    user_service: Annotated[UserService, Depends(get_user_service)],
+) -> dict:
+    """Confirm account deletion.
+
+    Args:
+        delete_request: The deletion confirmation request
+        authenticated_user_id: The authenticated user making the request
+        user_service: User service instance
+
+    Returns:
+        dict: Confirmation of account deactivation
+
+    Raises:
+        HTTPException: If user not found, invalid token, or database error
+    """
+    return await user_service.confirm_account_deletion(
+        user_id=UUID(authenticated_user_id),
+        delete_request=delete_request,
+    )
 
 
 @router.get(

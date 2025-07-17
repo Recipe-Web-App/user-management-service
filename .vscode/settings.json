@@ -35,6 +35,8 @@
     "conlist",
     "favorited",
     "followee",
+    "hgetall",
+    "hset",
     "ondelete",
     "onupdate",
     "prefs",

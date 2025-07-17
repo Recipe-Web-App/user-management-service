@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import selectinload
 
 from app.api.v1.schemas.request.user.user_account_delete_request import (
@@ -18,6 +18,10 @@ from app.api.v1.schemas.response.user.user_account_delete_response import (
     UserAccountDeleteRequestResponse,
 )
 from app.api.v1.schemas.response.user.user_profile_response import UserProfileResponse
+from app.api.v1.schemas.response.user.user_search_response import (
+    UserSearchResponse,
+    UserSearchResult,
+)
 from app.core.logging import get_logger
 from app.db.redis.redis_database_session import RedisDatabaseSession
 from app.db.sql.models.user.user import User
@@ -376,6 +380,104 @@ class UserService:
 
         except DatabaseError as e:
             _log.error(f"Database error confirming account deletion: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
+
+    async def search_users(
+        self,
+        requester_user_id: UUID,
+        query: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+        count_only: bool = False,
+    ) -> UserSearchResponse:
+        """Search users by username or full name, applying privacy checks.
+
+        Args:
+            requester_user_id: The user making the request
+            query: Search query (username or full_name)
+            limit: Max results
+            offset: Results to skip
+            count_only: If True, only return count
+
+        Returns:
+            UserSearchResponse: Paginated user search response
+        """
+        try:
+            _log.info(
+                f"User search by {requester_user_id}: query='{query}', limit={limit}, "
+                f"offset={offset}, count_only={count_only}"
+            )
+            # Build base query with eager loading
+            stmt = (
+                select(User)
+                .options(selectinload(User.privacy_preferences))
+                .where(User.is_active.is_(True))
+            )
+            if query:
+                stmt = stmt.where(
+                    or_(
+                        User.username.ilike(f"%{query}%"),
+                        User.full_name.ilike(f"%{query}%"),
+                    )
+                )
+            stmt = stmt.offset(offset).limit(limit)
+            db_result = await self.db.execute(stmt)
+            users = db_result.scalars().all()
+
+            # Count total (without pagination, eager load for consistency)
+            count_stmt = (
+                select(User)
+                .options(selectinload(User.privacy_preferences))
+                .where(User.is_active.is_(True))
+            )
+            if query:
+                count_stmt = count_stmt.where(
+                    or_(
+                        User.username.ilike(f"%{query}%"),
+                        User.full_name.ilike(f"%{query}%"),
+                    )
+                )
+            count_result = await self.db.execute(count_stmt)
+            total_count = len(count_result.scalars().unique().all())
+
+            # Privacy check
+            privacy_checker = PrivacyChecker(self.db)
+            visible_users = []
+            for user in users:
+                if await privacy_checker.check_access(user, requester_user_id):
+                    visible_users.append(user)
+
+            results = [
+                UserSearchResult(
+                    user_id=user.user_id,
+                    username=user.username,
+                    full_name=user.full_name,
+                    is_active=user.is_active,
+                    created_at=user.created_at,
+                    updated_at=user.updated_at,
+                )
+                for user in visible_users
+            ]
+            if count_only:
+                _log.info(
+                    f"User search by {requester_user_id}: count_only requested, "
+                    f"returning only total_count={total_count}"
+                )
+                return UserSearchResponse(
+                    results=[], total_count=total_count, limit=limit, offset=offset
+                )
+            _log.info(
+                f"User search by {requester_user_id}: returned {len(results)} of "
+                f"{total_count} total"
+            )
+            return UserSearchResponse(
+                results=results, total_count=total_count, limit=limit, offset=offset
+            )
+        except DatabaseError as e:
+            _log.error(f"Database error during user search: {e}")
             raise HTTPException(
                 status_code=e.status_code,
                 detail=str(e),

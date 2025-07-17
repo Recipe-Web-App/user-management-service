@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from app.api.v1.schemas.response.admin.redis_session_stats_response import (
     RedisSessionStatsResponse,
 )
+from app.api.v1.schemas.response.admin.user_stats_response import UserStatsResponse
 from app.api.v1.schemas.response.error_response import ErrorResponse
 from app.db.redis.redis_database_manager import get_redis_session
 from app.db.redis.redis_database_session import RedisDatabaseSession
@@ -41,7 +42,7 @@ async def get_admin_service(
 
 
 @router.get(
-    "/user-management/admin/redis/session-stats",
+    "/user-management/admin/redis/sessions/stats",
     tags=["admin"],
     summary="Get Redis session stats",
     description="Return Redis session statistics.",
@@ -90,9 +91,20 @@ async def get_redis_session_stats(
     tags=["admin"],
     summary="Get user statistics",
     description="Return user statistics.",
-    response_model=dict,
+    response_model=UserStatsResponse,
     responses={
-        HTTPStatus.OK: {"model": dict, "description": "User stats returned."},
+        HTTPStatus.OK: {
+            "model": UserStatsResponse,
+            "description": "User stats returned.",
+        },
+        HTTPStatus.UNAUTHORIZED: {
+            "model": ErrorResponse,
+            "description": "Invalid or missing authorization token.",
+        },
+        HTTPStatus.FORBIDDEN: {
+            "model": ErrorResponse,
+            "description": "Admin privileges required.",
+        },
         HTTPStatus.INTERNAL_SERVER_ERROR: {
             "model": ErrorResponse,
             "description": "Internal server error.",
@@ -102,7 +114,7 @@ async def get_redis_session_stats(
 async def get_user_stats(
     user_id: Annotated[str, Depends(get_current_user_id)],
     admin_service: Annotated[AdminService, Depends(get_admin_service)],
-) -> JSONResponse:
+) -> UserStatsResponse:
     """Get user statistics.
 
     Args:
@@ -110,9 +122,9 @@ async def get_user_stats(
         admin_service: Admin service instance
 
     Returns:
-        JSONResponse: User stats
+        UserStatsResponse: User statistics
     """
-    return JSONResponse(await admin_service.get_user_stats(user_id))
+    return await admin_service.get_user_stats(user_id)
 
 
 @router.get(

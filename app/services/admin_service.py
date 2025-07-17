@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from app.api.v1.schemas.response.admin.redis_session_stats_response import (
     RedisSessionStatsResponse,
 )
+from app.api.v1.schemas.response.admin.user_stats_response import UserStatsResponse
 from app.db.redis.redis_database_session import RedisDatabaseSession
 from app.db.sql.sql_database_session import SqlDatabaseSession
 from app.enums.user_role_enum import UserRoleEnum
@@ -43,21 +44,33 @@ class AdminService:
         await self._ensure_admin(admin_user_id)
         return await self.redis.get_session_stats()
 
-    async def get_user_stats(self, admin_user_id: str | UUID) -> dict:
-        """Return user statistics (dummy data).
+    async def get_user_stats(self, admin_user_id: str | UUID) -> UserStatsResponse:
+        """Return user statistics.
 
         Args:
             admin_user_id: The admin user's ID (for admin check)
         Returns:
-            dict: User stats
+            UserStatsResponse: User statistics
         """
         await self._ensure_admin(admin_user_id)
-        return {
-            "total_users": 10000,
-            "active_users": 9000,
-            "recently_registered": 50,
-            "deactivated_users": 100,
-        }
+
+        # Get user statistics from database
+        user_stats = await self.db.get_user_statistics()
+        users_online = await self.db.get_users_online_count()
+        retention_rate = await self.db.get_user_retention_rate()
+        avg_registration_rate = await self.db.get_average_registration_rate()
+
+        return UserStatsResponse(
+            total_users=user_stats["total_users"],
+            active_users=user_stats["active_users"],
+            recently_registered=user_stats["recently_registered"],
+            deactivated_users=user_stats["deactivated_users"],
+            verified_users=user_stats["verified_users"],
+            admin_users=user_stats["admin_users"],
+            users_online=users_online,
+            average_registration_rate=avg_registration_rate,
+            user_retention_rate=retention_rate,
+        )
 
     async def get_system_health(self, admin_user_id: str | UUID) -> dict:
         """Return system health status (dummy data).

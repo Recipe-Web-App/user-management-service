@@ -1,6 +1,7 @@
 """Admin routes.
 
-Provides endpoints for admin operations.
+Provides endpoints for admin operations with comprehensive logging, error handling, and
+security.
 """
 
 from http import HTTPStatus
@@ -8,13 +9,20 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path
-from fastapi.responses import JSONResponse
 
+from app.api.v1.schemas.response.admin.clear_sessions_response import (
+    ClearSessionsResponse,
+)
+from app.api.v1.schemas.response.admin.force_logout_response import ForceLogoutResponse
 from app.api.v1.schemas.response.admin.redis_session_stats_response import (
     RedisSessionStatsResponse,
 )
+from app.api.v1.schemas.response.admin.system_health_response import (
+    SystemHealthResponse,
+)
 from app.api.v1.schemas.response.admin.user_stats_response import UserStatsResponse
 from app.api.v1.schemas.response.error_response import ErrorResponse
+from app.core.logging import get_logger
 from app.db.redis.redis_database_manager import get_redis_session
 from app.db.redis.redis_database_session import RedisDatabaseSession
 from app.db.sql.sql_database_manager import get_db
@@ -22,6 +30,7 @@ from app.db.sql.sql_database_session import SqlDatabaseSession
 from app.middleware.auth_middleware import get_current_user_id
 from app.services.admin_service import AdminService
 
+_log = get_logger(__name__)
 router = APIRouter()
 
 
@@ -42,7 +51,7 @@ async def get_admin_service(
 
 
 @router.get(
-    "/user-management/admin/redis/sessions/stats",
+    "/user-management/admin/redis/session-stats",
     tags=["admin"],
     summary="Get Redis session stats",
     description="Return Redis session statistics.",
@@ -132,9 +141,20 @@ async def get_user_stats(
     tags=["admin"],
     summary="System health check",
     description="Return system health status.",
-    response_model=dict,
+    response_model=SystemHealthResponse,
     responses={
-        HTTPStatus.OK: {"model": dict, "description": "System health returned."},
+        HTTPStatus.OK: {
+            "model": SystemHealthResponse,
+            "description": "System health returned.",
+        },
+        HTTPStatus.UNAUTHORIZED: {
+            "model": ErrorResponse,
+            "description": "Invalid or missing authorization token.",
+        },
+        HTTPStatus.FORBIDDEN: {
+            "model": ErrorResponse,
+            "description": "Admin privileges required.",
+        },
         HTTPStatus.INTERNAL_SERVER_ERROR: {
             "model": ErrorResponse,
             "description": "Internal server error.",
@@ -144,7 +164,7 @@ async def get_user_stats(
 async def get_system_health(
     user_id: Annotated[str, Depends(get_current_user_id)],
     admin_service: Annotated[AdminService, Depends(get_admin_service)],
-) -> JSONResponse:
+) -> SystemHealthResponse:
     """Get system health status.
 
     Args:
@@ -152,39 +172,9 @@ async def get_system_health(
         admin_service: Admin service instance
 
     Returns:
-        JSONResponse: System health
+        SystemHealthResponse: System health
     """
-    return JSONResponse(await admin_service.get_system_health(user_id))
-
-
-@router.get(
-    "/user-management/admin/activity/recent-logins",
-    tags=["admin"],
-    summary="Recent user logins",
-    description="Return recent user logins.",
-    response_model=dict,
-    responses={
-        HTTPStatus.OK: {"model": dict, "description": "Recent logins returned."},
-        HTTPStatus.INTERNAL_SERVER_ERROR: {
-            "model": ErrorResponse,
-            "description": "Internal server error.",
-        },
-    },
-)
-async def get_recent_logins(
-    user_id: Annotated[str, Depends(get_current_user_id)],
-    admin_service: Annotated[AdminService, Depends(get_admin_service)],
-) -> JSONResponse:
-    """Get recent user logins.
-
-    Args:
-        user_id: The user ID from JWT (authorization)
-        admin_service: Admin service instance
-
-    Returns:
-        JSONResponse: Recent logins
-    """
-    return JSONResponse(await admin_service.get_recent_logins(user_id))
+    return await admin_service.get_system_health(user_id)
 
 
 @router.post(
@@ -192,10 +182,28 @@ async def get_recent_logins(
     tags=["admin"],
     summary="Force logout user",
     description="Force logout a user.",
-    response_model=dict,
+    response_model=ForceLogoutResponse,
     responses={
-        HTTPStatus.OK: {"model": dict, "description": "User force-logout triggered."},
-        HTTPStatus.BAD_REQUEST: {"model": ErrorResponse, "description": "Bad request."},
+        HTTPStatus.OK: {
+            "model": ForceLogoutResponse,
+            "description": "User force-logout triggered.",
+        },
+        HTTPStatus.BAD_REQUEST: {
+            "model": ErrorResponse,
+            "description": "Bad request.",
+        },
+        HTTPStatus.NOT_FOUND: {
+            "model": ErrorResponse,
+            "description": "Target user not found.",
+        },
+        HTTPStatus.UNAUTHORIZED: {
+            "model": ErrorResponse,
+            "description": "Invalid or missing authorization token.",
+        },
+        HTTPStatus.FORBIDDEN: {
+            "model": ErrorResponse,
+            "description": "Admin privileges required.",
+        },
         HTTPStatus.INTERNAL_SERVER_ERROR: {
             "model": ErrorResponse,
             "description": "Internal server error.",
@@ -206,7 +214,7 @@ async def force_logout_user(
     user_id: Annotated[UUID, Path(description="User ID")],
     admin_user_id: Annotated[str, Depends(get_current_user_id)],
     admin_service: Annotated[AdminService, Depends(get_admin_service)],
-) -> JSONResponse:
+) -> ForceLogoutResponse:
     """Force logout a user.
 
     Args:
@@ -215,9 +223,9 @@ async def force_logout_user(
         admin_service: Admin service instance
 
     Returns:
-        JSONResponse: Force logout result
+        ForceLogoutResponse: Force logout result
     """
-    return JSONResponse(await admin_service.force_logout_user(admin_user_id, user_id))
+    return await admin_service.force_logout_user(admin_user_id, user_id)
 
 
 @router.delete(
@@ -225,9 +233,20 @@ async def force_logout_user(
     tags=["admin"],
     summary="Clear all Redis sessions",
     description="Clear all Redis sessions.",
-    response_model=dict,
+    response_model=ClearSessionsResponse,
     responses={
-        HTTPStatus.OK: {"model": dict, "description": "All sessions cleared."},
+        HTTPStatus.OK: {
+            "model": ClearSessionsResponse,
+            "description": "All sessions cleared.",
+        },
+        HTTPStatus.UNAUTHORIZED: {
+            "model": ErrorResponse,
+            "description": "Invalid or missing authorization token.",
+        },
+        HTTPStatus.FORBIDDEN: {
+            "model": ErrorResponse,
+            "description": "Admin privileges required.",
+        },
         HTTPStatus.INTERNAL_SERVER_ERROR: {
             "model": ErrorResponse,
             "description": "Internal server error.",
@@ -237,7 +256,7 @@ async def force_logout_user(
 async def clear_redis_sessions(
     user_id: Annotated[str, Depends(get_current_user_id)],
     admin_service: Annotated[AdminService, Depends(get_admin_service)],
-) -> JSONResponse:
+) -> ClearSessionsResponse:
     """Clear all Redis sessions.
 
     Args:
@@ -245,6 +264,6 @@ async def clear_redis_sessions(
         admin_service: Admin service instance
 
     Returns:
-        JSONResponse: Clear sessions result
+        ClearSessionsResponse: Clear sessions result
     """
-    return JSONResponse(await admin_service.clear_redis_sessions(user_id))
+    return await admin_service.clear_redis_sessions(user_id)

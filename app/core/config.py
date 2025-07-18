@@ -5,6 +5,7 @@ including environment-specific and default configurations.
 """
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -93,6 +94,9 @@ class _Settings(BaseSettings):
     REDIS_PORT: int = Field(..., alias="REDIS_PORT")
     REDIS_PASSWORD: str = Field(..., alias="REDIS_PASSWORD")
     REDIS_DB: int = Field(..., alias="REDIS_DB")
+
+    # State Configuration
+    _STARTUP_TIME: datetime = PrivateAttr(default_factory=lambda: datetime.now(UTC))
 
     LOGGING_CONFIG_PATH: str = Field(
         str(
@@ -231,6 +235,11 @@ class _Settings(BaseSettings):
             ),
             None,
         )
+
+    @property
+    def startup_time(self) -> datetime:
+        """Get the startup time."""
+        return self._STARTUP_TIME
 
 
 settings = _Settings()

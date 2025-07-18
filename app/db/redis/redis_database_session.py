@@ -458,3 +458,46 @@ class RedisDatabaseSession:
         """Delete the deletion confirmation token for a user."""
         key = f"{self.deletion_token_prefix}{user_id}"
         await self.redis.delete(key)
+
+    async def clear_all_sessions(self) -> int:
+        """Clear all Redis sessions.
+
+        Returns:
+            int: Number of sessions cleared
+
+        Raises:
+            redis.ConnectionError: If Redis connection fails
+        """
+        try:
+            # Get all session keys
+            session_keys = await self.redis.keys(f"{self.session_prefix}*")
+            user_session_keys = await self.redis.keys(f"{self.user_sessions_prefix}*")
+
+            total_keys = len(session_keys) + len(user_session_keys)
+
+            if total_keys == 0:
+                _log.info("No sessions to clear")
+                return 0
+
+            # Clear all session data
+            if session_keys:
+                await self.redis.delete(*session_keys)
+
+            # Clear all user session lists
+            if user_session_keys:
+                await self.redis.delete(*user_session_keys)
+
+            # Clear the cleanup sorted set
+            await self.redis.delete(self.session_cleanup_key)
+
+            _log.info(f"Cleared {total_keys} session-related keys from Redis")
+        except redis.ConnectionError as e:
+            _log.error(f"Redis connection error while clearing all sessions: {e}")
+            raise redis.ConnectionError(
+                "Failed to clear sessions: Redis service unavailable"
+            ) from e
+        except Exception as e:
+            _log.error(f"Error clearing all sessions: {e}")
+            raise
+        else:
+            return total_keys

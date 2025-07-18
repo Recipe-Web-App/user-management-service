@@ -5,6 +5,9 @@ from typing import Any
 
 import redis.asyncio as redis
 
+from app.api.v1.schemas.response.admin.redis_session_stats_response import (
+    RedisSessionStatsResponse,
+)
 from app.core.logging import get_logger
 from app.db.redis.models.session_data import SessionData
 
@@ -338,27 +341,61 @@ class RedisDatabaseSession:
             _log.error(f"Error getting TTL for session {session_id}: {e}")
             return -1
 
-    async def get_session_stats(self) -> dict[str, Any]:
-        """Get session statistics.
+    async def get_session_stats(self) -> RedisSessionStatsResponse:
+        """Get comprehensive session and Redis statistics.
 
         Returns:
-            Dict[str, Any]: Session statistics
-
+            RedisSessionStatsResponse: All session and Redis stats
         Raises:
             redis.ConnectionError: If Redis connection fails
         """
         try:
+            # Session stats from sorted set
             total_sessions = await self.redis.zcard(self.session_cleanup_key)
             current_time = datetime.now(UTC).timestamp()
             active_sessions = await self.redis.zcount(
                 self.session_cleanup_key, current_time, "+inf"
             )
+            expired_sessions = total_sessions - active_sessions
 
-            return {
-                "total_sessions": total_sessions,
-                "active_sessions": active_sessions,
-                "expired_sessions": total_sessions - active_sessions,
-            }
+            # Redis memory and key stats
+            info = await self.redis.info()
+            memory_usage_bytes = info.get("used_memory", 0)
+            memory_usage_mb = round(memory_usage_bytes / (1024 * 1024), 2)
+            key_count = await self.redis.dbsize()
+
+            # Session key count
+            session_keys = await self.redis.keys(f"{self.session_prefix}*")
+            session_key_count = len(session_keys)
+
+            # TTL stats for session keys
+            ttls = []
+            for key in session_keys:
+                ttl = await self.redis.ttl(key)
+                if ttl and ttl > 0:
+                    ttls.append(ttl)
+            session_ttl_min = min(ttls) if ttls else None
+            session_ttl_max = max(ttls) if ttls else None
+            session_ttl_avg = round(sum(ttls) / len(ttls), 2) if ttls else None
+
+            # Redis server info
+            redis_uptime_seconds = info.get("uptime_in_seconds", 0)
+            redis_version = info.get("redis_version", "unknown")
+
+            return RedisSessionStatsResponse(
+                total_sessions=total_sessions,
+                active_sessions=active_sessions,
+                expired_sessions=expired_sessions,
+                memory_usage_bytes=memory_usage_bytes,
+                memory_usage_mb=memory_usage_mb,
+                key_count=key_count,
+                session_key_count=session_key_count,
+                session_ttl_min=session_ttl_min,
+                session_ttl_max=session_ttl_max,
+                session_ttl_avg=session_ttl_avg,
+                redis_uptime_seconds=redis_uptime_seconds,
+                redis_version=redis_version,
+            )
         except redis.ConnectionError as e:
             _log.error(f"Redis connection error while getting session stats: {e}")
             raise redis.ConnectionError(
@@ -366,11 +403,20 @@ class RedisDatabaseSession:
             ) from e
         except Exception as e:
             _log.error(f"Error getting session stats: {e}")
-            return {
-                "total_sessions": 0,
-                "active_sessions": 0,
-                "expired_sessions": 0,
-            }
+            return RedisSessionStatsResponse(
+                total_sessions=0,
+                active_sessions=0,
+                expired_sessions=0,
+                memory_usage_bytes=0,
+                memory_usage_mb=0.0,
+                key_count=0,
+                session_key_count=0,
+                session_ttl_min=None,
+                session_ttl_max=None,
+                session_ttl_avg=None,
+                redis_uptime_seconds=0,
+                redis_version="unknown",
+            )
 
     async def ping(self) -> bool:
         """Test Redis connection.
@@ -412,3 +458,46 @@ class RedisDatabaseSession:
         """Delete the deletion confirmation token for a user."""
         key = f"{self.deletion_token_prefix}{user_id}"
         await self.redis.delete(key)
+
+    async def clear_all_sessions(self) -> int:
+        """Clear all Redis sessions.
+
+        Returns:
+            int: Number of sessions cleared
+
+        Raises:
+            redis.ConnectionError: If Redis connection fails
+        """
+        try:
+            # Get all session keys
+            session_keys = await self.redis.keys(f"{self.session_prefix}*")
+            user_session_keys = await self.redis.keys(f"{self.user_sessions_prefix}*")
+
+            total_keys = len(session_keys) + len(user_session_keys)
+
+            if total_keys == 0:
+                _log.info("No sessions to clear")
+                return 0
+
+            # Clear all session data
+            if session_keys:
+                await self.redis.delete(*session_keys)
+
+            # Clear all user session lists
+            if user_session_keys:
+                await self.redis.delete(*user_session_keys)
+
+            # Clear the cleanup sorted set
+            await self.redis.delete(self.session_cleanup_key)
+
+            _log.info(f"Cleared {total_keys} session-related keys from Redis")
+        except redis.ConnectionError as e:
+            _log.error(f"Redis connection error while clearing all sessions: {e}")
+            raise redis.ConnectionError(
+                "Failed to clear sessions: Redis service unavailable"
+            ) from e
+        except Exception as e:
+            _log.error(f"Error clearing all sessions: {e}")
+            raise
+        else:
+            return total_keys

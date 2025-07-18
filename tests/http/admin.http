@@ -1,0 +1,36 @@
+### Admin Endpoints Test Suite
+
+### 1. Get Redis Session Stats
+GET http://user-management.local/api/v1/user-management/admin/redis/session-stats
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+###
+
+### 2. Get User Statistics
+GET http://user-management.local/api/v1/user-management/admin/users/stats
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+###
+
+### 3. Get System Health
+GET http://user-management.local/api/v1/user-management/admin/health
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+###
+
+### 4. Force Logout User (replace userId with a real user UUID)
+POST http://user-management.local/api/v1/user-management/admin/users/{{userId}}/force-logout
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+###
+
+### 5. Clear All Redis Sessions
+DELETE http://user-management.local/api/v1/user-management/admin/redis/sessions
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+###

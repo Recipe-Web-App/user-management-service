@@ -1,15 +1,17 @@
 """Custom SQL database session with common query methods."""
 
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import DisconnectionError, OperationalError
 from sqlalchemy.exc import TimeoutError as SQLTimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.db.sql.models.user.user import User
+from app.enums.user_role_enum import UserRoleEnum
 from app.exceptions.custom_exceptions.database_exceptions import DatabaseError
 
 _log = get_logger(__name__)
@@ -252,3 +254,119 @@ class SqlDatabaseSession(AsyncSession):
             raise
         else:
             return user
+
+    async def get_user_statistics(self) -> dict[str, int]:
+        """Get comprehensive user statistics.
+
+        Returns:
+            dict[str, int]: Dictionary containing various user statistics
+
+        Raises:
+            DatabaseError: Classified database error with appropriate status code
+        """
+        try:
+            # Total users
+            total_result = await self.execute(select(func.count(User.user_id)))
+            total_users = total_result.scalar() or 0
+
+            # Active users
+            active_result = await self.execute(
+                select(func.count(User.user_id)).where(User.is_active.is_(True))
+            )
+            active_users = active_result.scalar() or 0
+
+            # Deactivated users
+            deactivated_result = await self.execute(
+                select(func.count(User.user_id)).where(User.is_active.is_(False))
+            )
+            deactivated_users = deactivated_result.scalar() or 0
+
+            # Admin users
+            admin_result = await self.execute(
+                select(func.count(User.user_id)).where(User.role == UserRoleEnum.ADMIN)
+            )
+            admin_users = admin_result.scalar() or 0
+
+            # Recently registered users (last 30 days)
+            thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
+            recent_result = await self.execute(
+                select(func.count(User.user_id)).where(
+                    User.created_at >= thirty_days_ago
+                )
+            )
+            recently_registered = recent_result.scalar() or 0
+
+            # Users with verified email (have email and are active)
+            verified_result = await self.execute(
+                select(func.count(User.user_id)).where(
+                    User.email.isnot(None), User.is_active.is_(True)
+                )
+            )
+            verified_users = verified_result.scalar() or 0
+        except Exception as e:
+            await self._handle_database_error("get_user_statistics", e)
+            raise
+        else:
+            return {
+                "total_users": total_users,
+                "active_users": active_users,
+                "deactivated_users": deactivated_users,
+                "admin_users": admin_users,
+                "recently_registered": recently_registered,
+                "verified_users": verified_users,
+            }
+
+    async def get_users_online_count(self) -> int:
+        """Get count of users currently online (with active sessions).
+
+        Returns:
+            int: Number of users currently online
+
+        Raises:
+            DatabaseError: Classified database error with appropriate status code
+        """
+        try:
+            # This is a simplified implementation
+            # In a real application, you would check active sessions in Redis
+            # For now, we'll return active users as a proxy for online users
+            result = await self.execute(
+                select(func.count(User.user_id)).where(User.is_active.is_(True))
+            )
+            return result.scalar() or 0
+        except Exception as e:
+            await self._handle_database_error("get_users_online_count", e)
+            raise
+
+    async def get_user_retention_rate(self) -> float:
+        """Calculate user retention rate based on active vs total users.
+
+        Returns:
+            float: User retention rate as percentage
+
+        Raises:
+            DatabaseError: Classified database error with appropriate status code
+        """
+        try:
+            stats = await self.get_user_statistics()
+            if stats["total_users"] == 0:
+                return 0.0
+            return round((stats["active_users"] / stats["total_users"]) * 100, 1)
+        except Exception as e:
+            await self._handle_database_error("get_user_retention_rate", e)
+            raise
+
+    async def get_average_registration_rate(self) -> float:
+        """Calculate average daily user registrations over the last 30 days.
+
+        Returns:
+            float: Average daily registrations
+
+        Raises:
+            DatabaseError: Classified database error with appropriate status code
+        """
+        try:
+            stats = await self.get_user_statistics()
+            return round(stats["recently_registered"] / 30, 1)
+        except Exception as e:
+            await self._handle_database_error("get_average_registration_rate", e)
+            raise

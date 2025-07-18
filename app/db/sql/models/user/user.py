@@ -3,11 +3,13 @@
 from uuid import uuid4
 
 from sqlalchemy import Boolean, Column, DateTime, String, Text
+from sqlalchemy.dialects.postgresql import ENUM as SAEnum  # noqa: N811
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from app.db.sql.models.base_sql_model import BaseSqlModel
+from app.enums.user_role_enum import UserRoleEnum
 from app.utils.security import SecurePasswordHash, SensitiveData
 
 
@@ -34,6 +36,18 @@ class User(BaseSqlModel):
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
+    )
+    role: Mapped[str] = mapped_column(
+        SAEnum(
+            UserRoleEnum,
+            name="user_role_enum",
+            schema="recipe_manager",
+            create_constraint=False,
+        ),
+        nullable=False,
+        default=UserRoleEnum.USER,
+        server_default=UserRoleEnum.USER.value,
+        doc="Role of the user: ADMIN or USER.",
     )
 
     notifications = relationship("Notification", back_populates="user")

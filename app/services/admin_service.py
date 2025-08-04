@@ -22,7 +22,7 @@ from app.core.logging import get_logger
 from app.db.redis.redis_database_session import RedisDatabaseSession
 from app.db.sql.sql_database_session import SqlDatabaseSession
 from app.enums.environment_enum import EnvironmentEnum
-from app.enums.user_role_enum import UserRoleEnum
+from app.enums.user_role import UserRole
 from app.exceptions.custom_exceptions.database_exceptions import DatabaseError
 
 _log = get_logger(__name__)
@@ -57,7 +57,7 @@ class AdminService:
                     detail="Admin privileges required.",
                 )
 
-            if user.role != UserRoleEnum.ADMIN:
+            if user.role != UserRole.ADMIN:
                 _log.warning(
                     f"Admin check failed: User {user_id_str} has role {user.role}"
                 )
@@ -81,6 +81,7 @@ class AdminService:
 
         Args:
             admin_user_id: The admin user's ID (for admin check)
+
         Returns:
             RedisSessionStatsResponse: Redis session stats
         """
@@ -106,6 +107,7 @@ class AdminService:
 
         Args:
             admin_user_id: The admin user's ID (for admin check)
+
         Returns:
             UserStatsResponse: User statistics
         """
@@ -152,6 +154,7 @@ class AdminService:
 
         Args:
             admin_user_id: The admin user's ID (for admin check)
+
         Returns:
             SystemHealthResponse: System health status
         """
@@ -271,6 +274,7 @@ class AdminService:
 
         Args:
             admin_user_id: The admin user's ID (for admin check)
+
         Returns:
             ClearSessionsResponse: Clear sessions result
         """

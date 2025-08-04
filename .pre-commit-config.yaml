@@ -1,19 +1,65 @@
+---
 repos:
+  # Basic file quality checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: debug-statements
+      - id: check-merge-conflict
+      - id: check-added-large-files
+
+  # Modern Python syntax upgrades
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.20.0
+    hooks:
+      - id: pyupgrade
+        args: ["--py311-plus"]
+        language_version: python3.11
+
+  # Remove unused imports
+  - repo: https://github.com/hadialqattan/pycln
+    rev: v2.5.0
+    hooks:
+      - id: pycln
+        args: ["--all"]
+        language_version: python3.11
+
+  # Import sorting (keep before black)
+  - repo: https://github.com/pycqa/isort
+    rev: 6.0.1
+    hooks:
+      - id: isort
+        language_version: python3.11
+
+  # Code formatting
   - repo: https://github.com/psf/black
     rev: 25.1.0
     hooks:
       - id: black
         language_version: python3.11
 
+  # Linting and code quality (run after black)
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.2
+    rev: v0.12.7
     hooks:
-      - id: ruff
+      - id: ruff-check
         args: ["--fix"]
         language_version: python3.11
 
+  # Code modernization and best practices
+  - repo: https://github.com/dosisod/refurb
+    rev: v2.1.0
+    hooks:
+      - id: refurb
+        language_version: python3.11
+
+  # Type checking
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.16.1
+    rev: v1.17.1
     hooks:
       - id: mypy
         language_version: python3.11
@@ -31,39 +77,59 @@ repos:
           - asyncpg
           - sqlalchemy[asyncio]
           - email-validator
+          - redis[hiredis]
+          - pytest
+          - pytest-asyncio
+          - httpx
 
-  - repo: https://github.com/myint/docformatter
-    rev: v1.7.7
+  # Documentation formatting
+  - repo: https://github.com/PyCQA/docformatter
+    rev: v1.7.8-rc1
     hooks:
       - id: docformatter
         args:
           ["--in-place", "--wrap-summaries", "88", "--wrap-descriptions", "88"]
+        language_version: python3.11
 
+  # Documentation style checking
   - repo: https://github.com/PyCQA/pydocstyle
     rev: 6.3.0
     hooks:
       - id: pydocstyle
-
-  - repo: https://github.com/pre-commit/mirrors-isort
-    rev: v5.10.1
-    hooks:
-      - id: isort
         language_version: python3.11
 
+  # Security scanning
   - repo: https://github.com/PyCQA/bandit
     rev: 1.8.6
     hooks:
       - id: bandit
-        args: ["-r", "app"]
+        args: ["-ll"]
+        language_version: python3.11
 
+  # Dead code detection
   - repo: https://github.com/jendrikseipp/vulture
     rev: v2.14
     hooks:
       - id: vulture
         args: ["app", "--min-confidence", "80"]
+        language_version: python3.11
 
+  # Secret scanning
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.28.0
+    hooks:
+      - id: gitleaks
+
+  # Shell script linting
   - repo: https://github.com/shellcheck-py/shellcheck-py
     rev: v0.10.0.1
     hooks:
       - id: shellcheck
         files: ".*\\.sh$"
+
+  # YAML linting
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.37.1
+    hooks:
+      - id: yamllint
+        args: [-c=.yamllint.yml]

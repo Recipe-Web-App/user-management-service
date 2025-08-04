@@ -1,1 +1,0 @@
-"""Preference response schemas package."""

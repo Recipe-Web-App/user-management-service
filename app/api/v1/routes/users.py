@@ -13,6 +13,9 @@ from fastapi.responses import JSONResponse
 from app.api.v1.schemas.request.user.user_account_delete_request import (
     UserAccountDeleteRequest,
 )
+from app.api.v1.schemas.request.user.user_confirm_account_delete_response import (
+    UserConfirmAccountDeleteResponse,
+)
 from app.api.v1.schemas.request.user.user_profile_update_request import (
     UserProfileUpdateRequest,
 )
@@ -22,22 +25,10 @@ from app.api.v1.schemas.response.user.user_account_delete_response import (
 )
 from app.api.v1.schemas.response.user.user_profile_response import UserProfileResponse
 from app.api.v1.schemas.response.user.user_search_response import UserSearchResponse
-from app.db.redis.redis_database_manager import get_redis_session
-from app.db.redis.redis_database_session import RedisDatabaseSession
-from app.db.sql.sql_database_manager import get_db
-from app.db.sql.sql_database_session import SqlDatabaseSession
+from app.deps.services import UserServiceDep
 from app.middleware.auth_middleware import get_current_user_id
-from app.services.user_service import UserService
 
 router = APIRouter()
-
-
-async def get_user_service(
-    db: Annotated[SqlDatabaseSession, Depends(get_db)],
-    redis_session: Annotated[RedisDatabaseSession, Depends(get_redis_session)],
-) -> UserService:
-    """Get user service instance with SQL and Redis sessions."""
-    return UserService(db, redis_session)
 
 
 @router.get(
@@ -84,7 +75,7 @@ async def get_user_service(
 async def get_profile(
     user_id: Annotated[UUID, Path(description="User ID")],
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
-    user_service: Annotated[UserService, Depends(get_user_service)],
+    user_service: UserServiceDep,
 ) -> UserProfileResponse:
     """Get user profile.
 
@@ -145,7 +136,7 @@ async def get_profile(
 async def update_profile(
     update_data: UserProfileUpdateRequest,
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
-    user_service: Annotated[UserService, Depends(get_user_service)],
+    user_service: UserServiceDep,
 ) -> UserProfileResponse:
     """Update user profile.
 
@@ -201,7 +192,7 @@ async def update_profile(
 )
 async def request_account_deletion(
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
-    user_service: Annotated[UserService, Depends(get_user_service)],
+    user_service: UserServiceDep,
 ) -> UserAccountDeleteRequestResponse:
     """Request account deletion.
 
@@ -225,10 +216,10 @@ async def request_account_deletion(
     tags=["users"],
     summary="Confirm account deletion",
     description="Confirm account deletion using the confirmation token",
-    response_model=dict,
+    response_model=UserConfirmAccountDeleteResponse,
     responses={
         HTTPStatus.OK: {
-            "model": dict,
+            "model": UserConfirmAccountDeleteResponse,
             "description": "Account successfully deactivated",
         },
         HTTPStatus.BAD_REQUEST: {
@@ -256,8 +247,8 @@ async def request_account_deletion(
 async def confirm_account_deletion(
     delete_request: UserAccountDeleteRequest,
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
-    user_service: Annotated[UserService, Depends(get_user_service)],
-) -> dict:
+    user_service: UserServiceDep,
+) -> UserConfirmAccountDeleteResponse:
     """Confirm account deletion.
 
     Args:
@@ -308,7 +299,7 @@ async def confirm_account_deletion(
 )
 async def search_users(  # noqa: PLR0913
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
-    user_service: Annotated[UserService, Depends(get_user_service)],
+    user_service: UserServiceDep,
     query: Annotated[
         str | None, Query(description="Search query for username or display name")
     ] = None,

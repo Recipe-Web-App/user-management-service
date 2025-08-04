@@ -98,7 +98,7 @@ def configure_logging() -> None:
     log_dir.mkdir(exist_ok=True)
 
     root_logger = logging.getLogger()
-    for handler in root_logger.handlers[:]:
+    for handler in root_logger.handlers.copy():
         root_logger.removeHandler(handler)
 
     # Do NOT add RequestIdFilter to root_logger itself

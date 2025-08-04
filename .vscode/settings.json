@@ -71,5 +71,5 @@
     "zcount",
     "zrangebyscore",
     "zrem"
-  ],
+  ]
 }

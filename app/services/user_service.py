@@ -11,6 +11,9 @@ from sqlalchemy.orm import selectinload
 from app.api.v1.schemas.request.user.user_account_delete_request import (
     UserAccountDeleteRequest,
 )
+from app.api.v1.schemas.request.user.user_confirm_account_delete_response import (
+    UserConfirmAccountDeleteResponse,
+)
 from app.api.v1.schemas.request.user.user_profile_update_request import (
     UserProfileUpdateRequest,
 )
@@ -299,7 +302,7 @@ class UserService:
 
     async def confirm_account_deletion(
         self, user_id: UUID, delete_request: UserAccountDeleteRequest
-    ) -> dict:
+    ) -> UserConfirmAccountDeleteResponse:
         """Confirm account deletion and deactivate the user.
 
         Args:
@@ -373,11 +376,10 @@ class UserService:
 
             _log.info(f"Account successfully deactivated for user: {user_id}")
 
-            return {
-                "user_id": str(user.user_id),
-                "deactivated_at": datetime.now(UTC),
-            }
-
+            return UserConfirmAccountDeleteResponse(
+                user_id=user.user_id,
+                deactivated_at=datetime.now(UTC),
+            )
         except DatabaseError as e:
             _log.error(f"Database error confirming account deletion: {e}")
             raise HTTPException(
@@ -445,10 +447,11 @@ class UserService:
 
             # Privacy check
             privacy_checker = PrivacyChecker(self.db)
-            visible_users = []
-            for user in users:
-                if await privacy_checker.check_access(user, requester_user_id):
-                    visible_users.append(user)
+            visible_users = [
+                user
+                for user in users
+                if await privacy_checker.check_access(user, requester_user_id)
+            ]
 
             results = [
                 UserSearchResult(
@@ -482,3 +485,56 @@ class UserService:
                 status_code=e.status_code,
                 detail=str(e),
             ) from e
+
+    async def get_user_by_id(self, user_id: str) -> User | None:
+        """Get user by ID.
+
+        Args:
+            user_id: The user's unique identifier as string
+
+        Returns:
+            User | None: User object if found, None otherwise
+        """
+        try:
+            user_uuid = UUID(user_id)
+            stmt = select(User).where(User.user_id == user_uuid)
+            result = await self.db.execute(stmt)
+            return result.scalar_one_or_none()
+        except (ValueError, DatabaseError) as e:
+            _log.error(f"Error getting user by ID {user_id}: {e}")
+            return None
+
+    async def can_view_profile(
+        self, requester_user_id: UUID, target_user_id: str
+    ) -> bool:
+        """Check if requester can view target user's profile.
+
+        Args:
+            requester_user_id: The user making the request
+            target_user_id: The target user's ID as string
+
+        Returns:
+            bool: True if access is allowed, False otherwise
+        """
+        target_user = await self.get_user_by_id(target_user_id)
+        if not target_user:
+            return False
+        return await self.privacy_checker.check_access(target_user, requester_user_id)
+
+    async def can_social_interact(
+        self, requester_user_id: UUID, target_user_id: str
+    ) -> bool:
+        """Check if requester can socially interact with target user.
+
+        Args:
+            requester_user_id: The user making the request
+            target_user_id: The target user's ID as string
+
+        Returns:
+            bool: True if interaction is allowed, False otherwise
+        """
+        target_user = await self.get_user_by_id(target_user_id)
+        if not target_user:
+            return False
+        # For now, use the same privacy check - can be extended later
+        return await self.privacy_checker.check_access(target_user, requester_user_id)

@@ -34,26 +34,10 @@ from app.api.v1.schemas.response.notification.notification_read_response import 
 from app.api.v1.schemas.response.preference.user_preference_response import (
     UserPreferenceResponse,
 )
-from app.db.sql.sql_database_manager import get_db
-from app.db.sql.sql_database_session import SqlDatabaseSession
+from app.deps.services import NotificationServiceDep
 from app.middleware.auth_middleware import get_current_user_id
-from app.services.notification_service import NotificationService
 
 router = APIRouter()
-
-
-async def get_notification_service(
-    db: Annotated[SqlDatabaseSession, Depends(get_db)],
-) -> NotificationService:
-    """Get notification service instance.
-
-    Args:
-        db: Database session
-
-    Returns:
-        NotificationService: Notification service instance
-    """
-    return NotificationService(db)
 
 
 @router.get(
@@ -91,10 +75,7 @@ async def get_notification_service(
 )
 async def get_notifications(
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
-    notification_service: Annotated[
-        NotificationService,
-        Depends(get_notification_service),
-    ],
+    notification_service: NotificationServiceDep,
     limit: Annotated[
         int, Query(ge=1, le=100, description="Number of results to return")
     ] = 20,
@@ -170,10 +151,7 @@ async def get_notifications(
 async def mark_notification_read(
     notification_id: Annotated[UUID, Path(description="Notification ID")],
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
-    notification_service: Annotated[
-        NotificationService,
-        Depends(get_notification_service),
-    ],
+    notification_service: NotificationServiceDep,
 ) -> NotificationReadResponse:
     """Mark notification as read.
 
@@ -225,10 +203,7 @@ async def mark_notification_read(
 )
 async def mark_all_notifications_read(
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
-    notification_service: Annotated[
-        NotificationService,
-        Depends(get_notification_service),
-    ],
+    notification_service: NotificationServiceDep,
 ) -> NotificationReadAllResponse:
     """Mark all notifications as read.
 
@@ -291,10 +266,7 @@ async def mark_all_notifications_read(
 async def delete_notifications(
     request: NotificationDeleteRequest,
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
-    notification_service: Annotated[
-        NotificationService,
-        Depends(get_notification_service),
-    ],
+    notification_service: NotificationServiceDep,
 ) -> NotificationDeleteResponse | Response:
     """Delete notifications.
 
@@ -359,10 +331,7 @@ async def delete_notifications(
 )
 async def get_notification_preferences(
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
-    notification_service: Annotated[
-        NotificationService,
-        Depends(get_notification_service),
-    ],
+    notification_service: NotificationServiceDep,
 ) -> UserPreferenceResponse:
     """Get notification preferences.
 
@@ -414,10 +383,7 @@ async def get_notification_preferences(
 async def update_notification_preferences(
     preferences: UpdateUserPreferenceRequest,
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
-    notification_service: Annotated[
-        NotificationService,
-        Depends(get_notification_service),
-    ],
+    notification_service: NotificationServiceDep,
 ) -> UserPreferenceResponse:
     """Update notification preferences.
 

@@ -93,11 +93,11 @@ class SocialService:
             following_users = following_result.scalars().all()
 
             # Per-user privacy filtering
-            filtered_users = []
-            for u in following_users:
-                # Check if requester can see this user based on privacy settings
-                if await self.privacy_checker.check_access(u, requester_user_id):
-                    filtered_users.append(u)
+            filtered_users = [
+                u
+                for u in following_users
+                if await self.privacy_checker.check_access(u, requester_user_id)
+            ]
             user_schemas = [
                 UserSchema.model_validate(u).model_copy(update={"email": None})
                 for u in filtered_users
@@ -186,11 +186,11 @@ class SocialService:
             followers = followers_result.scalars().all()
 
             # Per-user privacy filtering
-            filtered_users = []
-            for u in followers:
-                # Check if requester can see this user based on privacy settings
-                if await self.privacy_checker.check_access(u, requester_user_id):
-                    filtered_users.append(u)
+            filtered_users = [
+                u
+                for u in followers
+                if await self.privacy_checker.check_access(u, requester_user_id)
+            ]
             user_schemas = [
                 UserSchema.model_validate(u).model_copy(update={"email": None})
                 for u in filtered_users

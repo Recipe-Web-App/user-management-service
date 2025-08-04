@@ -91,7 +91,7 @@ class BaseSqlModel(DeclarativeBase):
                 return {
                     k: BaseSqlModel._serialize(v, visited)
                     for k, v in vars(obj).items()
-                    if not k.startswith("_sa_instance_state") and not k.startswith("__")
+                    if not k.startswith(("_sa_instance_state", "__"))
                 }
             # Handle UUID, Decimal, datetime, etc.
             if hasattr(obj, "isoformat"):

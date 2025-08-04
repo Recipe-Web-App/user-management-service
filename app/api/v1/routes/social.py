@@ -14,26 +14,10 @@ from app.api.v1.schemas.response.social import FollowResponse, GetFollowedUsersR
 from app.api.v1.schemas.response.user_activity.user_activity_response import (
     UserActivityResponse,
 )
-from app.db.sql.sql_database_manager import get_db
-from app.db.sql.sql_database_session import SqlDatabaseSession
+from app.deps.services import SocialServiceDep
 from app.middleware.auth_middleware import get_current_user_id
-from app.services.social_service import SocialService
 
 router = APIRouter()
-
-
-async def get_social_service(
-    db: Annotated[SqlDatabaseSession, Depends(get_db)],
-) -> SocialService:
-    """Get social service instance.
-
-    Args:
-        db: Database session
-
-    Returns:
-        SocialService: Social service instance
-    """
-    return SocialService(db)
 
 
 @router.get(
@@ -76,10 +60,7 @@ async def get_social_service(
 async def get_followed_users(  # noqa: PLR0913
     user_id: Annotated[UUID, Path(description="User ID")],
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
-    social_service: Annotated[
-        SocialService,
-        Depends(get_social_service),
-    ],
+    social_service: SocialServiceDep,
     limit: Annotated[
         int, Query(ge=1, le=100, description="Number of results to return")
     ] = 20,
@@ -150,10 +131,7 @@ async def get_followed_users(  # noqa: PLR0913
 async def get_followers(  # noqa: PLR0913
     user_id: Annotated[UUID, Path(description="User ID")],
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
-    social_service: Annotated[
-        SocialService,
-        Depends(get_social_service),
-    ],
+    social_service: SocialServiceDep,
     limit: Annotated[
         int, Query(ge=1, le=100, description="Number of results to return")
     ] = 20,
@@ -225,10 +203,7 @@ async def follow_user(
     user_id: Annotated[UUID, Path(description="User ID")],
     target_user_id: Annotated[UUID, Path(description="Target user ID to follow")],
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
-    social_service: Annotated[
-        SocialService,
-        Depends(get_social_service),
-    ],
+    social_service: SocialServiceDep,
 ) -> FollowResponse:
     """Follow user.
 
@@ -287,10 +262,7 @@ async def unfollow_user(
     user_id: Annotated[UUID, Path(description="User ID")],
     target_user_id: Annotated[UUID, Path(description="Target user ID to unfollow")],
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
-    social_service: Annotated[
-        SocialService,
-        Depends(get_social_service),
-    ],
+    social_service: SocialServiceDep,
 ) -> FollowResponse:
     """Unfollow user.
 
@@ -342,10 +314,7 @@ async def unfollow_user(
 async def get_user_activity(
     user_id: Annotated[UUID, Path(description="User ID")],
     authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
-    social_service: Annotated[
-        SocialService,
-        Depends(get_social_service),
-    ],
+    social_service: SocialServiceDep,
     per_type_limit: Annotated[
         int,
         Query(

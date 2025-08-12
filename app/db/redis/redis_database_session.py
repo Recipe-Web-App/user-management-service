@@ -3,7 +3,8 @@
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import redis.asyncio as redis
+import redis.exceptions
+from redis.asyncio import Redis as AsyncRedis
 
 from app.api.v1.schemas.response.admin.redis_session_stats_response import (
     RedisSessionStatsResponse,
@@ -17,7 +18,7 @@ _log = get_logger(__name__)
 class RedisDatabaseSession:
     """Custom Redis session with session management methods."""
 
-    def __init__(self, redis_client: redis.Redis) -> None:
+    def __init__(self, redis_client: AsyncRedis) -> None:
         """Initialize Redis database session with Redis client.
 
         Args:
@@ -45,7 +46,7 @@ class RedisDatabaseSession:
             SessionData: The created session data
 
         Raises:
-            redis.ConnectionError: If Redis connection fails
+            redis.exceptions.ConnectionError: If Redis connection fails
         """
         _log.info(f"Creating session for user: {user_id}")
 
@@ -64,9 +65,7 @@ class RedisDatabaseSession:
 
             # Add to user's session list
             user_sessions_key = f"{self.user_sessions_prefix}{user_id}"
-            sadd_result = self.redis.sadd(user_sessions_key, session_data.session_id)
-            if hasattr(sadd_result, "__await__"):
-                await sadd_result
+            await self.redis.sadd(user_sessions_key, session_data.session_id)  # type: ignore[misc]
             await self.redis.expire(user_sessions_key, ttl_seconds)
 
             # Add to cleanup set
@@ -76,11 +75,11 @@ class RedisDatabaseSession:
             )
 
             _log.info(f"Session created: {session_data.session_id}")
-        except redis.ConnectionError as e:
+        except redis.exceptions.ConnectionError as e:
             _log.error(
                 f"Redis connection error while creating session for user {user_id}: {e}"
             )
-            raise redis.ConnectionError(
+            raise redis.exceptions.ConnectionError(
                 "Failed to create session: Redis service unavailable"
             ) from e
         except Exception as e:
@@ -96,10 +95,10 @@ class RedisDatabaseSession:
             session_id: The session ID to retrieve
 
         Returns:
-            Optional[SessionData]: The session data if found and active
+            SessionData | None: The session data if found and active
 
         Raises:
-            redis.ConnectionError: If Redis connection fails
+            redis.exceptions.ConnectionError: If Redis connection fails
         """
         try:
             session_key = f"{self.session_prefix}{session_id}"
@@ -125,11 +124,11 @@ class RedisDatabaseSession:
                 return session_data
             _log.debug(f"Session expired: {session_id}")
             await self.invalidate_session(session_id)
-        except redis.ConnectionError as e:
+        except redis.exceptions.ConnectionError as e:
             _log.error(
                 f"Redis connection error while getting session {session_id}: {e}"
             )
-            raise redis.ConnectionError(
+            raise redis.exceptions.ConnectionError(
                 "Failed to retrieve session: Redis service unavailable"
             ) from e
         except Exception as e:
@@ -148,7 +147,7 @@ class RedisDatabaseSession:
             bool: True if session was invalidated successfully
 
         Raises:
-            redis.ConnectionError: If Redis connection fails
+            redis.exceptions.ConnectionError: If Redis connection fails
         """
         try:
             session_key = f"{self.session_prefix}{session_id}"
@@ -166,16 +165,14 @@ class RedisDatabaseSession:
 
             # Remove from user's session list
             user_sessions_key = f"{self.user_sessions_prefix}{session_data.user_id}"
-            srem_result = self.redis.srem(user_sessions_key, session_id)
-            if hasattr(srem_result, "__await__"):
-                await srem_result
+            await self.redis.srem(user_sessions_key, session_id)  # type: ignore[misc]
 
             _log.info(f"Session invalidated: {session_id}")
-        except redis.ConnectionError as e:
+        except redis.exceptions.ConnectionError as e:
             _log.error(
                 f"Redis connection error while invalidating session {session_id}: {e}"
             )
-            raise redis.ConnectionError(
+            raise redis.exceptions.ConnectionError(
                 "Failed to invalidate session: Redis service unavailable"
             ) from e
         except Exception as e:
@@ -194,15 +191,11 @@ class RedisDatabaseSession:
             int: Number of sessions invalidated
 
         Raises:
-            redis.ConnectionError: If Redis connection fails
+            redis.exceptions.ConnectionError: If Redis connection fails
         """
         try:
             user_sessions_key = f"{self.user_sessions_prefix}{user_id}"
-            smembers_result = self.redis.smembers(user_sessions_key)
-            if hasattr(smembers_result, "__await__"):
-                session_ids = await smembers_result
-            else:
-                session_ids = smembers_result
+            session_ids = await self.redis.smembers(user_sessions_key)  # type: ignore[misc]
 
             if not session_ids:
                 _log.debug(f"No sessions found for user: {user_id}")
@@ -219,12 +212,12 @@ class RedisDatabaseSession:
 
             _log.info(f"Invalidated {len(session_ids)} sessions for user: {user_id}")
             return len(session_ids)
-        except redis.ConnectionError as e:
+        except redis.exceptions.ConnectionError as e:
             _log.error(
                 "Redis connection error while invalidating sessions for user "
                 f"{user_id}: {e}"
             )
-            raise redis.ConnectionError(
+            raise redis.exceptions.ConnectionError(
                 "Failed to invalidate user sessions: Redis service unavailable"
             ) from e
         except Exception as e:
@@ -241,15 +234,11 @@ class RedisDatabaseSession:
             list[SessionData]: List of active sessions
 
         Raises:
-            redis.ConnectionError: If Redis connection fails
+            redis.exceptions.ConnectionError: If Redis connection fails
         """
         try:
             user_sessions_key = f"{self.user_sessions_prefix}{user_id}"
-            smembers_result = self.redis.smembers(user_sessions_key)
-            if hasattr(smembers_result, "__await__"):
-                session_ids = await smembers_result
-            else:
-                session_ids = smembers_result
+            session_ids = await self.redis.smembers(user_sessions_key)  # type: ignore[misc]
 
             sessions = []
             for session_id in session_ids:
@@ -257,16 +246,16 @@ class RedisDatabaseSession:
                     session_data = await self.get_session(session_id)
                     if session_data and session_data.is_active:
                         sessions.append(session_data)
-                except redis.ConnectionError:
+                except redis.exceptions.ConnectionError:
                     # Skip this session if Redis is unavailable
                     continue
 
             _log.debug(f"Found {len(sessions)} active sessions for user: {user_id}")
-        except redis.ConnectionError as e:
+        except redis.exceptions.ConnectionError as e:
             _log.error(
                 f"Redis connection error while getting sessions for user {user_id}: {e}"
             )
-            raise redis.ConnectionError(
+            raise redis.exceptions.ConnectionError(
                 "Failed to get user sessions: Redis service unavailable"
             ) from e
         except Exception as e:
@@ -282,7 +271,7 @@ class RedisDatabaseSession:
             int: Number of sessions cleaned up
 
         Raises:
-            redis.ConnectionError: If Redis connection fails
+            redis.exceptions.ConnectionError: If Redis connection fails
         """
         try:
             current_time = datetime.now(UTC).timestamp()
@@ -296,16 +285,16 @@ class RedisDatabaseSession:
                 try:
                     if await self.invalidate_session(session_id_str):
                         cleaned_count += 1
-                except redis.ConnectionError:
+                except redis.exceptions.ConnectionError:
                     # Skip this session if Redis is unavailable
                     continue
 
             _log.info(f"Cleaned up {cleaned_count} expired sessions")
-        except redis.ConnectionError as e:
+        except redis.exceptions.ConnectionError as e:
             _log.error(
                 f"Redis connection error while cleaning up expired sessions: {e}"
             )
-            raise redis.ConnectionError(
+            raise redis.exceptions.ConnectionError(
                 "Failed to cleanup expired sessions: Redis service unavailable"
             ) from e
         except Exception as e:
@@ -324,17 +313,17 @@ class RedisDatabaseSession:
             int: Remaining TTL in seconds
 
         Raises:
-            redis.ConnectionError: If Redis connection fails
+            redis.exceptions.ConnectionError: If Redis connection fails
         """
         try:
             session_key = f"{self.session_prefix}{session_id}"
             return await self.redis.ttl(session_key)
-        except redis.ConnectionError as e:
+        except redis.exceptions.ConnectionError as e:
             _log.error(
                 f"Redis connection error while getting TTL for session {session_id}: "
                 f"{e}"
             )
-            raise redis.ConnectionError(
+            raise redis.exceptions.ConnectionError(
                 "Failed to get session TTL: Redis service unavailable"
             ) from e
         except Exception as e:
@@ -347,7 +336,7 @@ class RedisDatabaseSession:
         Returns:
             RedisSessionStatsResponse: All session and Redis stats
         Raises:
-            redis.ConnectionError: If Redis connection fails
+            redis.exceptions.ConnectionError: If Redis connection fails
         """
         try:
             # Session stats from sorted set
@@ -396,9 +385,9 @@ class RedisDatabaseSession:
                 redis_uptime_seconds=redis_uptime_seconds,
                 redis_version=redis_version,
             )
-        except redis.ConnectionError as e:
+        except redis.exceptions.ConnectionError as e:
             _log.error(f"Redis connection error while getting session stats: {e}")
-            raise redis.ConnectionError(
+            raise redis.exceptions.ConnectionError(
                 "Failed to get session statistics: Redis service unavailable"
             ) from e
         except Exception as e:
@@ -426,7 +415,7 @@ class RedisDatabaseSession:
         """
         try:
             return bool(await self.redis.ping())
-        except redis.ConnectionError:
+        except redis.exceptions.ConnectionError:
             return False
 
     # --- Deletion Token Management ---
@@ -438,7 +427,7 @@ class RedisDatabaseSession:
     ) -> None:
         """Store a deletion confirmation token for a user with expiration."""
         key = f"{self.deletion_token_prefix}{user_id}"
-        await self.redis.hset(
+        await self.redis.hset(  # type: ignore[misc]
             key,
             mapping={
                 "token": token,
@@ -451,8 +440,8 @@ class RedisDatabaseSession:
     async def get_deletion_token(self, user_id: str) -> dict[str, str] | None:
         """Retrieve the deletion confirmation token for a user."""
         key = f"{self.deletion_token_prefix}{user_id}"
-        data = await self.redis.hgetall(key)
-        return data if data else None
+        data = await self.redis.hgetall(key)  # type: ignore[misc]
+        return data or None
 
     async def delete_deletion_token(self, user_id: str) -> None:
         """Delete the deletion confirmation token for a user."""
@@ -466,7 +455,7 @@ class RedisDatabaseSession:
             int: Number of sessions cleared
 
         Raises:
-            redis.ConnectionError: If Redis connection fails
+            redis.exceptions.ConnectionError: If Redis connection fails
         """
         try:
             # Get all session keys
@@ -491,9 +480,9 @@ class RedisDatabaseSession:
             await self.redis.delete(self.session_cleanup_key)
 
             _log.info(f"Cleared {total_keys} session-related keys from Redis")
-        except redis.ConnectionError as e:
+        except redis.exceptions.ConnectionError as e:
             _log.error(f"Redis connection error while clearing all sessions: {e}")
-            raise redis.ConnectionError(
+            raise redis.exceptions.ConnectionError(
                 "Failed to clear sessions: Redis service unavailable"
             ) from e
         except Exception as e:

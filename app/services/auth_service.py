@@ -1,12 +1,13 @@
 """Authentication service for user management."""
 
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import redis.exceptions
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from sqlalchemy import select
 from sqlalchemy.exc import DisconnectionError
 from sqlalchemy.exc import TimeoutError as SQLTimeoutError
 
@@ -60,6 +61,24 @@ class AuthService:
         """Initialize auth service with database session."""
         self.db = db
         self.redis_session = redis_session
+
+    async def get_user_by_id(self, user_id: str) -> UserModel | None:
+        """Get user by ID.
+
+        Args:
+            user_id: The user's unique identifier as string
+
+        Returns:
+            UserModel | None: User object if found, None otherwise
+        """
+        try:
+            user_uuid = UUID(user_id)
+            stmt = select(UserModel).where(UserModel.user_id == user_uuid)
+            result = await self.db.execute(stmt)
+            return result.scalar_one_or_none()
+        except (ValueError, DatabaseError) as e:
+            _log.error(f"Error getting user by ID {user_id}: {e}")
+            return None
 
     async def register_user(
         self, user_data: UserRegistrationRequest
@@ -626,11 +645,10 @@ class AuthService:
             Token: JWT token with expiration information
         """
         data = {"sub": str(user.user_id), "username": user.username}
-        to_encode = data.copy()
         expire = datetime.now(UTC) + timedelta(
             minutes=settings.access_token_expire_minutes
         )
-        to_encode.update({"exp": expire})
+        to_encode = data | {"exp": expire}
 
         access_token = jwt.encode(
             to_encode, settings.jwt_secret_key, algorithm=settings.jwt_signing_algorithm
@@ -660,9 +678,8 @@ class AuthService:
             "username": user.username,
             "type": "refresh",  # nosec
         }
-        to_encode = data.copy()
         expire = datetime.now(UTC) + timedelta(days=settings.refresh_token_expire_days)
-        to_encode.update({"exp": expire})
+        to_encode = data | {"exp": expire}
 
         return jwt.encode(
             to_encode, settings.jwt_secret_key, algorithm=settings.jwt_signing_algorithm
@@ -682,11 +699,10 @@ class AuthService:
             "username": user.username,
             "type": "password_reset",  # nosec
         }
-        to_encode = data.copy()
         expire = datetime.now(UTC) + timedelta(
             minutes=settings.password_reset_token_expire_minutes
         )
-        to_encode.update({"exp": expire})
+        to_encode = data | {"exp": expire}
 
         return jwt.encode(
             to_encode, settings.jwt_secret_key, algorithm=settings.jwt_signing_algorithm

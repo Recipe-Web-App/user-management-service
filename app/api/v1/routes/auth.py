@@ -33,30 +33,10 @@ from app.api.v1.schemas.response.user.user_refresh_response import UserRefreshRe
 from app.api.v1.schemas.response.user.user_registration_response import (
     UserRegistrationResponse,
 )
-from app.db.redis.redis_database_manager import get_redis_session
-from app.db.redis.redis_database_session import RedisDatabaseSession
-from app.db.sql.sql_database_manager import get_db
-from app.db.sql.sql_database_session import SqlDatabaseSession
+from app.deps.services import AuthServiceDep
 from app.middleware.auth_middleware import get_current_user_id
-from app.services.auth_service import AuthService
 
 router = APIRouter()
-
-
-async def get_auth_service(
-    db: Annotated[SqlDatabaseSession, Depends(get_db)],
-    redis_session: Annotated[RedisDatabaseSession, Depends(get_redis_session)],
-) -> AuthService:
-    """Get auth service instance.
-
-    Args:
-        db: Database session
-        redis_session: Redis session
-
-    Returns:
-        AuthService: Auth service instance
-    """
-    return AuthService(db, redis_session)
 
 
 @router.post(
@@ -90,7 +70,7 @@ async def get_auth_service(
 )
 async def register(
     user_data: Annotated[UserRegistrationRequest, Body(..., embed=True)],
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    auth_service: AuthServiceDep,
 ) -> UserRegistrationResponse:
     """Register a new user.
 
@@ -146,7 +126,7 @@ async def register(
 )
 async def login(
     login_data: Annotated[UserLoginRequest, Body(...)],
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    auth_service: AuthServiceDep,
 ) -> UserLoginResponse:
     """Log in user.
 
@@ -195,7 +175,7 @@ async def login(
 )
 async def logout(
     user_id: Annotated[str, Depends(get_current_user_id)],
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    auth_service: AuthServiceDep,
 ) -> UserLogoutResponse:
     """Log out user.
 
@@ -247,7 +227,7 @@ async def logout(
 )
 async def refresh_token(
     refresh_data: Annotated[UserRefreshRequest, Body(...)],
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    auth_service: AuthServiceDep,
 ) -> UserRefreshResponse:
     """Refresh access token.
 
@@ -295,7 +275,7 @@ async def refresh_token(
 )
 async def request_password_reset(
     reset_data: Annotated[UserPasswordResetRequest, Body(...)],
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    auth_service: AuthServiceDep,
 ) -> UserPasswordResetResponse:
     """Request password reset.
 
@@ -343,7 +323,7 @@ async def request_password_reset(
 )
 async def confirm_password_reset(
     confirm_data: Annotated[UserPasswordResetConfirmRequest, Body(...)],
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    auth_service: AuthServiceDep,
 ) -> UserPasswordResetConfirmResponse:
     """Confirm password reset.
 

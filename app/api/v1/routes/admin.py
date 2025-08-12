@@ -23,31 +23,11 @@ from app.api.v1.schemas.response.admin.system_health_response import (
 from app.api.v1.schemas.response.admin.user_stats_response import UserStatsResponse
 from app.api.v1.schemas.response.error_response import ErrorResponse
 from app.core.logging import get_logger
-from app.db.redis.redis_database_manager import get_redis_session
-from app.db.redis.redis_database_session import RedisDatabaseSession
-from app.db.sql.sql_database_manager import get_db
-from app.db.sql.sql_database_session import SqlDatabaseSession
+from app.deps.services import AdminServiceDep
 from app.middleware.auth_middleware import get_current_user_id
-from app.services.admin_service import AdminService
 
 _log = get_logger(__name__)
 router = APIRouter()
-
-
-async def get_admin_service(
-    db: Annotated[SqlDatabaseSession, Depends(get_db)],
-    redis_session: Annotated[RedisDatabaseSession, Depends(get_redis_session)],
-) -> AdminService:
-    """Get admin service instance.
-
-    Args:
-        db: Database session
-        redis_session: Redis session
-
-    Returns:
-        AdminService: Admin service instance
-    """
-    return AdminService(db, redis_session)
 
 
 @router.get(
@@ -81,7 +61,7 @@ async def get_admin_service(
 )
 async def get_redis_session_stats(
     user_id: Annotated[str, Depends(get_current_user_id)],
-    admin_service: Annotated[AdminService, Depends(get_admin_service)],
+    admin_service: AdminServiceDep,
 ) -> RedisSessionStatsResponse:
     """Get Redis session statistics.
 
@@ -122,7 +102,7 @@ async def get_redis_session_stats(
 )
 async def get_user_stats(
     user_id: Annotated[str, Depends(get_current_user_id)],
-    admin_service: Annotated[AdminService, Depends(get_admin_service)],
+    admin_service: AdminServiceDep,
 ) -> UserStatsResponse:
     """Get user statistics.
 
@@ -163,7 +143,7 @@ async def get_user_stats(
 )
 async def get_system_health(
     user_id: Annotated[str, Depends(get_current_user_id)],
-    admin_service: Annotated[AdminService, Depends(get_admin_service)],
+    admin_service: AdminServiceDep,
 ) -> SystemHealthResponse:
     """Get system health status.
 
@@ -213,7 +193,7 @@ async def get_system_health(
 async def force_logout_user(
     user_id: Annotated[UUID, Path(description="User ID")],
     admin_user_id: Annotated[str, Depends(get_current_user_id)],
-    admin_service: Annotated[AdminService, Depends(get_admin_service)],
+    admin_service: AdminServiceDep,
 ) -> ForceLogoutResponse:
     """Force logout a user.
 
@@ -255,7 +235,7 @@ async def force_logout_user(
 )
 async def clear_redis_sessions(
     user_id: Annotated[str, Depends(get_current_user_id)],
-    admin_service: Annotated[AdminService, Depends(get_admin_service)],
+    admin_service: AdminServiceDep,
 ) -> ClearSessionsResponse:
     """Clear all Redis sessions.
 

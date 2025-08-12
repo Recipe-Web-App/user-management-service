@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.db.sql.models.user.user import User
-from app.enums.user_role_enum import UserRoleEnum
+from app.enums.user_role import UserRole
 from app.exceptions.custom_exceptions.database_exceptions import DatabaseError
 
 _log = get_logger(__name__)
@@ -283,7 +283,7 @@ class SqlDatabaseSession(AsyncSession):
 
             # Admin users
             admin_result = await self.execute(
-                select(func.count(User.user_id)).where(User.role == UserRoleEnum.ADMIN)
+                select(func.count(User.user_id)).where(User.role == UserRole.ADMIN)
             )
             admin_users = admin_result.scalar() or 0
 

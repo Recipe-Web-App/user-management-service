@@ -35,7 +35,25 @@ AsyncSessionLocal = async_sessionmaker(
 
 
 async def get_db() -> AsyncGenerator[SqlDatabaseSession, None]:
-    """Get database session."""
+    """Get database session for dependency injection.
+
+    Creates and yields an async database session that can be used
+    for database operations. The session is automatically closed
+    after use, ensuring proper resource cleanup.
+
+    Returns:
+        AsyncGenerator[SqlDatabaseSession, None]: Async generator that yields
+            a database session instance.
+
+    Yields:
+        SqlDatabaseSession: Database session for performing operations.
+
+    Example:
+        ```python
+        async def some_endpoint(db: SqlDatabaseSession = Depends(get_db)):
+            user = await db.get_user_by_id("123")
+        ```
+    """
     async with AsyncSessionLocal() as session:
         try:
             yield session
@@ -44,6 +62,20 @@ async def get_db() -> AsyncGenerator[SqlDatabaseSession, None]:
 
 
 async def init_db() -> None:
-    """Initialize database tables."""
+    """Initialize the database by creating all tables.
+
+    Creates all database tables defined in the SQLAlchemy models
+    if they don't already exist. This function should be called
+    during application startup to ensure the database schema
+    is properly set up.
+
+    Note:
+        This function uses `create_all()` which only creates tables
+        that don't exist. Existing tables are not modified.
+
+    Raises:
+        DatabaseError: If database connection fails or table creation fails.
+    """
+
     async with engine.begin() as conn:
         await conn.run_sync(BaseSqlModel.metadata.create_all)

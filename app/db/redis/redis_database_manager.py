@@ -2,13 +2,13 @@
 
 from collections.abc import AsyncGenerator
 
-import redis.asyncio as redis
+from redis.asyncio import Redis as AsyncRedis
 
 from app.core.config import settings
 from app.db.redis.redis_database_session import RedisDatabaseSession
 
 # Global Redis connection pool
-redis_client = redis.Redis(
+redis_client: AsyncRedis = AsyncRedis(
     host=settings.redis_host,
     port=settings.redis_port,
     password=settings.redis_password,
@@ -17,7 +17,7 @@ redis_client = redis.Redis(
 )
 
 
-async def get_redis() -> AsyncGenerator[redis.Redis, None]:
+async def get_redis() -> AsyncGenerator[AsyncRedis, None]:
     """Get Redis client."""
     try:
         yield redis_client

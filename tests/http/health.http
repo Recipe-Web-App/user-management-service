@@ -1,5 +1,0 @@
-### Health Check Request
-GET http://user-management.local/api/v1/user-management/health
-Accept: application/json
-
-###

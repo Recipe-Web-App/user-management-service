@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from app.db.sql.models.base_sql_model import BaseSqlModel
-from app.enums.user_role_enum import UserRoleEnum
+from app.enums.user_role import UserRole
 from app.utils.security import SecurePasswordHash, SensitiveData
 
 
@@ -39,14 +39,14 @@ class User(BaseSqlModel):
     )
     role: Mapped[str] = mapped_column(
         SAEnum(
-            UserRoleEnum,
+            UserRole,
             name="user_role_enum",
             schema="recipe_manager",
             create_constraint=False,
         ),
         nullable=False,
-        default=UserRoleEnum.USER,
-        server_default=UserRoleEnum.USER.value,
+        default=UserRole.USER,
+        server_default=UserRole.USER.value,
         doc="Role of the user: ADMIN or USER.",
     )
 

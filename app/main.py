@@ -6,13 +6,17 @@ from collections.abc import AsyncGenerator
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.routes import api_router
+from app.core.config import settings
 from app.core.logging import configure_logging
 from app.db.redis.redis_database_manager import init_redis
 from app.db.sql.sql_database_manager import init_db
 from app.exceptions.handlers import unhandled_exception_handler
+from app.middleware.performance_middleware import PerformanceMiddleware
 from app.middleware.request_id_middleware import request_id_middleware
+from app.middleware.security_middleware import SecurityHeadersMiddleware
 
 _log = logging.getLogger(__name__)
 
@@ -40,6 +44,22 @@ app = FastAPI(
     version="1.0.0",
     description="API for managing users",
     lifespan=lifespan,
+)
+
+# Add performance monitoring middleware
+app.add_middleware(PerformanceMiddleware, enable_metrics=True)
+
+# Add security headers middleware
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Configure CORS
+allowed_origins = settings.allowed_origin_hosts.split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=settings.allowed_credentials,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["*"],
 )
 
 app.add_exception_handler(Exception, unhandled_exception_handler)

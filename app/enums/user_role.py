@@ -3,7 +3,7 @@
 from enum import Enum
 
 
-class UserRoleEnum(str, Enum):
+class UserRole(str, Enum):
     """Enumeration of user roles."""
 
     ADMIN = "ADMIN"

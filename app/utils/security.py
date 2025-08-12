@@ -2,7 +2,10 @@
 
 from typing import Any
 
+from jose import jwt
 from sqlalchemy import String, TypeDecorator
+
+from app.core.config import settings
 
 
 class SensitiveData:
@@ -90,3 +93,22 @@ class SecurePasswordHash(TypeDecorator):
         if isinstance(value, SensitiveData):
             return value.get_raw_value()
         return str(value)
+
+
+def decode_jwt_token(token: str) -> dict:
+    """Decode and validate JWT token.
+
+    Args:
+        token: JWT token to decode
+
+    Returns:
+        dict: Decoded token payload
+
+    Raises:
+        jose.JWTError: If token is invalid or expired
+    """
+    return jwt.decode(
+        token,
+        settings.jwt_secret_key,
+        algorithms=[settings.jwt_signing_algorithm],
+    )

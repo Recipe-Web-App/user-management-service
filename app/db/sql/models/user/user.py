@@ -40,7 +40,7 @@ class User(BaseSqlModel):
     role: Mapped[str] = mapped_column(
         SAEnum(
             UserRole,
-            name="user_role",
+            name="user_role_enum",
             schema="recipe_manager",
             create_constraint=False,
         ),

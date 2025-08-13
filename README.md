@@ -7,13 +7,15 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115.14-009688.svg)](https://fastapi.tiangolo.com)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-A modern, high-performance microservice for user management in the Recipe Web Application ecosystem. Built with FastAPI, featuring comprehensive authentication, profile management, social features, and administrative capabilities.
+A modern, high-performance microservice for user management in the Recipe Web Application ecosystem.
+Built with FastAPI, featuring comprehensive authentication, profile management, social features, and administrative
+capabilities.
 
 ## 🏗️ Architecture Overview
 
 This service follows **Clean Architecture** principles with clear separation of concerns:
 
-```
+```text
 ├── app/
 │   ├── api/v1/           # API Layer - FastAPI routers & schemas
 │   ├── services/         # Business Logic Layer
@@ -27,6 +29,7 @@ This service follows **Clean Architecture** principles with clear separation of 
 ```
 
 ### Key Technologies
+
 - **FastAPI 0.115.14** - Modern async web framework
 - **SQLAlchemy 2.0.41** - Async ORM with PostgreSQL
 - **Redis 6.2.0** - Session management & caching
@@ -37,6 +40,7 @@ This service follows **Clean Architecture** principles with clear separation of 
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Python 3.11+
 - Poetry
 - Docker & Docker Compose (for local development)
@@ -45,28 +49,33 @@ This service follows **Clean Architecture** principles with clear separation of 
 ### Local Development Setup
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/jsamuelsen/user-management-service.git
    cd user-management-service
    ```
 
 2. **Install dependencies**
+
    ```bash
    poetry install
    ```
 
 3. **Set up environment variables**
+
    ```bash
    cp .env.example .env
    # Edit .env with your configuration
    ```
 
 4. **Start local services** (PostgreSQL & Redis)
+
    ```bash
    docker-compose up -d
    ```
 
 5. **Run the application**
+
    ```bash
    poetry run app-local
    ```
@@ -76,6 +85,7 @@ The API will be available at `http://localhost:8000` with interactive documentat
 ## 📋 Core Features
 
 ### 🔐 Authentication & Security
+
 - **JWT-based authentication** with access & refresh tokens
 - **Secure password hashing** using bcrypt
 - **Password reset** functionality with time-limited tokens
@@ -83,6 +93,7 @@ The API will be available at `http://localhost:8000` with interactive documentat
 - **Role-based access control** (USER/ADMIN)
 
 ### 👤 User Management
+
 - **User registration & profile management**
 - **Privacy preferences** with granular controls
 - **Account preferences** (theme, language, notifications)
@@ -90,17 +101,20 @@ The API will be available at `http://localhost:8000` with interactive documentat
 - **Account deletion** with data cleanup
 
 ### 🤝 Social Features
+
 - **Follow/unfollow** other users
 - **Social preferences** management
 - **Privacy-first design** with comprehensive preference checking
 
 ### 🔔 Notifications System
+
 - **Real-time notifications** delivery
 - **Notification preferences** per user
 - **Read/unread status** tracking
 - **Bulk operations** (mark all as read, delete)
 
 ### ⚙️ Administrative Functions
+
 - **User statistics** and analytics
 - **System health monitoring**
 - **Session management** (force logout, clear sessions)
@@ -109,12 +123,14 @@ The API will be available at `http://localhost:8000` with interactive documentat
 ## 🛠️ API Reference
 
 ### Base URL
-```
+
+```text
 Production: https://api.recipe-app.com/user-management
 Development: http://localhost:8000/api/v1
 ```
 
 ### Authentication Endpoints
+
 ```bash
 # User Registration
 POST /auth/register
@@ -141,6 +157,7 @@ Authorization: Bearer <refresh_token>
 ```
 
 ### User Management Endpoints
+
 ```bash
 # Get User Profile
 GET /users/{user_id}/profile
@@ -162,6 +179,7 @@ Authorization: Bearer <access_token>
 ```
 
 ### Social Features
+
 ```bash
 # Follow User
 POST /social/follow
@@ -177,6 +195,7 @@ Authorization: Bearer <access_token>
 ```
 
 ### Notifications
+
 ```bash
 # Get Notifications
 GET /notifications?limit=20&offset=0
@@ -192,6 +211,7 @@ For complete API documentation, visit `/docs` when running the service.
 ## 🧪 Testing
 
 ### Run Tests
+
 ```bash
 # All tests
 poetry run test
@@ -207,6 +227,7 @@ pytest --cov=app --cov-report=html
 ```
 
 ### Test Structure
+
 - **Unit Tests** - Service layer and utilities
 - **Component Tests** - API endpoint integration
 - **Performance Tests** - Load testing and benchmarks
@@ -215,6 +236,7 @@ pytest --cov=app --cov-report=html
 ## 🚀 Deployment
 
 ### Local Kubernetes
+
 ```bash
 # Start deployment
 poetry run container-start
@@ -227,33 +249,51 @@ poetry run container-stop
 ```
 
 ### Production Deployment
+
 ```bash
 # Deploy to production
 poetry run container-deploy
 
 # Monitor deployment
 kubectl get pods -n user-management
+
+# Check deployment status and logs
+kubectl describe pods -n user-management
+kubectl logs -n user-management -l app=user-management --tail=100
+
+# Verify health checks
+kubectl exec -n user-management deployment/user-management -- curl localhost:8000/api/v1/user-management/live
 ```
+
+### Kubernetes Features
+
+- **High Availability**: 2 replicas with pod anti-affinity
+- **Health Monitoring**: Separate liveness and readiness probes
+- **Network Security**: NetworkPolicy for controlled access
+- **Resource Management**: CPU/memory requests and limits with ephemeral storage
+- **Security**: Non-root user, read-only filesystem, dropped capabilities
+- **Disruption Budget**: Ensures minimum availability during updates
 
 ### Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `POSTGRES_HOST` | PostgreSQL host | ✅ |
-| `POSTGRES_PORT` | PostgreSQL port | ✅ |
-| `POSTGRES_DB` | Database name | ✅ |
-| `USER_MANAGEMENT_DB_USER` | DB username | ✅ |
-| `USER_MANAGEMENT_DB_PASSWORD` | DB password | ✅ |
-| `JWT_SECRET_KEY` | JWT signing secret | ✅ |
-| `REDIS_HOST` | Redis host | ✅ |
-| `REDIS_PASSWORD` | Redis password | ✅ |
-| `ALLOWED_ORIGIN_HOSTS` | CORS allowed origins | ✅ |
+| Variable                      | Description          | Required |
+| ----------------------------- | -------------------- | -------- |
+| `POSTGRES_HOST`               | PostgreSQL host      | ✅       |
+| `POSTGRES_PORT`               | PostgreSQL port      | ✅       |
+| `POSTGRES_DB`                 | Database name        | ✅       |
+| `USER_MANAGEMENT_DB_USER`     | DB username          | ✅       |
+| `USER_MANAGEMENT_DB_PASSWORD` | DB password          | ✅       |
+| `JWT_SECRET_KEY`              | JWT signing secret   | ✅       |
+| `REDIS_HOST`                  | Redis host           | ✅       |
+| `REDIS_PASSWORD`              | Redis password       | ✅       |
+| `ALLOWED_ORIGIN_HOSTS`        | CORS allowed origins | ✅       |
 
 See `.env.example` for complete configuration.
 
 ## 🔧 Development
 
 ### Code Quality
+
 ```bash
 # Format code
 black .
@@ -270,6 +310,7 @@ pre-commit run --all-files
 ```
 
 ### Database Migrations
+
 ```bash
 # Create migration
 alembic revision --autogenerate -m "description"
@@ -279,6 +320,7 @@ alembic upgrade head
 ```
 
 ### Container Management
+
 ```bash
 # Build container
 docker build -t user-management-service .
@@ -290,18 +332,25 @@ docker-compose up --build
 ## 📊 Monitoring & Observability
 
 ### Health Checks
-- `GET /health` - Basic health status
-- `GET /health/detailed` - Comprehensive system health
-- Database connectivity monitoring
-- Redis connection monitoring
+
+- `GET /user-management/health` - **Readiness check** with dependency status
+  - Returns 200 OK when ready to serve requests
+  - Returns 503 Service Unavailable when dependencies are unhealthy
+  - Includes detailed database and Redis connectivity status
+  - Response time metrics for each dependency
+- `GET /user-management/live` - **Liveness check** for Kubernetes
+  - Simple alive status (always returns 200 OK if service is running)
+  - Used by Kubernetes liveness probes
 
 ### Logging
+
 - **Structured JSON logging** with correlation IDs
 - **Multiple log levels** (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 - **File rotation** with compression
 - **Request tracing** via middleware
 
 ### Metrics
+
 - Request/response metrics
 - Database query performance
 - Redis operation metrics
@@ -319,6 +368,7 @@ docker-compose up --build
 8. Open a Pull Request
 
 ### Code Standards
+
 - **Black** formatting (line length: 88)
 - **Ruff** linting with comprehensive rules
 - **MyPy** strict type checking
@@ -331,7 +381,7 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 ## 🛡️ Security
 
-For security concerns, please email security@recipe-app.com instead of using the issue tracker.
+For security concerns, please email <security@recipe-app.com> instead of using the issue tracker.
 
 ## 📞 Support
 
@@ -341,4 +391,4 @@ For security concerns, please email security@recipe-app.com instead of using the
 
 ---
 
-**Built with ❤️ using FastAPI and modern Python practices**
+## Built with ❤️ using FastAPI and modern Python practices

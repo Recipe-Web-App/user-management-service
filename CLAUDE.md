@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 **Core Development:**
+
 ```bash
 poetry run app-local              # Run app locally (FastAPI with Uvicorn)
 poetry run test                   # Run pytest test suite
@@ -13,6 +14,7 @@ make dev-reload                  # Run with hot reload for development
 ```
 
 **Setup & Installation:**
+
 ```bash
 make install                     # Install dependencies and pre-commit hooks
 make setup                       # Complete development setup (install + docker)
@@ -20,6 +22,7 @@ cp .env.example .env             # Copy environment template
 ```
 
 **Container Management:**
+
 ```bash
 poetry run container-deploy       # Deploy to Kubernetes
 poetry run container-start        # Start K8s deployment
@@ -29,6 +32,7 @@ poetry run container-cleanup      # Clean up K8s resources
 ```
 
 **Docker Development:**
+
 ```bash
 make docker-up                   # Start PostgreSQL and Redis services
 make docker-up-all               # Start all services including admin tools
@@ -38,6 +42,7 @@ make docker-clean                # Clean up Docker resources
 ```
 
 **Code Quality:**
+
 ```bash
 black .                          # Format code
 ruff check .                     # Lint code
@@ -49,6 +54,7 @@ make security                    # Run security scans (bandit + safety)
 ```
 
 **Testing:**
+
 ```bash
 pytest tests/unit/              # Run unit tests only
 pytest tests/component/         # Run component tests only
@@ -71,15 +77,18 @@ make load-test                   # Run load tests (including slow tests)
 - **Schema Layer:** `/app/api/v1/schemas/` - Pydantic request/response models
 
 **Dual Database Setup:**
+
 - **PostgreSQL** - Primary data storage with async SQLAlchemy
 - **Redis** - JWT session management and caching
 
 **Development Dependencies:**
+
 - Local: Docker Compose for PostgreSQL + Redis
 - Production: Kubernetes with full manifests
 - Testing: Comprehensive test suite with performance benchmarks
 
 **Key Technologies:**
+
 - FastAPI 0.115.14 with async/await patterns
 - SQLAlchemy 2.0.41 ORM with async support
 - Pydantic 2.0.0 for data validation
@@ -87,6 +96,7 @@ make load-test                   # Run load tests (including slow tests)
 - Kubernetes deployment with complete manifests in `/k8s/`
 
 **Code Standards:**
+
 - Python 3.11+ with strict type hints everywhere
 - Google or NumPy docstring style required
 - 90% test coverage enforced
@@ -96,6 +106,7 @@ make load-test                   # Run load tests (including slow tests)
 ## API Structure
 
 All endpoints use `/api/v1/` prefix. Main route modules:
+
 - **auth.py** - Registration, login, logout, password reset
 - **users.py** - Profile management, search, CRUD operations
 - **admin.py** - Administrative functions and system monitoring
@@ -103,6 +114,7 @@ All endpoints use `/api/v1/` prefix. Main route modules:
 - **notifications.py** - User notification management
 
 **Request/Response Pattern:**
+
 - Structured schemas in `/schemas/request/` and `/schemas/response/`
 - Custom exception handling with HTTP status codes
 - Privacy-first design with built-in privacy preference checking
@@ -110,12 +122,14 @@ All endpoints use `/api/v1/` prefix. Main route modules:
 ## Testing & Quality
 
 **Test Structure:**
+
 - Unit tests: `/tests/unit/`
 - Component tests: `/tests/component/`
 - Performance tests: `/tests/performance/`
 - HTTP test files: `/tests/http/` (manual API testing)
 
 **Test Markers & Categories:**
+
 ```bash
 pytest -m unit                   # Run only unit tests
 pytest -m component              # Run only component tests
@@ -128,6 +142,7 @@ pytest -m notifications          # Run notification system tests
 ```
 
 **CI/CD Testing:**
+
 ```bash
 make ci-test                     # Run CI test suite with XML coverage
 make ci-quality                  # Run CI quality checks
@@ -136,6 +151,7 @@ make full-test                   # Run lint + all tests + coverage
 ```
 
 **Quality Requirements:**
+
 - 90% minimum test coverage (enforced)
 - Black code formatting (line length: 88)
 - Ruff linting with comprehensive rules
@@ -148,6 +164,7 @@ make full-test                   # Run lint + all tests + coverage
 ## Development Workflow
 
 **Health Checks:**
+
 ```bash
 make health                      # Check basic service health
 make health-detailed             # Check detailed service health
@@ -155,6 +172,7 @@ curl http://localhost:8000/api/v1/health  # Direct health check
 ```
 
 **Database Management:**
+
 ```bash
 make db-reset                    # Reset development database
 make db-shell                    # Connect to PostgreSQL shell
@@ -162,6 +180,7 @@ make redis-shell                 # Connect to Redis CLI
 ```
 
 **Development Utilities:**
+
 ```bash
 make clean                       # Clean cache and temp files
 make shell                       # Python shell with app context
@@ -171,12 +190,14 @@ make docs                        # Open API documentation (/docs)
 ## Configuration
 
 **Environment Variables Required:**
+
 - Database connections (PostgreSQL + Redis)
 - JWT authentication settings
 - CORS configuration
 - Logging configuration via `/config/logging.json`
 
 **Security Features:**
+
 - JWT authentication with refresh tokens
 - bcrypt password hashing
 - Role-based access control (USER/ADMIN)

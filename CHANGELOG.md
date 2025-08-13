@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
 - Comprehensive testing infrastructure with unit, component, and performance tests
 - Modern pre-commit hooks with pyupgrade, refurb, pycln, and gitleaks
 - Security headers middleware (HSTS, CSP, X-Frame-Options, etc.)
@@ -20,18 +21,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Type safety upgrades for Python 3.11+ syntax
 
 ### Changed
+
 - Enhanced README.md with professional structure and detailed documentation
 - Upgraded pre-commit configuration with latest tool versions
 - Improved error handling and exception structure
 - Modernized dependency injection patterns
 
 ### Fixed
+
 - CORS middleware implementation (was configured but not used)
 - Security vulnerabilities through enhanced scanning and headers
 
 ## [1.0.0] - 2024-01-20
 
 ### Added
+
 - FastAPI-based user management service
 - JWT authentication with access and refresh tokens
 - User registration, login, logout, and password reset
@@ -52,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Features
 
 #### Authentication & Security
+
 - JWT-based authentication with secure token management
 - Password hashing using bcrypt with salt
 - Session management via Redis
@@ -60,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Security headers for enhanced protection
 
 #### User Management
+
 - User registration with email validation
 - Profile management with customizable privacy settings
 - User search with privacy-aware filtering
@@ -67,24 +73,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - User preferences management (theme, language, notifications)
 
 #### Social Features
+
 - Follow/unfollow functionality
 - Privacy-controlled social interactions
 - Follower and following lists
 - Social preference management
 
 #### Notifications
+
 - Real-time notification delivery
 - Notification preferences per user
 - Read/unread status tracking
 - Bulk operations (mark all as read, delete)
 
 #### Administrative Functions
+
 - User statistics and analytics
 - System health monitoring
 - Session management (force logout, clear sessions)
 - Redis metrics and monitoring
 
 #### Technical Features
+
 - Clean Architecture with clear separation of concerns
 - Async/await throughout for optimal performance
 - Comprehensive error handling with custom exceptions
@@ -95,6 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker and Kubernetes deployment ready
 
 ### Infrastructure
+
 - PostgreSQL 15 with async SQLAlchemy
 - Redis 7 for session storage and caching
 - Poetry for Python dependency management
@@ -103,6 +114,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions for CI/CD (CodeQL security scanning)
 
 ### Development Experience
+
 - Comprehensive development environment setup
 - Pre-commit hooks for code quality
 - Testing infrastructure foundation
@@ -111,6 +123,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clear project structure following best practices
 
 ### Security
+
 - No hardcoded secrets or credentials
 - Input validation and sanitization
 - SQL injection prevention through parameterized queries
@@ -123,12 +136,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Version History Notes
 
 ### Versioning Strategy
+
 This project follows [Semantic Versioning](https://semver.org/):
+
 - **MAJOR**: Incompatible API changes
 - **MINOR**: New functionality in a backwards compatible manner
 - **PATCH**: Backwards compatible bug fixes
 
 ### Release Process
+
 1. Update CHANGELOG.md with new version
 2. Tag release: `git tag -a v1.0.0 -m "Release v1.0.0"`
 3. Push tags: `git push origin --tags`
@@ -137,6 +153,7 @@ This project follows [Semantic Versioning](https://semver.org/):
 ### Planned Releases
 
 #### v1.1.0 (Planned)
+
 - Enhanced performance monitoring and metrics
 - Advanced caching strategies
 - Email notification system
@@ -145,6 +162,7 @@ This project follows [Semantic Versioning](https://semver.org/):
 - API rate limiting implementation
 
 #### v1.2.0 (Planned)
+
 - Two-factor authentication (2FA)
 - OAuth2 integration (Google, GitHub, etc.)
 - Advanced user analytics
@@ -153,6 +171,7 @@ This project follows [Semantic Versioning](https://semver.org/):
 - User activity feeds
 
 #### v2.0.0 (Planned)
+
 - GraphQL API support
 - Microservice communication patterns
 - Advanced user roles and permissions
@@ -179,6 +198,7 @@ For more details, see [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Support
 
 For questions about releases or to report issues:
+
 - [GitHub Issues](https://github.com/jsamuelsen/user-management-service/issues)
 - [GitHub Discussions](https://github.com/jsamuelsen/user-management-service/discussions)
 - Email: support@recipe-app.com

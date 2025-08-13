@@ -1,6 +1,7 @@
 # Contributing to User Management Service
 
-Thank you for your interest in contributing to the User Management Service! This document provides guidelines and information for contributors.
+Thank you for your interest in contributing to the User Management Service! This document provides guidelines and
+information for contributors.
 
 ## Table of Contents
 
@@ -18,7 +19,9 @@ Thank you for your interest in contributing to the User Management Service! This
 
 ### Our Pledge
 
-We are committed to making participation in this project a harassment-free experience for everyone, regardless of age, body size, disability, ethnicity, gender identity and expression, level of experience, nationality, personal appearance, race, religion, or sexual identity and orientation.
+We are committed to making participation in this project a harassment-free experience for everyone, regardless of
+age, body size, disability, ethnicity, gender identity and expression, level of experience, nationality, personal
+appearance, race, religion, or sexual identity and orientation.
 
 ### Our Standards
 
@@ -124,7 +127,7 @@ git push origin feature/your-feature-name
 
 We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
 
-```
+```text
 <type>[optional scope]: <description>
 
 [optional body]
@@ -133,6 +136,7 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 ```
 
 **Types:**
+
 - `feat`: A new feature
 - `fix`: A bug fix
 - `docs`: Documentation only changes
@@ -143,7 +147,8 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 - `chore`: Changes to the build process or auxiliary tools
 
 **Examples:**
-```
+
+```text
 feat(auth): add password reset functionality
 
 fix(users): resolve profile update validation error
@@ -242,7 +247,7 @@ async def get_user_by_id(
 
 ### Test Structure
 
-```
+```text
 tests/
 ├── unit/           # Unit tests
 ├── component/      # API integration tests
@@ -311,6 +316,7 @@ poetry run pytest -k "test_user"   # Tests with "test_user" in name
 ### Before Submitting
 
 1. **Update your branch** with the latest changes from develop:
+
    ```bash
    git checkout develop
    git pull origin develop
@@ -319,6 +325,7 @@ poetry run pytest -k "test_user"   # Tests with "test_user" in name
    ```
 
 2. **Run all quality checks**:
+
    ```bash
    poetry run pre-commit run --all-files
    poetry run pytest --cov=app
@@ -333,18 +340,22 @@ When creating a pull request, include:
 
 ```markdown
 ## Description
+
 Brief description of the changes and their purpose.
 
 ## Type of Change
+
 - [ ] Bug fix (non-breaking change that fixes an issue)
 - [ ] New feature (non-breaking change that adds functionality)
 - [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
 - [ ] Documentation update
 
 ## How Has This Been Tested?
+
 Describe the tests you ran and provide instructions to reproduce.
 
 ## Checklist
+
 - [ ] My code follows the project's style guidelines
 - [ ] I have performed a self-review of my own code
 - [ ] I have commented my code, particularly in hard-to-understand areas
@@ -355,9 +366,11 @@ Describe the tests you ran and provide instructions to reproduce.
 - [ ] Coverage remains above 90%
 
 ## Screenshots (if applicable)
+
 Add screenshots to help explain your changes.
 
 ## Related Issues
+
 Closes #123
 ```
 
@@ -419,7 +432,7 @@ We use labels to categorize issues:
 
 **Do not report security vulnerabilities through public GitHub issues.**
 
-Instead, please email security@recipe-app.com with:
+Instead, please email <security@recipe-app.com> with:
 
 1. Description of the vulnerability
 2. Steps to reproduce
@@ -470,7 +483,8 @@ Contributors are recognized in several ways:
 
 ## License
 
-By contributing to this project, you agree that your contributions will be licensed under the same license as the project (GNU General Public License v3.0).
+By contributing to this project, you agree that your contributions will be licensed under the same license as the
+project (GNU General Public License v3.0).
 
 ---
 

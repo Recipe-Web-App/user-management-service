@@ -53,6 +53,41 @@ make format                      # Format code (black + ruff + isort)
 make security                    # Run security scans (bandit + safety)
 ```
 
+**Conventional Commits:**
+
+This project uses [Conventional Commits](https://conventionalcommits.org/) for consistent commit messages and automated releases:
+
+```bash
+git commit -m "feat: add user search functionality"     # New feature
+git commit -m "fix: resolve authentication timeout"     # Bug fix
+git commit -m "docs: update API documentation"          # Documentation
+git commit -m "refactor: improve database queries"      # Code refactoring
+git commit -m "test: add unit tests for user service"   # Tests
+git commit -m "chore: update dependencies"              # Maintenance
+```
+
+**Supported commit types:**
+
+- `feat`: New features
+- `fix`: Bug fixes
+- `docs`: Documentation changes
+- `style`: Code style changes (formatting, etc.)
+- `refactor`: Code refactoring
+- `perf`: Performance improvements
+- `test`: Adding or updating tests
+- `chore`: Maintenance tasks
+- `ci`: CI/CD changes
+- `build`: Build system changes
+- `revert`: Reverting previous commits
+
+**Release Management:**
+
+Releases are automated based on conventional commits:
+
+- `feat:` triggers minor version bump (0.1.0 → 0.2.0)
+- `fix:` triggers patch version bump (0.1.0 → 0.1.1)
+- `feat!:` or `BREAKING CHANGE:` triggers major version bump (0.1.0 → 1.0.0)
+
 **Testing:**
 
 ```bash

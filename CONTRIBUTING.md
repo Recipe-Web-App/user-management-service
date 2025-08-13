@@ -125,7 +125,8 @@ git push origin feature/your-feature-name
 
 ### Commit Message Convention
 
-We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification for consistent
+commit messages and automated releases:
 
 ```text
 <type>[optional scope]: <description>
@@ -135,16 +136,29 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 [optional footer(s)]
 ```
 
-**Types:**
+**Supported commit types:**
 
-- `feat`: A new feature
-- `fix`: A bug fix
-- `docs`: Documentation only changes
-- `style`: Changes that do not affect the meaning of the code
-- `refactor`: A code change that neither fixes a bug nor adds a feature
-- `perf`: A code change that improves performance
-- `test`: Adding missing tests or correcting existing tests
-- `chore`: Changes to the build process or auxiliary tools
+- `feat`: New features (triggers minor version bump)
+- `fix`: Bug fixes (triggers patch version bump)
+- `docs`: Documentation changes only
+- `style`: Code style changes (formatting, etc.)
+- `refactor`: Code refactoring without functional changes
+- `perf`: Performance improvements
+- `test`: Adding or updating tests
+- `chore`: Maintenance tasks (dependencies, build config)
+- `ci`: CI/CD configuration changes
+- `build`: Build system or external dependency changes
+- `revert`: Reverting previous commits
+
+**Breaking Changes:**
+Use `!` after type or include `BREAKING CHANGE:` in footer to trigger major version bump:
+
+```text
+feat!: remove deprecated authentication endpoint
+feat(auth): add OAuth support
+
+BREAKING CHANGE: removes support for legacy API tokens
+```
 
 **Examples:**
 
@@ -156,7 +170,18 @@ fix(users): resolve profile update validation error
 docs(api): update authentication endpoint documentation
 
 test(social): add integration tests for follow functionality
+
+chore(deps): update FastAPI to 0.115.14
+
+ci: add automated release workflow
 ```
+
+**Commit Message Validation:**
+
+- Pre-commit hooks automatically validate commit messages
+- Use `git commit` (hooks will check the message format)
+- Follow 50/72 rule: subject ≤ 50 chars, body lines ≤ 72 chars
+- Use imperative mood in subject line ("add" not "added" or "adds")
 
 ## Code Standards
 

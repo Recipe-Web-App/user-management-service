@@ -2,7 +2,8 @@
 
 ## Overview
 
-The User Management Service provides comprehensive user authentication, profile management, social features, and administrative capabilities for the Recipe Web Application ecosystem.
+The User Management Service provides comprehensive user authentication, profile management, social features, and
+administrative capabilities for the Recipe Web Application ecosystem.
 
 **Base URL**: `/api/v1`
 **Authentication**: Bearer JWT tokens
@@ -11,6 +12,7 @@ The User Management Service provides comprehensive user authentication, profile 
 ## Authentication Endpoints
 
 ### Register User
+
 ```http
 POST /auth/register
 ```
@@ -18,6 +20,7 @@ POST /auth/register
 Register a new user account.
 
 **Request Body:**
+
 ```json
 {
   "username": "johndoe",
@@ -29,6 +32,7 @@ Register a new user account.
 ```
 
 **Response (201 Created):**
+
 ```json
 {
   "user_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -37,10 +41,12 @@ Register a new user account.
 ```
 
 **Error Responses:**
+
 - `400 Bad Request`: Invalid input data or user already exists
 - `422 Unprocessable Entity`: Validation errors
 
 ### Login
+
 ```http
 POST /auth/login
 ```
@@ -48,6 +54,7 @@ POST /auth/login
 Authenticate user and receive JWT tokens.
 
 **Request Body:**
+
 ```json
 {
   "email": "john@example.com",
@@ -56,6 +63,7 @@ Authenticate user and receive JWT tokens.
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "access_token": "<access_token_string>",
@@ -66,10 +74,12 @@ Authenticate user and receive JWT tokens.
 ```
 
 **Error Responses:**
+
 - `401 Unauthorized`: Invalid credentials
 - `422 Unprocessable Entity`: Validation errors
 
 ### Refresh Token
+
 ```http
 POST /auth/refresh
 Authorization: Bearer {refresh_token}
@@ -78,6 +88,7 @@ Authorization: Bearer {refresh_token}
 Get a new access token using a refresh token.
 
 **Response (200 OK):**
+
 ```json
 {
   "access_token": "<access_token_string>",
@@ -87,6 +98,7 @@ Get a new access token using a refresh token.
 ```
 
 ### Logout
+
 ```http
 POST /auth/logout
 Authorization: Bearer {access_token}
@@ -95,6 +107,7 @@ Authorization: Bearer {access_token}
 Invalidate the current session.
 
 **Response (200 OK):**
+
 ```json
 {
   "message": "Successfully logged out"
@@ -102,6 +115,7 @@ Invalidate the current session.
 ```
 
 ### Password Reset Request
+
 ```http
 POST /auth/password-reset
 ```
@@ -109,6 +123,7 @@ POST /auth/password-reset
 Request a password reset email.
 
 **Request Body:**
+
 ```json
 {
   "email": "john@example.com"
@@ -116,6 +131,7 @@ Request a password reset email.
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "message": "Password reset email sent if account exists"
@@ -123,6 +139,7 @@ Request a password reset email.
 ```
 
 ### Password Reset Confirm
+
 ```http
 POST /auth/password-reset/confirm
 ```
@@ -130,6 +147,7 @@ POST /auth/password-reset/confirm
 Confirm password reset with token.
 
 **Request Body:**
+
 ```json
 {
   "token": "reset_token_here",
@@ -138,6 +156,7 @@ Confirm password reset with token.
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "message": "Password reset successful"
@@ -147,6 +166,7 @@ Confirm password reset with token.
 ## User Management Endpoints
 
 ### Get User Profile
+
 ```http
 GET /users/{user_id}/profile
 Authorization: Bearer {access_token}
@@ -155,6 +175,7 @@ Authorization: Bearer {access_token}
 Get a user's profile information.
 
 **Response (200 OK):**
+
 ```json
 {
   "user_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -176,6 +197,7 @@ Get a user's profile information.
 ```
 
 ### Update User Profile
+
 ```http
 PUT /users/profile
 Authorization: Bearer {access_token}
@@ -184,6 +206,7 @@ Authorization: Bearer {access_token}
 Update the current user's profile.
 
 **Request Body:**
+
 ```json
 {
   "first_name": "John",
@@ -194,6 +217,7 @@ Update the current user's profile.
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "message": "Profile updated successfully",
@@ -209,6 +233,7 @@ Update the current user's profile.
 ```
 
 ### Search Users
+
 ```http
 GET /users/search?query=john&limit=10&offset=0
 Authorization: Bearer {access_token}
@@ -217,11 +242,13 @@ Authorization: Bearer {access_token}
 Search for users by username, first name, or last name.
 
 **Query Parameters:**
+
 - `query` (string): Search term
 - `limit` (integer): Number of results to return (1-100, default: 20)
 - `offset` (integer): Number of results to skip (default: 0)
 
 **Response (200 OK):**
+
 ```json
 {
   "users": [
@@ -241,6 +268,7 @@ Search for users by username, first name, or last name.
 ```
 
 ### Delete User Account
+
 ```http
 DELETE /users/account
 Authorization: Bearer {access_token}
@@ -249,6 +277,7 @@ Authorization: Bearer {access_token}
 Delete the current user's account permanently.
 
 **Response (200 OK):**
+
 ```json
 {
   "message": "Account deleted successfully"
@@ -258,6 +287,7 @@ Delete the current user's account permanently.
 ## Social Features Endpoints
 
 ### Follow User
+
 ```http
 POST /social/follow
 Authorization: Bearer {access_token}
@@ -266,6 +296,7 @@ Authorization: Bearer {access_token}
 Follow another user.
 
 **Request Body:**
+
 ```json
 {
   "user_id": "550e8400-e29b-41d4-a716-446655440001"
@@ -273,6 +304,7 @@ Follow another user.
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "message": "Successfully followed user",
@@ -281,6 +313,7 @@ Follow another user.
 ```
 
 ### Unfollow User
+
 ```http
 DELETE /social/follow/{user_id}
 Authorization: Bearer {access_token}
@@ -289,6 +322,7 @@ Authorization: Bearer {access_token}
 Unfollow a user.
 
 **Response (200 OK):**
+
 ```json
 {
   "message": "Successfully unfollowed user",
@@ -297,6 +331,7 @@ Unfollow a user.
 ```
 
 ### Get Followers
+
 ```http
 GET /social/followers?limit=20&offset=0
 Authorization: Bearer {access_token}
@@ -305,6 +340,7 @@ Authorization: Bearer {access_token}
 Get the current user's followers.
 
 **Response (200 OK):**
+
 ```json
 {
   "followers": [
@@ -324,6 +360,7 @@ Get the current user's followers.
 ```
 
 ### Get Following
+
 ```http
 GET /social/following?limit=20&offset=0
 Authorization: Bearer {access_token}
@@ -332,6 +369,7 @@ Authorization: Bearer {access_token}
 Get users that the current user is following.
 
 **Response (200 OK):**
+
 ```json
 {
   "following": [
@@ -353,6 +391,7 @@ Get users that the current user is following.
 ## Notifications Endpoints
 
 ### Get Notifications
+
 ```http
 GET /notifications?limit=20&offset=0&unread_only=false
 Authorization: Bearer {access_token}
@@ -361,11 +400,13 @@ Authorization: Bearer {access_token}
 Get user notifications.
 
 **Query Parameters:**
+
 - `limit` (integer): Number of notifications to return (1-100, default: 20)
 - `offset` (integer): Number of notifications to skip (default: 0)
 - `unread_only` (boolean): Only return unread notifications (default: false)
 
 **Response (200 OK):**
+
 ```json
 {
   "notifications": [
@@ -390,6 +431,7 @@ Get user notifications.
 ```
 
 ### Mark Notification as Read
+
 ```http
 PUT /notifications/{notification_id}/read
 Authorization: Bearer {access_token}
@@ -398,6 +440,7 @@ Authorization: Bearer {access_token}
 Mark a specific notification as read.
 
 **Response (200 OK):**
+
 ```json
 {
   "message": "Notification marked as read"
@@ -405,6 +448,7 @@ Mark a specific notification as read.
 ```
 
 ### Mark All Notifications as Read
+
 ```http
 PUT /notifications/read-all
 Authorization: Bearer {access_token}
@@ -413,6 +457,7 @@ Authorization: Bearer {access_token}
 Mark all notifications as read.
 
 **Response (200 OK):**
+
 ```json
 {
   "message": "All notifications marked as read",
@@ -421,6 +466,7 @@ Mark all notifications as read.
 ```
 
 ### Delete Notification
+
 ```http
 DELETE /notifications/{notification_id}
 Authorization: Bearer {access_token}
@@ -429,6 +475,7 @@ Authorization: Bearer {access_token}
 Delete a specific notification.
 
 **Response (200 OK):**
+
 ```json
 {
   "message": "Notification deleted successfully"
@@ -440,6 +487,7 @@ Delete a specific notification.
 **Note**: All admin endpoints require admin role authentication.
 
 ### Get User Statistics
+
 ```http
 GET /admin/users/stats
 Authorization: Bearer {admin_access_token}
@@ -448,6 +496,7 @@ Authorization: Bearer {admin_access_token}
 Get user registration and activity statistics.
 
 **Response (200 OK):**
+
 ```json
 {
   "total_users": 1250,
@@ -460,6 +509,7 @@ Get user registration and activity statistics.
 ```
 
 ### Get System Health
+
 ```http
 GET /admin/system/health
 Authorization: Bearer {admin_access_token}
@@ -468,6 +518,7 @@ Authorization: Bearer {admin_access_token}
 Get detailed system health information.
 
 **Response (200 OK):**
+
 ```json
 {
   "status": "healthy",
@@ -497,6 +548,7 @@ Get detailed system health information.
 ```
 
 ### Force User Logout
+
 ```http
 POST /admin/users/{user_id}/force-logout
 Authorization: Bearer {admin_access_token}
@@ -505,6 +557,7 @@ Authorization: Bearer {admin_access_token}
 Force logout a specific user from all sessions.
 
 **Response (200 OK):**
+
 ```json
 {
   "message": "User successfully logged out from all sessions",
@@ -513,6 +566,7 @@ Force logout a specific user from all sessions.
 ```
 
 ### Clear All Sessions
+
 ```http
 POST /admin/sessions/clear-all
 Authorization: Bearer {admin_access_token}
@@ -521,6 +575,7 @@ Authorization: Bearer {admin_access_token}
 Clear all active user sessions.
 
 **Response (200 OK):**
+
 ```json
 {
   "message": "All sessions cleared successfully",
@@ -531,6 +586,7 @@ Clear all active user sessions.
 ## Health Check Endpoints
 
 ### Basic Health Check
+
 ```http
 GET /health
 ```
@@ -538,6 +594,7 @@ GET /health
 Basic health check endpoint.
 
 **Response (200 OK):**
+
 ```json
 {
   "status": "healthy",
@@ -546,6 +603,7 @@ Basic health check endpoint.
 ```
 
 ### Detailed Health Check
+
 ```http
 GET /health/detailed
 ```
@@ -553,6 +611,7 @@ GET /health/detailed
 Detailed health check with dependency status.
 
 **Response (200 OK):**
+
 ```json
 {
   "status": "healthy",
@@ -571,6 +630,7 @@ Detailed health check with dependency status.
 All endpoints may return the following error responses:
 
 ### 400 Bad Request
+
 ```json
 {
   "detail": "Invalid request data",
@@ -579,6 +639,7 @@ All endpoints may return the following error responses:
 ```
 
 ### 401 Unauthorized
+
 ```json
 {
   "detail": "Authentication required",
@@ -587,6 +648,7 @@ All endpoints may return the following error responses:
 ```
 
 ### 403 Forbidden
+
 ```json
 {
   "detail": "Insufficient permissions",
@@ -595,6 +657,7 @@ All endpoints may return the following error responses:
 ```
 
 ### 404 Not Found
+
 ```json
 {
   "detail": "Resource not found",
@@ -603,6 +666,7 @@ All endpoints may return the following error responses:
 ```
 
 ### 422 Unprocessable Entity
+
 ```json
 {
   "detail": [
@@ -616,6 +680,7 @@ All endpoints may return the following error responses:
 ```
 
 ### 429 Too Many Requests
+
 ```json
 {
   "detail": "Rate limit exceeded",
@@ -625,6 +690,7 @@ All endpoints may return the following error responses:
 ```
 
 ### 500 Internal Server Error
+
 ```json
 {
   "detail": "Internal server error",
@@ -642,6 +708,7 @@ Most endpoints are rate limited to prevent abuse:
 - **Admin endpoints**: 100 requests per minute per admin user
 
 Rate limit headers are included in responses:
+
 - `X-RateLimit-Limit`: Request limit per window
 - `X-RateLimit-Remaining`: Remaining requests in current window
 - `X-RateLimit-Reset`: Time when rate limit resets (Unix timestamp)
@@ -650,16 +717,18 @@ Rate limit headers are included in responses:
 
 The API uses JWT (JSON Web Tokens) for authentication. Include the access token in the Authorization header:
 
-```
+```http
 Authorization: Bearer {access_token}
 ```
 
 ### Token Lifecycle
+
 - **Access tokens**: Valid for 30 minutes
 - **Refresh tokens**: Valid for 7 days
 - **Password reset tokens**: Valid for 15 minutes
 
 ### Security Notes
+
 - Always use HTTPS in production
 - Store tokens securely (not in localStorage for web apps)
 - Implement proper token refresh logic
@@ -673,6 +742,7 @@ List endpoints support pagination with the following parameters:
 - `offset`: Number of items to skip (default: 0)
 
 Pagination response format:
+
 ```json
 {
   "data": [...],
@@ -689,6 +759,7 @@ Pagination response format:
 The service supports webhooks for real-time notifications:
 
 ### Supported Events
+
 - `user.registered`: New user registration
 - `user.updated`: User profile updated
 - `user.deleted`: User account deleted
@@ -696,6 +767,7 @@ The service supports webhooks for real-time notifications:
 - `social.unfollowed`: User unfollowed another user
 
 ### Webhook Payload Format
+
 ```json
 {
   "event": "user.registered",

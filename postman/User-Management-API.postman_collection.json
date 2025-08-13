@@ -11,19 +11,27 @@
       "description": "System health and status endpoints",
       "item": [
         {
-          "name": "Health Check",
+          "name": "Readiness Check",
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Health check successful', function () {",
-                  "    pm.response.to.have.status(200);",
+                  "pm.test('Readiness check response received', function () {",
+                  "    pm.expect([200, 503]).to.include(pm.response.code);",
                   "});",
                   "",
-                  "pm.test('Response contains status', function () {",
+                  "pm.test('Response contains readiness status', function () {",
                   "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('ready');",
                   "    pm.expect(response).to.have.property('status');",
+                  "    pm.expect(response).to.have.property('dependencies');",
+                  "});",
+                  "",
+                  "pm.test('Dependencies status included', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.dependencies).to.have.property('database');",
+                  "    pm.expect(response.dependencies).to.have.property('redis');",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -45,6 +53,47 @@
               "raw": "{{userManagementServiceBaseUrl}}/health",
               "host": ["{{userManagementServiceBaseUrl}}"],
               "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Liveness Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Liveness check successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains liveness status', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('alive');",
+                  "    pm.expect(response).to.have.property('status');",
+                  "    pm.expect(response).to.have.property('message');",
+                  "    pm.expect(response.alive).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{userManagementServiceBaseUrl}}/live",
+              "host": ["{{userManagementServiceBaseUrl}}"],
+              "path": ["live"]
             }
           }
         }
@@ -799,7 +848,12 @@
             "url": {
               "raw": "{{userManagementServiceBaseUrl}}/admin/users/{{userManagementServiceTargetUserId}}/force-logout",
               "host": ["{{userManagementServiceBaseUrl}}"],
-              "path": ["admin", "users", "{{userManagementServiceTargetUserId}}", "force-logout"]
+              "path": [
+                "admin",
+                "users",
+                "{{userManagementServiceTargetUserId}}",
+                "force-logout"
+              ]
             }
           }
         },
@@ -1001,7 +1055,11 @@
             "url": {
               "raw": "{{userManagementServiceBaseUrl}}/users/{{userManagementServiceTargetUserId}}/followers",
               "host": ["{{userManagementServiceBaseUrl}}"],
-              "path": ["users", "{{userManagementServiceTargetUserId}}", "followers"]
+              "path": [
+                "users",
+                "{{userManagementServiceTargetUserId}}",
+                "followers"
+              ]
             }
           }
         },
@@ -1036,7 +1094,11 @@
             "url": {
               "raw": "{{userManagementServiceBaseUrl}}/users/{{userManagementServiceTargetUserId}}/followers?limit=15&offset=10",
               "host": ["{{userManagementServiceBaseUrl}}"],
-              "path": ["users", "{{userManagementServiceTargetUserId}}", "followers"],
+              "path": [
+                "users",
+                "{{userManagementServiceTargetUserId}}",
+                "followers"
+              ],
               "query": [
                 {
                   "key": "limit",
@@ -1081,7 +1143,11 @@
             "url": {
               "raw": "{{userManagementServiceBaseUrl}}/users/{{userManagementServiceTargetUserId}}/followers?count_only=true",
               "host": ["{{userManagementServiceBaseUrl}}"],
-              "path": ["users", "{{userManagementServiceTargetUserId}}", "followers"],
+              "path": [
+                "users",
+                "{{userManagementServiceTargetUserId}}",
+                "followers"
+              ],
               "query": [
                 {
                   "key": "count_only",
@@ -1122,7 +1188,12 @@
             "url": {
               "raw": "{{userManagementServiceBaseUrl}}/users/{{userManagementServiceUserId}}/follow/{{userManagementServiceTargetUserId}}",
               "host": ["{{userManagementServiceBaseUrl}}"],
-              "path": ["users", "{{userManagementServiceUserId}}", "follow", "{{userManagementServiceTargetUserId}}"]
+              "path": [
+                "users",
+                "{{userManagementServiceUserId}}",
+                "follow",
+                "{{userManagementServiceTargetUserId}}"
+              ]
             }
           }
         },
@@ -1157,7 +1228,12 @@
             "url": {
               "raw": "{{userManagementServiceBaseUrl}}/users/{{userManagementServiceUserId}}/follow/{{userManagementServiceTargetUserId}}",
               "host": ["{{userManagementServiceBaseUrl}}"],
-              "path": ["users", "{{userManagementServiceUserId}}", "follow", "{{userManagementServiceTargetUserId}}"]
+              "path": [
+                "users",
+                "{{userManagementServiceUserId}}",
+                "follow",
+                "{{userManagementServiceTargetUserId}}"
+              ]
             }
           }
         },
@@ -1192,7 +1268,11 @@
             "url": {
               "raw": "{{userManagementServiceBaseUrl}}/users/{{userManagementServiceTargetUserId}}/activity?per_type_limit=5",
               "host": ["{{userManagementServiceBaseUrl}}"],
-              "path": ["users", "{{userManagementServiceTargetUserId}}", "activity"],
+              "path": [
+                "users",
+                "{{userManagementServiceTargetUserId}}",
+                "activity"
+              ],
               "query": [
                 {
                   "key": "per_type_limit",
@@ -1360,7 +1440,11 @@
             "url": {
               "raw": "{{userManagementServiceBaseUrl}}/notifications/{{userManagementServiceNotificationId}}/read",
               "host": ["{{userManagementServiceBaseUrl}}"],
-              "path": ["notifications", "{{userManagementServiceNotificationId}}", "read"]
+              "path": [
+                "notifications",
+                "{{userManagementServiceNotificationId}}",
+                "read"
+              ]
             }
           }
         },

@@ -356,19 +356,94 @@ docker-compose up --build
 - Redis operation metrics
 - Custom business metrics
 
+## 📦 Releases & Versioning
+
+This project uses [Semantic Versioning](https://semver.org/) and
+[Conventional Commits](https://conventionalcommits.org/) for automated releases.
+
+### Version Format
+
+```text
+MAJOR.MINOR.PATCH (e.g., 1.2.3)
+```
+
+- **MAJOR**: Breaking changes (`feat!:` or `BREAKING CHANGE:`)
+- **MINOR**: New features (`feat:`)
+- **PATCH**: Bug fixes (`fix:`)
+
+### Release Process
+
+Releases are **fully automated** via GitHub Actions:
+
+1. **Commits** follow conventional commit format
+2. **Release Please** analyzes commits and creates release PRs
+3. **Merging** release PR triggers:
+   - Version bump in `pyproject.toml`
+   - CHANGELOG.md update
+   - GitHub release creation
+   - Package build and artifact upload
+
+### Commit Types & Versioning
+
+| Commit Type | Example                                | Version Impact        |
+| ----------- | -------------------------------------- | --------------------- |
+| `feat:`     | `feat(auth): add OAuth support`        | Minor (0.1.0 → 0.2.0) |
+| `fix:`      | `fix(users): resolve validation error` | Patch (0.1.0 → 0.1.1) |
+| `feat!:`    | `feat!: remove legacy API`             | Major (0.1.0 → 1.0.0) |
+| `docs:`     | `docs: update API examples`            | None                  |
+| `chore:`    | `chore: update dependencies`           | None                  |
+
+### Latest Release
+
+[![GitHub Release](https://img.shields.io/github/v/release/jsamuelsen/user-management-service?include_prereleases&sort=semver)](https://github.com/jsamuelsen/user-management-service/releases)
+[![GitHub Release Date](https://img.shields.io/github/release-date/jsamuelsen/user-management-service)](https://github.com/jsamuelsen/user-management-service/releases)
+
 ## 🤝 Contributing
+
+We use **Conventional Commits** for consistent messaging and automated releases.
+
+### Quick Contribution Steps
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes following our code standards
-4. Run tests and ensure they pass
-5. Run pre-commit hooks (`pre-commit run --all-files`)
-6. Commit your changes (`git commit -m 'Add amazing feature'`)
-7. Push to the branch (`git push origin feature/amazing-feature`)
-8. Open a Pull Request
+4. Use conventional commit messages:
+
+   ```bash
+   git commit -m "feat(users): add advanced search filters"
+   git commit -m "fix(auth): resolve token refresh timing issue"
+   git commit -m "docs(api): add OAuth endpoint examples"
+   ```
+
+5. Run tests and quality checks
+6. Push to your branch and open a Pull Request
+
+### Commit Message Format
+
+```text
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+**Examples:**
+
+```bash
+feat(auth): add password reset functionality
+fix(users): resolve profile update validation error
+docs(api): update authentication endpoint documentation
+test(social): add integration tests for follow functionality
+chore(deps): update FastAPI to 0.115.14
+ci: add automated release workflow
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ### Code Standards
 
+- **Conventional Commits** enforced via pre-commit hooks
 - **Black** formatting (line length: 88)
 - **Ruff** linting with comprehensive rules
 - **MyPy** strict type checking

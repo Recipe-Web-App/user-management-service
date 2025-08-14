@@ -9,7 +9,7 @@ metadata:
     # Ignoring image tag and pull policy checks since we build images locally
     kube-score/ignore: container-image-tag,container-image-pull-policy
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: user-management
@@ -20,18 +20,6 @@ spec:
     spec:
       restartPolicy: Always
       terminationGracePeriodSeconds: 10
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchExpressions:
-                    - key: app
-                      operator: In
-                      values:
-                        - user-management
-                topologyKey: kubernetes.io/hostname
       volumes:
         - name: logs
           emptyDir: {}
@@ -145,13 +133,13 @@ spec:
             failureThreshold: 3
           resources:
             requests:
-              cpu: "200m"
-              memory: "256Mi"
-              ephemeral-storage: "1Gi"
+              cpu: "100m"
+              memory: "128Mi"
+              ephemeral-storage: "512Mi"
             limits:
-              cpu: "1"
-              memory: "1Gi"
-              ephemeral-storage: "2Gi"
+              cpu: "500m"
+              memory: "512Mi"
+              ephemeral-storage: "1Gi"
           securityContext:
             runAsUser: 10001
             runAsGroup: 10001

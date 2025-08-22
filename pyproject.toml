@@ -49,7 +49,7 @@ kubernetes-typed = "^18.20.2"
 docker = "^7.1.0"
 pydantic-settings = {extras = ["all"], version = "^2.10.1"}
 pytest = "^8.4.1"
-pytest-asyncio = "^1.0.0"
+pytest-asyncio = "^1.1.0"
 refurb = "^2.1.0"
 types-redis = "^4.6.0.20241004"
 

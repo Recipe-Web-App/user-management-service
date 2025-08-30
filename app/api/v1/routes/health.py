@@ -17,19 +17,24 @@ router = APIRouter()
     tags=["health"],
     summary="Readiness check",
     description=(
-        "Returns a 200 OK response if the server is ready to serve requests "
-        "and all dependencies are healthy."
+        "Returns a 200 OK response if the server is ready to serve requests."
+        "Returns degraded status (200) when database is down but Redis is healthy."
+        "Returns 503 only when Redis is unavailable since JWT sessions are critical."
     ),
     response_model=ReadinessResponse,
 )
 async def readiness_check() -> ReadinessResponse:
     """Readiness check handler - checks app and all dependencies.
 
+    Returns 200 OK with degraded status when only database is unavailable,
+    allowing Kubernetes deployments to succeed while database reconnection
+    attempts continue in the background.
+
     Returns:
         ReadinessResponse: Readiness status with dependency details
 
     Raises:
-        HTTPException: 503 if service is not ready
+        HTTPException: 503 only if Redis is unavailable
     """
     readiness_status = await health_service.get_readiness_status()
 

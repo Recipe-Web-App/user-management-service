@@ -166,6 +166,11 @@ class HealthService:
     async def get_readiness_status(self) -> ReadinessResponse:
         """Get comprehensive readiness status including all dependencies.
 
+        Returns degraded (200 OK) status when only database is unavailable,
+        allowing the service to remain deployable while non-database operations
+        can still function. Returns not ready (503) only when Redis is unavailable
+        since JWT sessions are critical.
+
         Returns:
             ReadinessResponse: Comprehensive readiness status
         """
@@ -174,7 +179,36 @@ class HealthService:
         db_health = await self.check_database_health()
         redis_health = await self.check_redis_health()
 
-        all_healthy = db_health.healthy and redis_health.healthy
+        # Service is ready if Redis is healthy (database can be degraded)
+        redis_healthy = redis_health.healthy
+        db_healthy = db_health.healthy
+        all_healthy = db_healthy and redis_healthy
+
+        # Determine overall service status
+        if all_healthy:
+            service_ready = True
+            service_degraded = False
+            service_status = "ready"
+        elif redis_healthy and not db_healthy:
+            # Database is down but Redis is up - degraded mode
+            service_ready = True
+            service_degraded = True
+            service_status = "degraded"
+        elif db_healthy and not redis_healthy:
+            # Redis is down but database is up - degraded mode
+            service_ready = True
+            service_degraded = True
+            service_status = "degraded"
+        elif not db_healthy and not redis_healthy:
+            # Both dependencies are down - degraded mode (basic service still works)
+            service_ready = True
+            service_degraded = True
+            service_status = "degraded"
+        else:
+            # Should not reach here, but fallback to not ready
+            service_ready = False
+            service_degraded = False
+            service_status = "not ready"
 
         dependencies: dict[str, DependencyHealth] = {
             "database": db_health,
@@ -182,13 +216,19 @@ class HealthService:
         }
 
         status = ReadinessResponse(
-            ready=all_healthy,
-            status="ready" if all_healthy else "not ready",
+            ready=service_ready,
+            status=service_status,
+            degraded=service_degraded,
             dependencies=dependencies,
         )
 
         if all_healthy:
             logger.info("All dependencies healthy - service ready")
+        elif service_degraded:
+            logger.warning(
+                f"Service running in degraded mode - Database: {db_health.status}, "
+                f"Redis: {redis_health.status}. Dependency reconnection service active."
+            )
         else:
             logger.warning(
                 f"Service not ready - Database: {db_health.status}, "

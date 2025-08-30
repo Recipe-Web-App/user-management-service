@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.routes import api_router
 from app.core.config import settings
 from app.core.logging import configure_logging
+from app.db.database_reconnection import database_reconnection_service
 from app.db.redis.redis_database_manager import init_redis
 from app.db.sql.sql_database_manager import init_db
 from app.exceptions.handlers import unhandled_exception_handler
@@ -36,7 +37,21 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         _log.critical("Could not initialize redis database: %s", e)
 
+    # Start database reconnection service
+    try:
+        await database_reconnection_service.start()
+        _log.info("Database reconnection service started")
+    except Exception as e:
+        _log.error("Could not start database reconnection service: %s", e)
+
     yield
+
+    # Stop database reconnection service
+    try:
+        await database_reconnection_service.stop()
+        _log.info("Database reconnection service stopped")
+    except Exception as e:
+        _log.error("Error stopping database reconnection service: %s", e)
 
 
 app = FastAPI(

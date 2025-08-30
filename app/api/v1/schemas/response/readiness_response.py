@@ -12,6 +12,9 @@ class ReadinessResponse(BaseModel):
         ..., description="Whether the service is ready to serve requests"
     )
     status: str = Field(..., description="Overall readiness status")
+    degraded: bool = Field(
+        default=False, description="Whether the service is running in degraded mode"
+    )
     dependencies: dict[str, DependencyHealth] = Field(
         ..., description="Health status of each dependency"
     )

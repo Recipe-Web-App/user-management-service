@@ -1,0 +1,1774 @@
+openapi: 3.0.0
+info:
+  title: User Management Service API
+  description: |
+    A comprehensive user management microservice providing authentication, profile management,
+    social features, notifications, and administrative capabilities for a recipe web application.
+
+    ## Features
+    - User registration and authentication (JWT-based)
+    - Profile management with privacy controls
+    - Social features (following/followers)
+    - Notification system with preferences
+    - Administrative tools and metrics
+    - Health monitoring endpoints
+
+    ## Authentication
+    Most endpoints require JWT Bearer token authentication. Include the token in the Authorization header:
+    `Authorization: Bearer <token>`
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Development server
+  - url: https://api.example.com/api/v1
+    description: Production server
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: authentication
+    description: User authentication and account management
+  - name: users
+    description: User profile and account operations
+  - name: social
+    description: Social features including following and activity
+  - name: notifications
+    description: Notification management and preferences
+  - name: admin
+    description: Administrative operations (requires admin role)
+  - name: metrics
+    description: System metrics and monitoring (requires admin role)
+  - name: health
+    description: Service health checks
+
+paths:
+  # Authentication Endpoints
+  /user-management/auth/register:
+    post:
+      tags:
+        - authentication
+      summary: Register a new user
+      description: Create a new user account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserRegistrationRequest"
+      responses:
+        "200":
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRegistrationResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /user-management/auth/reset-password:
+    post:
+      tags:
+        - authentication
+      summary: Request password reset
+      description: Send password reset email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserPasswordResetRequest"
+      responses:
+        "200":
+          description: Password reset email sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPasswordResetResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /user-management/auth/reset-password/confirm:
+    post:
+      tags:
+        - authentication
+      summary: Confirm password reset
+      description: Reset password using token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserPasswordResetConfirmRequest"
+      responses:
+        "200":
+          description: Password reset successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPasswordResetConfirmResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  # User Management Endpoints
+  /user-management/users/{user_id}/profile:
+    get:
+      tags:
+        - users
+      summary: Get user profile
+      description: Retrieve user profile information with privacy checks
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+      responses:
+        "200":
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfileResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /user-management/users/profile:
+    put:
+      tags:
+        - users
+      summary: Update user profile
+      description: Update current user's profile information
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserProfileUpdateRequest"
+      responses:
+        "200":
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfileResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /user-management/users/account/delete-request:
+    post:
+      tags:
+        - users
+      summary: Request account deletion
+      description: Request account deletion and receive a confirmation token
+      responses:
+        "200":
+          description: Deletion request created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserAccountDeleteRequestResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /user-management/users/account:
+    delete:
+      tags:
+        - users
+      summary: Confirm account deletion
+      description: Confirm account deletion using the confirmation token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserAccountDeleteRequest"
+      responses:
+        "200":
+          description: Account successfully deactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserConfirmAccountDeleteResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /user-management/users/search:
+    get:
+      tags:
+        - users
+      summary: Search users
+      description: Search for users by username or display name
+      parameters:
+        - name: query
+          in: query
+          description: Search query for username or display name
+          schema:
+            type: string
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/OffsetParam"
+        - $ref: "#/components/parameters/CountOnlyParam"
+      responses:
+        "200":
+          description: User search results retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSearchResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /user-management/users/{user_id}:
+    get:
+      tags:
+        - users
+      summary: Get user by ID
+      description: Retrieve public profile of another user (NOT IMPLEMENTED)
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+      responses:
+        "200":
+          description: Public user profile data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Get user endpoint - NOT IMPLEMENTED"
+
+  # Social Features Endpoints
+  /user-management/users/{user_id}/following:
+    get:
+      tags:
+        - social
+      summary: Get following list
+      description: Retrieve list of users the specified user is following
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/OffsetParam"
+        - $ref: "#/components/parameters/CountOnlyParam"
+      responses:
+        "200":
+          description: Following list retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetFollowedUsersResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /user-management/users/{user_id}/followers:
+    get:
+      tags:
+        - social
+      summary: Get followers list
+      description: Retrieve list of users following the current user
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/OffsetParam"
+        - $ref: "#/components/parameters/CountOnlyParam"
+      responses:
+        "200":
+          description: Followers list retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetFollowedUsersResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /user-management/users/{user_id}/follow/{target_user_id}:
+    post:
+      tags:
+        - social
+      summary: Follow user
+      description: Follow another user
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+        - name: target_user_id
+          in: path
+          required: true
+          description: Target user ID to follow
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Successfully followed user or already following
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+    delete:
+      tags:
+        - social
+      summary: Unfollow user
+      description: Unfollow another user
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+        - name: target_user_id
+          in: path
+          required: true
+          description: Target user ID to unfollow
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Successfully unfollowed user or not following
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /user-management/users/{user_id}/activity:
+    get:
+      tags:
+        - social
+      summary: Get user activity
+      description: Retrieve activity from a specific user (recipes, follows, reviews, favorites)
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+        - name: per_type_limit
+          in: query
+          description: Number of results to return per activity type
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 15
+      responses:
+        "200":
+          description: User activity data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserActivityResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # Notification Endpoints
+  /user-management/notifications:
+    get:
+      tags:
+        - notifications
+      summary: Get notifications
+      description: Retrieve user's notifications
+      parameters:
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/OffsetParam"
+        - $ref: "#/components/parameters/CountOnlyParam"
+      responses:
+        "200":
+          description: Notifications retrieved successfully
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/NotificationListResponse"
+                  - $ref: "#/components/schemas/NotificationCountResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+    delete:
+      tags:
+        - notifications
+      summary: Delete notifications
+      description: Delete multiple notifications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationDeleteRequest"
+      responses:
+        "200":
+          description: All notifications deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationDeleteResponse"
+        "206":
+          description: Partial success - some notifications deleted, others not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationDeleteResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /user-management/notifications/{notification_id}/read:
+    put:
+      tags:
+        - notifications
+      summary: Mark notification as read
+      description: Mark a notification as read
+      parameters:
+        - name: notification_id
+          in: path
+          required: true
+          description: Notification ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Notification marked as read successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationReadResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /user-management/notifications/read-all:
+    put:
+      tags:
+        - notifications
+      summary: Mark all notifications as read
+      description: Mark all notifications as read
+      responses:
+        "200":
+          description: All notifications marked as read successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationReadAllResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /user-management/notifications/preferences:
+    get:
+      tags:
+        - notifications
+      summary: Get notification preferences
+      description: Retrieve user's notification preferences
+      responses:
+        "200":
+          description: Notification preferences retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPreferenceResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+    put:
+      tags:
+        - notifications
+      summary: Update notification preferences
+      description: Update user's notification preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserPreferenceRequest"
+      responses:
+        "200":
+          description: Notification preferences updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPreferenceResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  # Admin Endpoints
+  /user-management/admin/redis/session-stats:
+    get:
+      tags:
+        - admin
+      summary: Get Redis session stats
+      description: Return Redis session statistics
+      responses:
+        "200":
+          description: Session stats returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RedisSessionStatsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /user-management/admin/users/stats:
+    get:
+      tags:
+        - admin
+      summary: Get user statistics
+      description: Return user statistics
+      responses:
+        "200":
+          description: User stats returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserStatsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /user-management/admin/health:
+    get:
+      tags:
+        - admin
+      summary: System health check
+      description: Return system health status
+      responses:
+        "200":
+          description: System health returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemHealthResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /user-management/admin/users/{user_id}/force-logout:
+    post:
+      tags:
+        - admin
+      summary: Force logout user
+      description: Force logout a user
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+      responses:
+        "200":
+          description: User force-logout triggered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForceLogoutResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /user-management/admin/redis/sessions:
+    delete:
+      tags:
+        - admin
+      summary: Clear all Redis sessions
+      description: Clear all Redis sessions
+      responses:
+        "200":
+          description: All sessions cleared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClearSessionsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # Metrics Endpoints
+  /metrics/performance:
+    get:
+      tags:
+        - metrics
+      summary: Get performance metrics
+      description: Get application performance metrics (requires admin authentication)
+      responses:
+        "200":
+          description: Performance metrics retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PerformanceMetrics"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /metrics/cache:
+    get:
+      tags:
+        - metrics
+      summary: Get cache metrics
+      description: Get cache performance metrics (requires admin authentication)
+      responses:
+        "200":
+          description: Cache metrics retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CacheMetrics"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /metrics/cache/clear:
+    post:
+      tags:
+        - metrics
+      summary: Clear cache entries
+      description: Clear cache entries matching a pattern (requires admin authentication)
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pattern:
+                  type: string
+                  default: "*"
+                  description: Redis pattern for keys to clear
+      responses:
+        "200":
+          description: Cache cleared successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CacheClearResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /metrics/system:
+    get:
+      tags:
+        - metrics
+      summary: Get system metrics
+      description: Get system resource metrics (requires admin authentication)
+      responses:
+        "200":
+          description: System metrics retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemMetrics"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /metrics/health/detailed:
+    get:
+      tags:
+        - metrics
+      summary: Get detailed health metrics
+      description: Get detailed health metrics for all services (requires admin authentication)
+      responses:
+        "200":
+          description: Detailed health metrics retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetailedHealthMetrics"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # Health Check Endpoints
+  /user-management/health:
+    get:
+      tags:
+        - health
+      summary: Readiness check
+      description: |
+        Returns a 200 OK response if the server is ready to serve requests.
+        Returns degraded status (200) when database is down but Redis is healthy.
+        Returns 503 only when Redis is unavailable since JWT sessions are critical.
+      security: []
+      responses:
+        "200":
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+        "503":
+          description: Service unavailable (Redis is down)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+
+  /user-management/live:
+    get:
+      tags:
+        - health
+      summary: Liveness check
+      description: Returns a 200 OK response indicating the server is alive
+      security: []
+      responses:
+        "200":
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LivenessResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Bearer token authentication
+
+  parameters:
+    UserIdPath:
+      name: user_id
+      in: path
+      required: true
+      description: User ID
+      schema:
+        type: string
+        format: uuid
+
+    LimitParam:
+      name: limit
+      in: query
+      description: Number of results to return
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+    OffsetParam:
+      name: offset
+      in: query
+      description: Number of results to skip
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+
+    CountOnlyParam:
+      name: count_only
+      in: query
+      description: Return only the count of results
+      schema:
+        type: boolean
+        default: false
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    Unauthorized:
+      description: Invalid or missing authorization token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    Forbidden:
+      description: Access forbidden
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    ServiceUnavailable:
+      description: Service temporarily unavailable
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    # Error Response
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error type or category
+          example: validation_error
+        message:
+          type: string
+          description: Human-readable error message
+          example: Invalid input data
+        details:
+          type: object
+          description: Additional error details or context
+          additionalProperties: true
+
+    # Authentication Schemas
+    UserRegistrationRequest:
+      type: object
+      required:
+        - username
+        - email
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          description: Username for the user account
+          example: john_doe
+        email:
+          type: string
+          format: email
+          description: User email address
+          example: john@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+          description: User password
+          example: SecurePass123!
+        full_name:
+          type: string
+          maxLength: 255
+          description: Full name of the user
+          example: John Doe
+        bio:
+          type: string
+          description: User bio or description
+          example: Software developer
+
+    UserRegistrationResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/UserBasic"
+        access_token:
+          type: string
+          description: JWT access token
+        refresh_token:
+          type: string
+          description: JWT refresh token
+        token_type:
+          type: string
+          default: bearer
+
+    UserPasswordResetRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email address for password reset
+
+    UserPasswordResetResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Password reset email sent successfully
+
+    UserPasswordResetConfirmRequest:
+      type: object
+      required:
+        - token
+        - new_password
+      properties:
+        token:
+          type: string
+          description: Password reset token
+        new_password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+          description: New password
+
+    UserPasswordResetConfirmResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Password reset successfully
+
+    # User Management Schemas
+    UserBasic:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+        bio:
+          type: string
+        profile_picture_url:
+          type: string
+          format: uri
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UserProfileResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/UserBasic"
+        preferences:
+          $ref: "#/components/schemas/UserPreferences"
+        statistics:
+          type: object
+          properties:
+            followers_count:
+              type: integer
+            following_count:
+              type: integer
+            recipes_count:
+              type: integer
+
+    UserProfileUpdateRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+          maxLength: 255
+        bio:
+          type: string
+        profile_picture_url:
+          type: string
+          format: uri
+
+    UserAccountDeleteRequest:
+      type: object
+      required:
+        - confirmation_token
+      properties:
+        confirmation_token:
+          type: string
+          description: Token received from delete request
+
+    UserAccountDeleteRequestResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Account deletion requested. Please check your email for confirmation.
+        confirmation_token:
+          type: string
+          description: Confirmation token for deletion
+
+    UserConfirmAccountDeleteResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Account successfully deactivated
+
+    UserSearchResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserBasic"
+        total:
+          type: integer
+          description: Total number of matching users
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    # Social Features Schemas
+    GetFollowedUsersResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserBasic"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    FollowResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+          example: Successfully followed user
+        is_following:
+          type: boolean
+
+    UserActivityResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        activities:
+          type: object
+          properties:
+            recipes:
+              type: array
+              items:
+                $ref: "#/components/schemas/RecipeSummary"
+            follows:
+              type: array
+              items:
+                $ref: "#/components/schemas/UserSummary"
+            reviews:
+              type: array
+              items:
+                $ref: "#/components/schemas/ReviewSummary"
+            favorites:
+              type: array
+              items:
+                $ref: "#/components/schemas/FavoriteSummary"
+
+    RecipeSummary:
+      type: object
+      properties:
+        recipe_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    UserSummary:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        followed_at:
+          type: string
+          format: date-time
+
+    ReviewSummary:
+      type: object
+      properties:
+        review_id:
+          type: string
+          format: uuid
+        recipe_id:
+          type: string
+          format: uuid
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        created_at:
+          type: string
+          format: date-time
+
+    FavoriteSummary:
+      type: object
+      properties:
+        recipe_id:
+          type: string
+          format: uuid
+        favorited_at:
+          type: string
+          format: date-time
+
+    # Notification Schemas
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [follow, like, comment, recipe_published, system]
+        title:
+          type: string
+        message:
+          type: string
+        is_read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        read_at:
+          type: string
+          format: date-time
+          nullable: true
+        data:
+          type: object
+          description: Additional notification data
+          additionalProperties: true
+
+    NotificationListResponse:
+      type: object
+      properties:
+        notifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/Notification"
+        total:
+          type: integer
+        unread_count:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    NotificationCountResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+        unread_count:
+          type: integer
+
+    NotificationReadResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+          example: Notification marked as read
+
+    NotificationReadAllResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+          example: All notifications marked as read
+        updated_count:
+          type: integer
+
+    NotificationDeleteRequest:
+      type: object
+      required:
+        - notification_ids
+      properties:
+        notification_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+
+    NotificationDeleteResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        deleted_count:
+          type: integer
+        not_found_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    # User Preferences Schemas
+    UserPreferences:
+      type: object
+      properties:
+        notification_preferences:
+          $ref: "#/components/schemas/NotificationPreferences"
+        privacy_preferences:
+          $ref: "#/components/schemas/PrivacyPreferences"
+        display_preferences:
+          $ref: "#/components/schemas/DisplayPreferences"
+
+    UserPreferenceResponse:
+      type: object
+      properties:
+        preferences:
+          $ref: "#/components/schemas/UserPreferences"
+
+    UpdateUserPreferenceRequest:
+      type: object
+      properties:
+        notification_preferences:
+          $ref: "#/components/schemas/NotificationPreferences"
+        privacy_preferences:
+          $ref: "#/components/schemas/PrivacyPreferences"
+        display_preferences:
+          $ref: "#/components/schemas/DisplayPreferences"
+
+    NotificationPreferences:
+      type: object
+      properties:
+        email_notifications:
+          type: boolean
+          default: true
+        push_notifications:
+          type: boolean
+          default: true
+        follow_notifications:
+          type: boolean
+          default: true
+        like_notifications:
+          type: boolean
+          default: true
+        comment_notifications:
+          type: boolean
+          default: true
+        recipe_notifications:
+          type: boolean
+          default: true
+        system_notifications:
+          type: boolean
+          default: true
+
+    PrivacyPreferences:
+      type: object
+      properties:
+        profile_visibility:
+          type: string
+          enum: [public, followers_only, private]
+          default: public
+        show_email:
+          type: boolean
+          default: false
+        show_full_name:
+          type: boolean
+          default: true
+        allow_follows:
+          type: boolean
+          default: true
+        allow_messages:
+          type: boolean
+          default: true
+
+    DisplayPreferences:
+      type: object
+      properties:
+        theme:
+          type: string
+          enum: [light, dark, auto]
+          default: auto
+        language:
+          type: string
+          default: en
+        timezone:
+          type: string
+          default: UTC
+
+    # Admin Schemas
+    RedisSessionStatsResponse:
+      type: object
+      properties:
+        total_sessions:
+          type: integer
+        active_sessions:
+          type: integer
+        memory_usage:
+          type: string
+        ttl_info:
+          type: object
+          additionalProperties: true
+
+    UserStatsResponse:
+      type: object
+      properties:
+        total_users:
+          type: integer
+        active_users:
+          type: integer
+        inactive_users:
+          type: integer
+        new_users_today:
+          type: integer
+        new_users_this_week:
+          type: integer
+        new_users_this_month:
+          type: integer
+
+    SystemHealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        database_status:
+          type: string
+          enum: [healthy, unhealthy]
+        redis_status:
+          type: string
+          enum: [healthy, unhealthy]
+        uptime_seconds:
+          type: integer
+        version:
+          type: string
+
+    ForceLogoutResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+          example: User force-logout triggered
+        sessions_cleared:
+          type: integer
+
+    ClearSessionsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+          example: All sessions cleared
+        sessions_cleared:
+          type: integer
+
+    # Metrics Schemas
+    PerformanceMetrics:
+      type: object
+      properties:
+        response_times:
+          type: object
+          properties:
+            average_ms:
+              type: number
+            p50_ms:
+              type: number
+            p95_ms:
+              type: number
+            p99_ms:
+              type: number
+        request_counts:
+          type: object
+          properties:
+            total_requests:
+              type: integer
+            requests_per_minute:
+              type: integer
+            active_sessions:
+              type: integer
+        error_rates:
+          type: object
+          properties:
+            total_errors:
+              type: integer
+            error_rate_percent:
+              type: number
+            4xx_errors:
+              type: integer
+            5xx_errors:
+              type: integer
+        database:
+          type: object
+          properties:
+            active_connections:
+              type: integer
+            max_connections:
+              type: integer
+            avg_query_time_ms:
+              type: number
+            slow_queries_count:
+              type: integer
+
+    CacheMetrics:
+      type: object
+      properties:
+        memory_usage:
+          type: string
+        memory_usage_human:
+          type: string
+        keys_count:
+          type: integer
+        hit_rate:
+          type: number
+        connected_clients:
+          type: integer
+        evicted_keys:
+          type: integer
+        expired_keys:
+          type: integer
+
+    CacheClearResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Cache cleared successfully
+        pattern:
+          type: string
+        cleared_count:
+          type: integer
+
+    SystemMetrics:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        system:
+          type: object
+          properties:
+            cpu_usage_percent:
+              type: number
+            memory_total_gb:
+              type: number
+            memory_used_gb:
+              type: number
+            memory_usage_percent:
+              type: number
+            disk_total_gb:
+              type: number
+            disk_used_gb:
+              type: number
+            disk_usage_percent:
+              type: number
+        process:
+          type: object
+          properties:
+            memory_rss_mb:
+              type: number
+            memory_vms_mb:
+              type: number
+            cpu_percent:
+              type: number
+            num_threads:
+              type: integer
+            open_files:
+              type: integer
+        uptime_seconds:
+          type: integer
+
+    DetailedHealthMetrics:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        overall_status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        services:
+          type: object
+          properties:
+            redis:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [healthy, unhealthy]
+                response_time_ms:
+                  type: number
+                memory_usage:
+                  type: string
+                connected_clients:
+                  type: integer
+                hit_rate_percent:
+                  type: number
+            database:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [healthy, unhealthy]
+                response_time_ms:
+                  type: number
+                active_connections:
+                  type: integer
+                max_connections:
+                  type: integer
+        application:
+          type: object
+          properties:
+            version:
+              type: string
+            environment:
+              type: string
+            features:
+              type: object
+              properties:
+                authentication:
+                  type: string
+                caching:
+                  type: string
+                monitoring:
+                  type: string
+                security_headers:
+                  type: string
+
+    # Health Check Schemas
+    ReadinessResponse:
+      type: object
+      properties:
+        ready:
+          type: boolean
+        status:
+          type: string
+          enum: [ready, degraded, not_ready]
+        checks:
+          type: object
+          properties:
+            app:
+              $ref: "#/components/schemas/HealthCheck"
+            database:
+              $ref: "#/components/schemas/HealthCheck"
+            redis:
+              $ref: "#/components/schemas/HealthCheck"
+
+    LivenessResponse:
+      type: object
+      properties:
+        alive:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
+
+    HealthCheck:
+      type: object
+      properties:
+        healthy:
+          type: boolean
+        message:
+          type: string

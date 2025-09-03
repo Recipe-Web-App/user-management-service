@@ -76,7 +76,7 @@ class _Settings(BaseSettings):
     USER_MANAGEMENT_DB_USER: str = Field(..., alias="USER_MANAGEMENT_DB_USER")
     USER_MANAGEMENT_DB_PASSWORD: str = Field(..., alias="USER_MANAGEMENT_DB_PASSWORD")
 
-    # JWT Authentication Settings
+    # JWT Authentication Settings (for backward compatibility)
     JWT_SECRET_KEY: str = Field(..., alias="JWT_SECRET_KEY")
     JWT_SIGNING_ALGORITHM: str = Field(..., alias="JWT_SIGNING_ALGORITHM")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(..., alias="ACCESS_TOKEN_EXPIRE_MINUTES")
@@ -84,6 +84,18 @@ class _Settings(BaseSettings):
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = Field(
         ..., alias="PASSWORD_RESET_TOKEN_EXPIRE_MINUTES"
     )
+
+    # OAuth2 Integration Settings
+    JWT_SECRET: str = Field("", alias="JWT_SECRET")  # Shared secret with OAuth2 service
+    OAUTH2_SERVICE_ENABLED: bool = Field(True, alias="OAUTH2_SERVICE_ENABLED")
+    OAUTH2_SERVICE_TO_SERVICE_ENABLED: bool = Field(
+        True, alias="OAUTH2_SERVICE_TO_SERVICE_ENABLED"
+    )
+    OAUTH2_INTROSPECTION_ENABLED: bool = Field(
+        False, alias="OAUTH2_INTROSPECTION_ENABLED"
+    )
+    OAUTH2_CLIENT_ID: str = Field("", alias="OAUTH2_CLIENT_ID")
+    OAUTH2_CLIENT_SECRET: str = Field("", alias="OAUTH2_CLIENT_SECRET")
 
     # CORS Configuration
     ALLOWED_ORIGIN_HOSTS: str = Field(..., alias="ALLOWED_ORIGIN_HOSTS")
@@ -106,6 +118,7 @@ class _Settings(BaseSettings):
     )
 
     _LOGGING_SINKS: list["LoggingSink"] = PrivateAttr(default_factory=list)
+    _OAUTH2_CONFIG: dict[str, Any] = PrivateAttr(default_factory=dict)
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -114,7 +127,7 @@ class _Settings(BaseSettings):
     )
 
     def __init__(self) -> None:
-        """Load logging config after Pydantic initialization."""
+        """Load logging and OAuth2 config after Pydantic initialization."""
         super().__init__()
 
         # Load logging configuration
@@ -125,6 +138,16 @@ class _Settings(BaseSettings):
         self._LOGGING_SINKS = [
             LoggingSink.from_dict(s) for s in sinks if isinstance(s, dict)
         ]
+
+        # Load OAuth2 configuration
+        oauth2_config_path = (
+            Path(__file__).parent.parent.parent / "config" / "oauth2.json"
+        )
+        if oauth2_config_path.exists():
+            with oauth2_config_path.open("r", encoding="utf-8") as f:
+                self._OAUTH2_CONFIG = json.load(f)
+        else:
+            self._OAUTH2_CONFIG = {}
 
     @property
     def postgres_host(self) -> str:
@@ -240,6 +263,94 @@ class _Settings(BaseSettings):
     def startup_time(self) -> datetime:
         """Get the startup time."""
         return self._STARTUP_TIME
+
+    # OAuth2 Integration Properties
+    @property
+    def jwt_secret(self) -> str:
+        """Get JWT secret for OAuth2 integration."""
+        return self.JWT_SECRET
+
+    @property
+    def oauth2_service_enabled(self) -> bool:
+        """Check if OAuth2 service integration is enabled."""
+        return self.OAUTH2_SERVICE_ENABLED
+
+    @property
+    def oauth2_service_to_service_enabled(self) -> bool:
+        """Check if OAuth2 service-to-service authentication is enabled."""
+        return self.OAUTH2_SERVICE_TO_SERVICE_ENABLED
+
+    @property
+    def oauth2_introspection_enabled(self) -> bool:
+        """Check if OAuth2 token introspection is enabled."""
+        return self.OAUTH2_INTROSPECTION_ENABLED
+
+    @property
+    def oauth2_client_id(self) -> str:
+        """Get OAuth2 client ID."""
+        return self.OAUTH2_CLIENT_ID
+
+    @property
+    def oauth2_client_secret(self) -> str:
+        """Get OAuth2 client secret."""
+        return self.OAUTH2_CLIENT_SECRET
+
+    @property
+    def oauth2_authorization_url(self) -> str:
+        """Get OAuth2 authorization URL."""
+        return self._OAUTH2_CONFIG.get("oauth2_service_urls", {}).get(
+            "authorization_url", ""
+        )
+
+    @property
+    def oauth2_token_url(self) -> str:
+        """Get OAuth2 token URL."""
+        return self._OAUTH2_CONFIG.get("oauth2_service_urls", {}).get("token_url", "")
+
+    @property
+    def oauth2_introspection_url(self) -> str:
+        """Get OAuth2 token introspection URL."""
+        return self._OAUTH2_CONFIG.get("oauth2_service_urls", {}).get(
+            "introspection_url", ""
+        )
+
+    @property
+    def oauth2_userinfo_url(self) -> str:
+        """Get OAuth2 userinfo URL."""
+        return self._OAUTH2_CONFIG.get("oauth2_service_urls", {}).get(
+            "userinfo_url", ""
+        )
+
+    @property
+    def oauth2_default_scopes(self) -> list[str]:
+        """Get OAuth2 default scopes as list."""
+        return self._OAUTH2_CONFIG.get("scopes", {}).get(
+            "default_scopes", ["openid", "profile"]
+        )
+
+    @property
+    def oauth2_admin_scopes(self) -> list[str]:
+        """Get OAuth2 admin scopes as list."""
+        return self._OAUTH2_CONFIG.get("scopes", {}).get(
+            "admin_scopes", ["openid", "profile", "admin"]
+        )
+
+    @property
+    def oauth2_user_management_scopes(self) -> list[str]:
+        """Get OAuth2 user management scopes as list."""
+        return self._OAUTH2_CONFIG.get("scopes", {}).get(
+            "user_management_scopes", ["openid", "profile", "user:read", "user:write"]
+        )
+
+    def get_effective_jwt_secret(self) -> str:
+        """Get the effective JWT secret based on OAuth2 configuration."""
+        if (
+            self.oauth2_service_enabled
+            and not self.oauth2_introspection_enabled
+            and self.jwt_secret
+        ):
+            return self.jwt_secret
+        return self.jwt_secret_key
 
 
 settings = _Settings()

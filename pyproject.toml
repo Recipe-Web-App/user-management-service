@@ -22,6 +22,7 @@ sqlalchemy = {extras = ["asyncio"], version = "^2.0.41"}
 email-validator = "^2.2.0"
 redis = "^6.2.0"
 psutil = "^5.9.0"
+httpx = "^0.28.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"

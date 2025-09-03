@@ -9,7 +9,7 @@ from jose import JWTError
 from app.db.sql.models.user.user import User
 from app.deps.database import DatabaseSession, RedisDbSession
 from app.enums.user_role import UserRole
-from app.services.auth_service import AuthService
+from app.services.user_service import UserService
 from app.utils.security import decode_jwt_token
 
 security = HTTPBearer()
@@ -42,17 +42,17 @@ def _raise_inactive_user_error() -> NoReturn:
     )
 
 
-async def get_auth_service(
+async def get_user_service_for_auth(
     db_session: DatabaseSession,
     redis_session: RedisDbSession,
-) -> AuthService:
-    """Get authentication service dependency."""
-    return AuthService(db_session, redis_session)
+) -> UserService:
+    """Get user service dependency for authentication."""
+    return UserService(db_session, redis_session)
 
 
 async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    user_service: Annotated[UserService, Depends(get_user_service_for_auth)],
 ) -> User:
     """Get current authenticated user."""
     # Decode and validate the JWT token
@@ -68,7 +68,7 @@ async def get_current_user(
         _raise_invalid_token_error()
 
     # Get user from database
-    user = await auth_service.get_user_by_id(user_id)
+    user = await user_service.get_user_by_id(user_id)
     if not user:
         _raise_user_not_found_error()
 
@@ -104,4 +104,3 @@ async def get_current_admin_user(
 CurrentUser = Annotated[User, Depends(get_current_user)]
 CurrentActiveUser = Annotated[User, Depends(get_current_active_user)]
 CurrentAdminUser = Annotated[User, Depends(get_current_admin_user)]
-AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]

@@ -68,6 +68,17 @@ This service follows **Clean Architecture** principles with clear separation of 
    # Edit .env with your configuration
    ```
 
+   **OAuth2 Integration Setup** (recommended):
+   ```bash
+   # Enable OAuth2 integration
+   OAUTH2_SERVICE_ENABLED=true
+   OAUTH2_SERVICE_TO_SERVICE_ENABLED=true
+   OAUTH2_INTROSPECTION_ENABLED=false  # Use JWT validation (faster)
+   OAUTH2_CLIENT_ID=your-client-id
+   OAUTH2_CLIENT_SECRET=your-client-secret
+   JWT_SECRET=shared-secret-with-oauth2-service
+   ```
+
 4. **Start local services** (PostgreSQL & Redis)
 
    ```bash
@@ -86,11 +97,19 @@ The API will be available at `http://localhost:8000` with interactive documentat
 
 ### 🔐 Authentication & Security
 
-- **JWT-based authentication** with access & refresh tokens
-- **Secure password hashing** using bcrypt
-- **Password reset** functionality with time-limited tokens
-- **Session management** via Redis
-- **Role-based access control** (USER/ADMIN)
+- **Dual Authentication Modes**:
+  - **OAuth2 Integration** with external OAuth2 service (recommended)
+  - **Legacy JWT authentication** with access & refresh tokens (backward compatibility)
+- **OAuth2 Features**:
+  - Authorization Code Flow with PKCE support
+  - Token introspection for real-time validation
+  - Service-to-service authentication via client credentials
+  - **Scope-based authorization** with granular permissions
+- **Security Features**:
+  - **Secure password hashing** using bcrypt
+  - **Password reset** functionality with time-limited tokens
+  - **Session management** via Redis
+  - **Role-based access control** (USER/ADMIN) with OAuth2 scope fallback
 
 ### 👤 User Management
 
@@ -129,8 +148,25 @@ Production: https://api.recipe-app.com/user-management
 Development: http://localhost:8000/api/v1
 ```
 
-### Authentication Endpoints
+### Authentication
 
+**OAuth2 Integration** (recommended):
+```bash
+# OAuth2 Authorization Code Flow with PKCE
+# 1. Redirect to OAuth2 service for authorization
+GET https://oauth2-service/authorize?response_type=code&client_id=your-client&scope=openid+profile+user:read&state=random&code_challenge=challenge
+
+# 2. Use authorized endpoints with OAuth2 tokens
+GET /users/profile
+Authorization: Bearer <oauth2_access_token>
+
+# 3. Service-to-service authentication
+POST /oauth2/token
+Content-Type: application/x-www-form-urlencoded
+grant_type=client_credentials&client_id=service&client_secret=secret&scope=user:read+user:write
+```
+
+**Legacy JWT Authentication** (backward compatibility):
 ```bash
 # User Registration
 POST /auth/register
@@ -156,16 +192,22 @@ POST /auth/refresh
 Authorization: Bearer <refresh_token>
 ```
 
-### User Management Endpoints
+### User Management with Scope-Based Authorization
+
+**OAuth2 Scopes**:
+- `user:read` - Read user profiles and search
+- `user:write` - Update user profiles
+- `admin` - Administrative operations
+- `openid profile` - Basic user information
 
 ```bash
-# Get User Profile
+# Get User Profile (requires 'user:read' scope)
 GET /users/{user_id}/profile
-Authorization: Bearer <access_token>
+Authorization: Bearer <oauth2_token>
 
-# Update Profile
+# Update Profile (requires 'user:write' scope)
 PUT /users/profile
-Authorization: Bearer <access_token>
+Authorization: Bearer <oauth2_token>
 Content-Type: application/json
 {
   "first_name": "John",
@@ -173,9 +215,13 @@ Content-Type: application/json
   "bio": "Updated bio"
 }
 
-# Search Users
+# Search Users (requires 'user:read' scope)
 GET /users/search?query=john&limit=10
-Authorization: Bearer <access_token>
+Authorization: Bearer <oauth2_token>
+
+# Admin Operations (requires 'admin' scope)
+GET /admin/users/stats
+Authorization: Bearer <oauth2_admin_token>
 ```
 
 ### Social Features
@@ -276,17 +322,24 @@ kubectl exec -n user-management deployment/user-management -- curl localhost:800
 
 ### Environment Variables
 
-| Variable                      | Description          | Required |
-| ----------------------------- | -------------------- | -------- |
-| `POSTGRES_HOST`               | PostgreSQL host      | ✅       |
-| `POSTGRES_PORT`               | PostgreSQL port      | ✅       |
-| `POSTGRES_DB`                 | Database name        | ✅       |
-| `USER_MANAGEMENT_DB_USER`     | DB username          | ✅       |
-| `USER_MANAGEMENT_DB_PASSWORD` | DB password          | ✅       |
-| `JWT_SECRET_KEY`              | JWT signing secret   | ✅       |
-| `REDIS_HOST`                  | Redis host           | ✅       |
-| `REDIS_PASSWORD`              | Redis password       | ✅       |
-| `ALLOWED_ORIGIN_HOSTS`        | CORS allowed origins | ✅       |
+| Variable                         | Description                        | Required |
+| -------------------------------- | ---------------------------------- | -------- |
+| `POSTGRES_HOST`                  | PostgreSQL host                    | ✅       |
+| `POSTGRES_PORT`                  | PostgreSQL port                    | ✅       |
+| `POSTGRES_DB`                    | Database name                      | ✅       |
+| `USER_MANAGEMENT_DB_USER`        | DB username                        | ✅       |
+| `USER_MANAGEMENT_DB_PASSWORD`    | DB password                        | ✅       |
+| `JWT_SECRET_KEY`                 | JWT signing secret (legacy)        | ✅       |
+| `REDIS_HOST`                     | Redis host                         | ✅       |
+| `REDIS_PASSWORD`                 | Redis password                     | ✅       |
+| `ALLOWED_ORIGIN_HOSTS`           | CORS allowed origins               | ✅       |
+| **OAuth2 Configuration**        |                                    |          |
+| `JWT_SECRET`                     | OAuth2 JWT shared secret           | ✅       |
+| `OAUTH2_SERVICE_ENABLED`         | Enable OAuth2 integration          | ✅       |
+| `OAUTH2_SERVICE_TO_SERVICE_ENABLED` | Enable service-to-service auth   | ✅       |
+| `OAUTH2_INTROSPECTION_ENABLED`   | Use token introspection vs JWT     | ✅       |
+| `OAUTH2_CLIENT_ID`               | OAuth2 client identifier           | ✅       |
+| `OAUTH2_CLIENT_SECRET`           | OAuth2 client secret               | ✅       |
 
 See `.env.example` for complete configuration.
 

@@ -6,10 +6,86 @@ The User Management Service provides comprehensive user authentication, profile 
 administrative capabilities for the Recipe Web Application ecosystem.
 
 **Base URL**: `/api/v1`
-**Authentication**: Bearer JWT tokens
+**Authentication**: OAuth2 Bearer tokens (recommended) or Legacy JWT tokens
 **Content Type**: `application/json`
 
-## Authentication Endpoints
+## Authentication Modes
+
+This service supports **dual authentication modes** for flexibility and backward compatibility:
+
+### 1. OAuth2 Integration (Recommended)
+
+**Features**:
+- **Authorization Code Flow with PKCE** for web/mobile apps
+- **Client Credentials Flow** for service-to-service authentication  
+- **Token Introspection** for real-time validation
+- **Scope-based authorization** with granular permissions
+- **JWT shared secret** validation for performance
+
+**Available Scopes**:
+- `openid` - Basic user identification
+- `profile` - User profile information
+- `user:read` - Read user data and profiles
+- `user:write` - Create and update user data
+- `admin` - Administrative operations
+
+### 2. Legacy JWT Authentication (Backward Compatibility)
+
+**Features**:
+- Local JWT token generation and validation
+- Role-based authorization (USER/ADMIN)
+- Refresh token support
+- Session management
+
+**Migration Path**: Enable `OAUTH2_SERVICE_ENABLED=false` for legacy mode.
+
+## OAuth2 Authentication Flow
+
+### Authorization Code Flow with PKCE
+
+**Step 1: Authorization Request**
+```http
+GET https://oauth2-service/authorize
+  ?response_type=code
+  &client_id=recipe-web-client
+  &redirect_uri=https://app.example.com/callback
+  &scope=openid profile user:read user:write
+  &state=random_state_value
+  &code_challenge=code_challenge_value
+  &code_challenge_method=S256
+```
+
+**Step 2: Token Exchange**
+```http
+POST https://oauth2-service/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code&
+code=authorization_code&
+redirect_uri=https://app.example.com/callback&
+client_id=recipe-web-client&
+code_verifier=code_verifier_value
+```
+
+**Step 3: Use Access Token**
+```http
+GET /api/v1/users/profile
+Authorization: Bearer <oauth2_access_token>
+```
+
+### Service-to-Service Authentication
+
+**Client Credentials Flow**:
+```http
+POST https://oauth2-service/token
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic <base64(client_id:client_secret)>
+
+grant_type=client_credentials&
+scope=user:read user:write
+```
+
+## Legacy Authentication Endpoints
 
 ### Register User
 
@@ -625,7 +701,30 @@ Detailed health check with dependency status.
 }
 ```
 
-## Error Responses
+## OAuth2 Error Responses
+
+### 403 Forbidden (Insufficient Scopes)
+
+```json
+{
+  "detail": "Missing required scope: user:write",
+  "error_code": "INSUFFICIENT_SCOPE",
+  "required_scopes": ["user:write"],
+  "available_scopes": ["user:read", "profile"]
+}
+```
+
+### 401 Unauthorized (Invalid Token)
+
+```json
+{
+  "detail": "OAuth2 token validation failed",
+  "error_code": "INVALID_OAUTH2_TOKEN",
+  "token_type": "oauth2"
+}
+```
+
+## Standard Error Responses
 
 All endpoints may return the following error responses:
 
@@ -713,26 +812,75 @@ Rate limit headers are included in responses:
 - `X-RateLimit-Remaining`: Remaining requests in current window
 - `X-RateLimit-Reset`: Time when rate limit resets (Unix timestamp)
 
-## Authentication
+## Authentication Headers
 
-The API uses JWT (JSON Web Tokens) for authentication. Include the access token in the Authorization header:
-
+### OAuth2 Authentication
 ```http
-Authorization: Bearer {access_token}
+Authorization: Bearer {oauth2_access_token}
 ```
 
-### Token Lifecycle
+### Legacy JWT Authentication  
+```http
+Authorization: Bearer {jwt_access_token}
+```
 
+## Token Management
+
+### OAuth2 Tokens
+- **Access tokens**: Configured by OAuth2 service (typically 1-24 hours)
+- **Refresh tokens**: Configured by OAuth2 service (typically 7-30 days) 
+- **Token introspection**: Real-time validation available
+- **Token caching**: Service-to-service tokens cached for performance
+
+### Legacy JWT Tokens
 - **Access tokens**: Valid for 30 minutes
 - **Refresh tokens**: Valid for 7 days
 - **Password reset tokens**: Valid for 15 minutes
 
-### Security Notes
+## Security Considerations
 
+### OAuth2 Security
+- **PKCE (Proof Key for Code Exchange)** prevents authorization code interception
+- **Scope-based authorization** provides granular access control
+- **Token introspection** enables real-time revocation
+- **Client authentication** secures service-to-service communication
+
+### General Security Notes
 - Always use HTTPS in production
 - Store tokens securely (not in localStorage for web apps)
 - Implement proper token refresh logic
 - Handle token expiration gracefully
+- Validate token scopes for each operation
+
+## Scope-Based Authorization
+
+### Available Scopes
+
+| Scope | Description | Endpoints Affected |
+|-------|-------------|-------------------|
+| `openid` | Basic user identification | All authenticated endpoints |
+| `profile` | User profile information | Profile endpoints |
+| `user:read` | Read user data | GET /users/*, /search |
+| `user:write` | Modify user data | POST/PUT /users/* |
+| `admin` | Administrative operations | /admin/* endpoints |
+
+### Scope Validation
+
+Endpoints automatically validate required scopes:
+
+```http
+# This request requires 'user:write' scope
+PUT /api/v1/users/profile
+Authorization: Bearer {token_with_user_write_scope}
+```
+
+If the token lacks required scopes, a 403 Forbidden response is returned with details about missing scopes.
+
+### Fallback Authorization
+
+When OAuth2 is disabled (`OAUTH2_SERVICE_ENABLED=false`), the service falls back to role-based authorization:
+- `admin` scope → `ADMIN` role required
+- `user:*` scopes → `USER` role required
 
 ## Pagination
 
@@ -781,3 +929,72 @@ The service supports webhooks for real-time notifications:
 ```
 
 For webhook configuration and management, contact system administrators.
+
+## OAuth2 Configuration
+
+### Environment Variables
+
+Required OAuth2 configuration:
+
+```bash
+# OAuth2 Integration
+OAUTH2_SERVICE_ENABLED=true
+OAUTH2_SERVICE_TO_SERVICE_ENABLED=true
+OAUTH2_INTROSPECTION_ENABLED=false  # JWT validation (faster) vs introspection
+OAUTH2_CLIENT_ID=your-client-id
+OAUTH2_CLIENT_SECRET=your-client-secret
+JWT_SECRET=shared-secret-with-oauth2-service
+```
+
+### Service URLs Configuration
+
+OAuth2 service URLs are configured in `config/oauth2.json`:
+
+```json
+{
+  "oauth2_service_urls": {
+    "authorization_url": "https://oauth2-service/authorize",
+    "token_url": "https://oauth2-service/token",
+    "introspection_url": "https://oauth2-service/introspect",
+    "userinfo_url": "https://oauth2-service/userinfo"
+  },
+  "scopes": {
+    "default_scopes": ["openid", "profile"],
+    "admin_scopes": ["openid", "profile", "admin"],
+    "user_management_scopes": ["openid", "profile", "user:read", "user:write"]
+  }
+}
+```
+
+### Token Validation Modes
+
+**1. JWT Shared Secret (Default - Faster)**:
+- `OAUTH2_INTROSPECTION_ENABLED=false`
+- Validates JWT signature using shared secret
+- Offline validation, better performance
+- Requires synchronized JWT secrets between services
+
+**2. Token Introspection (Real-time)**:
+- `OAUTH2_INTROSPECTION_ENABLED=true` 
+- Validates tokens by calling OAuth2 introspection endpoint
+- Real-time validation, supports token revocation
+- Requires network call to OAuth2 service
+
+### Migration and Compatibility
+
+**Phase 1 - Enable OAuth2**:
+```bash
+OAUTH2_SERVICE_ENABLED=true
+OAUTH2_INTROSPECTION_ENABLED=false
+```
+
+**Phase 2 - Enable Introspection** (optional):
+```bash
+OAUTH2_INTROSPECTION_ENABLED=true
+```
+
+**Phase 3 - Disable Legacy JWT** (optional):
+- Remove legacy JWT endpoints
+- Update client applications to use OAuth2 flow
+
+The service maintains full backward compatibility - existing JWT tokens continue to work when OAuth2 is enabled.

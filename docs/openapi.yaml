@@ -14,8 +14,27 @@ info:
     - Health monitoring endpoints
 
     ## Authentication
-    Most endpoints require JWT Bearer token authentication. Include the token in the Authorization header:
-    `Authorization: Bearer <token>`
+    
+    This service supports **dual authentication modes**:
+    
+    ### OAuth2 Integration (Recommended)
+    - **Authorization Code Flow with PKCE** for web/mobile applications
+    - **Client Credentials Flow** for service-to-service communication
+    - **Scope-based authorization** with granular permissions
+    - **Token introspection** or JWT validation
+    
+    ### Legacy JWT Authentication (Backward Compatibility)
+    - Local JWT token generation and validation
+    - Role-based authorization (USER/ADMIN)
+    
+    Include tokens in the Authorization header: `Authorization: Bearer <token>`
+    
+    ## Available OAuth2 Scopes
+    - `openid` - Basic user identification (required)
+    - `profile` - User profile information  
+    - `user:read` - Read user data and profiles
+    - `user:write` - Create and update user data
+    - `admin` - Administrative operations
   version: 1.0.0
   contact:
     name: API Support
@@ -28,6 +47,7 @@ servers:
     description: Production server
 
 security:
+  - oauth2: ["openid", "profile"]
   - bearerAuth: []
 
 tags:
@@ -895,11 +915,46 @@ paths:
 
 components:
   securitySchemes:
+    oauth2:
+      type: oauth2
+      description: |
+        OAuth2 Authorization Code Flow with PKCE for secure authentication.
+        
+        **Authorization URL**: Configure in OAuth2 service
+        **Token URL**: Configure in OAuth2 service  
+        **Scopes**:
+        - `openid`: Basic user identification (required)
+        - `profile`: User profile information
+        - `user:read`: Read user data and profiles  
+        - `user:write`: Create and update user data
+        - `admin`: Administrative operations
+        
+        **Service-to-Service**: Use Client Credentials flow with appropriate scopes.
+      flows:
+        authorizationCode:
+          authorizationUrl: https://oauth2-service.example.com/authorize
+          tokenUrl: https://oauth2-service.example.com/token
+          scopes:
+            openid: "Basic user identification (required for all authenticated endpoints)"
+            profile: "Access to user profile information (name, email, etc.)"
+            user:read: "Read access to user data, profiles, and search functionality"
+            user:write: "Write access to create and update user data and profiles"
+            admin: "Administrative access to user management and system operations"
+        clientCredentials:
+          tokenUrl: https://oauth2-service.example.com/token
+          scopes:
+            user:read: "Service-to-service read access to user data"
+            user:write: "Service-to-service write access to user data"
+            admin: "Service-to-service administrative access"
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: JWT Bearer token authentication
+      description: |
+        Legacy JWT Bearer token authentication for backward compatibility.
+        
+        **Note**: OAuth2 authentication is recommended for new integrations.
+        This method is maintained for existing clients during migration.
 
   parameters:
     UserIdPath:
@@ -1772,3 +1827,160 @@ components:
           type: boolean
         message:
           type: string
+    
+    # OAuth2 Error Schemas
+    OAuth2ScopeError:
+      type: object
+      required:
+        - detail
+        - error_code
+        - required_scopes
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message
+          example: "Missing required scope: user:write"
+        error_code:
+          type: string
+          description: Machine-readable error code
+          example: "INSUFFICIENT_SCOPE"
+        required_scopes:
+          type: array
+          items:
+            type: string
+          description: List of scopes required for this operation
+          example: ["user:write"]
+        available_scopes:
+          type: array
+          items:
+            type: string
+          description: List of scopes available in the current token
+          example: ["user:read", "profile"]
+          
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: "Invalid request data"
+              error_code:
+                type: string
+                example: "INVALID_REQUEST"
+    
+    Unauthorized:
+      description: Unauthorized - Authentication required
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: "Authentication required"
+              error_code:
+                type: string
+                example: "AUTHENTICATION_REQUIRED"
+    
+    Forbidden:
+      description: Forbidden - Insufficient permissions
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: "Insufficient permissions"
+              error_code:
+                type: string
+                example: "INSUFFICIENT_PERMISSIONS"
+    
+    InsufficientScope:
+      description: Insufficient OAuth2 Scope
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OAuth2ScopeError"
+          examples:
+            missing_write_scope:
+              summary: Missing write scope
+              value:
+                detail: "Missing required scope: user:write"
+                error_code: "INSUFFICIENT_SCOPE"
+                required_scopes: ["user:write"]
+                available_scopes: ["user:read", "profile"]
+            missing_admin_scope:
+              summary: Missing admin scope
+              value:
+                detail: "Missing required scope: admin"
+                error_code: "INSUFFICIENT_SCOPE"
+                required_scopes: ["admin"]
+                available_scopes: ["user:read", "user:write", "profile"]
+    
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: "Resource not found"
+              error_code:
+                type: string
+                example: "RESOURCE_NOT_FOUND"
+    
+    ValidationError:
+      description: Validation Error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    loc:
+                      type: array
+                      items:
+                        type: string
+                    msg:
+                      type: string
+                    type:
+                      type: string
+    
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: "Internal server error"
+              error_code:
+                type: string
+                example: "INTERNAL_ERROR"
+    
+    ServiceUnavailable:
+      description: Service Unavailable
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: "Service temporarily unavailable"
+              error_code:
+                type: string
+                example: "SERVICE_UNAVAILABLE"

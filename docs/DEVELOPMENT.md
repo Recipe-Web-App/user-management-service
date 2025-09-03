@@ -61,9 +61,17 @@ POSTGRES_DB=recipe_manager
 USER_MANAGEMENT_DB_USER=user_management
 USER_MANAGEMENT_DB_PASSWORD=your_secure_password
 
-# JWT
+# Legacy JWT (for backward compatibility)
 JWT_SECRET_KEY=your_super_secret_jwt_key_change_this
 ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# OAuth2 Integration (Recommended)
+JWT_SECRET=shared-secret-with-oauth2-service
+OAUTH2_SERVICE_ENABLED=true
+OAUTH2_SERVICE_TO_SERVICE_ENABLED=true
+OAUTH2_INTROSPECTION_ENABLED=false  # JWT validation (faster)
+OAUTH2_CLIENT_ID=recipe-service-client
+OAUTH2_CLIENT_SECRET=your-oauth2-client-secret
 
 # Redis
 REDIS_HOST=localhost
@@ -74,7 +82,38 @@ REDIS_PASSWORD=your_secure_redis_password
 ALLOWED_ORIGIN_HOSTS=http://localhost:3000,http://localhost:8080
 ```
 
-### 4. Start Development Services
+### 4. Set Up OAuth2 Configuration
+
+**Create OAuth2 configuration file:**
+```bash
+# Create config directory if it doesn't exist
+mkdir -p config
+
+# Create OAuth2 configuration
+cat > config/oauth2.json << 'EOF'
+{
+  "oauth2_service_urls": {
+    "authorization_url": "https://auth-service.local/authorize",
+    "token_url": "https://auth-service.local/token", 
+    "introspection_url": "https://auth-service.local/introspect",
+    "userinfo_url": "https://auth-service.local/userinfo"
+  },
+  "scopes": {
+    "default_scopes": ["openid", "profile"],
+    "admin_scopes": ["openid", "profile", "admin"],
+    "user_management_scopes": ["openid", "profile", "user:read", "user:write"]
+  },
+  "cache": {
+    "token_cache_ttl_seconds": 300
+  },
+  "introspection": {
+    "timeout_seconds": 5
+  }
+}
+EOF
+```
+
+### 5. Start Development Services
 
 ```bash
 # Start PostgreSQL and Redis with Docker Compose
@@ -87,7 +126,7 @@ docker-compose logs postgres redis
 docker-compose --profile admin up -d pgadmin redis-commander
 ```
 
-### 5. Initialize Database
+### 6. Initialize Database
 
 ```bash
 # Run database migrations (if using Alembic)
@@ -97,7 +136,9 @@ docker-compose --profile admin up -d pgadmin redis-commander
 poetry run app-local
 ```
 
-### 6. Verify Setup
+### 7. Verify Setup
+
+**Basic health check:**
 
 ```bash
 # Check service readiness (includes dependency status)
@@ -108,6 +149,18 @@ curl http://localhost:8000/api/v1/user-management/live
 
 # View API documentation
 open http://localhost:8000/docs
+```
+
+**OAuth2 Integration verification:**
+```bash
+# Check OAuth2 configuration loaded correctly
+poetry run python -c "from app.core.config import settings; print('OAuth2 enabled:', settings.oauth2_service_enabled)"
+
+# Verify OAuth2 client can be imported
+poetry run python -c "from app.core.oauth2_client import oauth2_client; print('OAuth2 client ready')"
+
+# Test scope-based authorization dependencies
+poetry run python -c "from app.deps.auth import RequireReadScope; print('Scope dependencies ready')"
 ```
 
 ## Development Workflow
@@ -260,7 +313,39 @@ FLUSHALL  # Clear all data (development only!)
 
 ### Testing API Endpoints
 
-#### Using curl
+#### OAuth2 Authentication Flow
+
+**For development with OAuth2 service:**
+```bash
+# 1. Get authorization code (redirect to OAuth2 service)
+open "https://auth-service.local/authorize?response_type=code&client_id=recipe-web-client&redirect_uri=http://localhost:3000/callback&scope=openid+profile+user:read+user:write&state=dev-state&code_challenge=dev-challenge&code_challenge_method=S256"
+
+# 2. Exchange authorization code for tokens
+curl -X POST "https://auth-service.local/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=authorization_code&code=AUTH_CODE_FROM_STEP_1&redirect_uri=http://localhost:3000/callback&client_id=recipe-web-client&code_verifier=dev-verifier"
+
+# 3. Use access token with user management service
+export OAUTH2_TOKEN="your_oauth2_access_token"
+curl -X GET "http://localhost:8000/api/v1/users/profile" \
+  -H "Authorization: Bearer $OAUTH2_TOKEN"
+```
+
+**Service-to-service authentication:**
+```bash
+# Get service token
+curl -X POST "https://auth-service.local/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -H "Authorization: Basic $(echo -n 'service-client:service-secret' | base64)" \
+  -d "grant_type=client_credentials&scope=user:read+user:write"
+
+# Use service token
+export SERVICE_TOKEN="your_service_token"
+curl -X GET "http://localhost:8000/api/v1/users/search?query=test" \
+  -H "Authorization: Bearer $SERVICE_TOKEN"
+```
+
+#### Using curl (Legacy JWT)
 
 ```bash
 # Register a new user
@@ -292,10 +377,35 @@ curl -X GET "http://localhost:8000/api/v1/users/profile" \
 
 The project includes HTTP test files in `tests/http/`:
 
-- `auth.http` - Authentication endpoints
-- `users.http` - User management endpoints
+- `auth.http` - Legacy authentication endpoints
+- `users.http` - User management endpoints  
 - `social.http` - Social features
 - `admin.http` - Admin endpoints
+- `oauth2.http` - OAuth2 authentication flow (new)
+
+**Create `tests/http/oauth2.http` for OAuth2 testing:**
+```http
+### OAuth2 Authorization URL
+# Open this URL in browser
+https://auth-service.local/authorize?response_type=code&client_id=recipe-web-client&redirect_uri=http://localhost:3000/callback&scope=openid+profile+user:read+user:write&state=test-state&code_challenge=test-challenge&code_challenge_method=S256
+
+### Exchange authorization code for tokens
+POST https://auth-service.local/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code&code={{auth_code}}&redirect_uri=http://localhost:3000/callback&client_id=recipe-web-client&code_verifier=test-verifier
+
+### Service-to-service token
+POST https://auth-service.local/token
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic {{base64(client_id:client_secret)}}
+
+grant_type=client_credentials&scope=user:read+user:write
+
+### Test OAuth2 protected endpoint
+GET http://localhost:8000/api/v1/users/profile
+Authorization: Bearer {{oauth2_access_token}}
+```
 
 Use with VS Code REST Client extension or similar tools.
 
@@ -405,6 +515,46 @@ docker volume rm user-management-service_postgres_data
 docker-compose up -d postgres
 ```
 
+#### OAuth2 Integration Issues
+
+```bash
+# Check OAuth2 configuration
+cat config/oauth2.json
+
+# Verify environment variables
+env | grep OAUTH2
+
+# Test OAuth2 service connectivity
+curl -v https://auth-service.local/health
+
+# Check OAuth2 client initialization
+poetry run python -c "
+from app.core.oauth2_client import oauth2_client
+print('OAuth2 client status:', 'ready' if oauth2_client else 'not configured')
+"
+
+# Debug token validation
+export DEBUG_TOKEN="your_test_token"
+poetry run python -c "
+from app.middleware.auth_middleware import _validate_token
+import asyncio
+import os
+token = os.getenv('DEBUG_TOKEN')
+if token:
+    result = asyncio.run(_validate_token(token))
+    print('Token validation result:', result)
+else:
+    print('No DEBUG_TOKEN provided')
+"
+
+# Test scope-based authorization
+poetry run python -c "
+from app.deps.auth import require_scope
+from app.api.v1.schemas.downstream.auth import UserContext
+print('Scope dependencies loaded successfully')
+"
+```
+
 #### Redis Connection Issues
 
 ```bash
@@ -424,12 +574,46 @@ docker exec -it user-management-redis redis-cli FLUSHALL
 # Check environment variables
 poetry run python -c "from app.core.config import settings; print(settings.model_dump())"
 
+# Check OAuth2 configuration specifically  
+poetry run python -c "
+from app.core.config import settings
+print('OAuth2 enabled:', settings.oauth2_service_enabled)
+print('Introspection enabled:', settings.oauth2_introspection_enabled)
+print('Client ID:', settings.oauth2_client_id)
+print('OAuth2 config file loaded:', bool(settings._OAUTH2_CONFIG))
+"
+
 # Check application logs
 tail -f logs/app.log
 
 # Run with debug mode
 export DEBUG=true
 poetry run app-local
+
+# Test OAuth2 service connectivity during startup
+poetry run python -c "
+import httpx
+import asyncio
+from app.core.config import settings
+
+async def test_oauth2_connectivity():
+    if not settings.oauth2_service_enabled:
+        print('OAuth2 not enabled')
+        return
+    
+    introspection_url = settings.oauth2_introspection_url
+    if introspection_url:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(introspection_url.replace('/introspect', '/health'), timeout=5)
+                print('OAuth2 service health:', response.status_code)
+        except Exception as e:
+            print('OAuth2 service connectivity issue:', e)
+    else:
+        print('OAuth2 introspection URL not configured')
+
+asyncio.run(test_oauth2_connectivity())
+"
 ```
 
 ### Performance Issues
@@ -443,6 +627,21 @@ docker stats user-management-service
 
 # Profile application
 poetry run python -m cProfile app/main.py
+
+# OAuth2 performance monitoring
+# Check token cache effectiveness
+poetry run python -c "
+from app.core.oauth2_client import oauth2_client
+if hasattr(oauth2_client, '_token_cache'):
+    cache = oauth2_client._token_cache
+    print('Token cache stats:')
+    print('  Cached tokens:', len(getattr(cache, '_tokens', {})))
+else:
+    print('Token cache not available')
+"
+
+# Monitor OAuth2 introspection performance (if enabled)
+# Set OAUTH2_INTROSPECTION_ENABLED=true and monitor request latency
 ```
 
 ### Getting Help

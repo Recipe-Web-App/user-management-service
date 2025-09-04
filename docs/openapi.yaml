@@ -1,3 +1,4 @@
+---
 openapi: 3.0.0
 info:
   title: User Management Service API
@@ -14,24 +15,24 @@ info:
     - Health monitoring endpoints
 
     ## Authentication
-    
+
     This service supports **dual authentication modes**:
-    
+
     ### OAuth2 Integration (Recommended)
     - **Authorization Code Flow with PKCE** for web/mobile applications
     - **Client Credentials Flow** for service-to-service communication
     - **Scope-based authorization** with granular permissions
     - **Token introspection** or JWT validation
-    
+
     ### Legacy JWT Authentication (Backward Compatibility)
     - Local JWT token generation and validation
     - Role-based authorization (USER/ADMIN)
-    
+
     Include tokens in the Authorization header: `Authorization: Bearer <token>`
-    
+
     ## Available OAuth2 Scopes
     - `openid` - Basic user identification (required)
-    - `profile` - User profile information  
+    - `profile` - User profile information
     - `user:read` - Read user data and profiles
     - `user:write` - Create and update user data
     - `admin` - Administrative operations
@@ -919,16 +920,16 @@ components:
       type: oauth2
       description: |
         OAuth2 Authorization Code Flow with PKCE for secure authentication.
-        
+
         **Authorization URL**: Configure in OAuth2 service
-        **Token URL**: Configure in OAuth2 service  
+        **Token URL**: Configure in OAuth2 service
         **Scopes**:
         - `openid`: Basic user identification (required)
         - `profile`: User profile information
-        - `user:read`: Read user data and profiles  
+        - `user:read`: Read user data and profiles
         - `user:write`: Create and update user data
         - `admin`: Administrative operations
-        
+
         **Service-to-Service**: Use Client Credentials flow with appropriate scopes.
       flows:
         authorizationCode:
@@ -952,7 +953,7 @@ components:
       bearerFormat: JWT
       description: |
         Legacy JWT Bearer token authentication for backward compatibility.
-        
+
         **Note**: OAuth2 authentication is recommended for new integrations.
         This method is maintained for existing clients during migration.
 
@@ -1014,6 +1015,28 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
+
+    InsufficientScope:
+      description: Insufficient OAuth2 Scope
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OAuth2ScopeError"
+          examples:
+            missing_write_scope:
+              summary: Missing write scope
+              value:
+                detail: "Missing required scope: user:write"
+                error_code: "INSUFFICIENT_SCOPE"
+                required_scopes: ["user:write"]
+                available_scopes: ["user:read", "profile"]
+            missing_admin_scope:
+              summary: Missing admin scope
+              value:
+                detail: "Missing required scope: admin"
+                error_code: "INSUFFICIENT_SCOPE"
+                required_scopes: ["admin"]
+                available_scopes: ["user:read", "user:write", "profile"]
 
     NotFound:
       description: Resource not found
@@ -1827,7 +1850,7 @@ components:
           type: boolean
         message:
           type: string
-    
+
     # OAuth2 Error Schemas
     OAuth2ScopeError:
       type: object
@@ -1856,131 +1879,3 @@ components:
             type: string
           description: List of scopes available in the current token
           example: ["user:read", "profile"]
-          
-  responses:
-    BadRequest:
-      description: Bad Request
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              detail:
-                type: string
-                example: "Invalid request data"
-              error_code:
-                type: string
-                example: "INVALID_REQUEST"
-    
-    Unauthorized:
-      description: Unauthorized - Authentication required
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              detail:
-                type: string
-                example: "Authentication required"
-              error_code:
-                type: string
-                example: "AUTHENTICATION_REQUIRED"
-    
-    Forbidden:
-      description: Forbidden - Insufficient permissions
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              detail:
-                type: string
-                example: "Insufficient permissions"
-              error_code:
-                type: string
-                example: "INSUFFICIENT_PERMISSIONS"
-    
-    InsufficientScope:
-      description: Insufficient OAuth2 Scope
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/OAuth2ScopeError"
-          examples:
-            missing_write_scope:
-              summary: Missing write scope
-              value:
-                detail: "Missing required scope: user:write"
-                error_code: "INSUFFICIENT_SCOPE"
-                required_scopes: ["user:write"]
-                available_scopes: ["user:read", "profile"]
-            missing_admin_scope:
-              summary: Missing admin scope
-              value:
-                detail: "Missing required scope: admin"
-                error_code: "INSUFFICIENT_SCOPE"
-                required_scopes: ["admin"]
-                available_scopes: ["user:read", "user:write", "profile"]
-    
-    NotFound:
-      description: Resource not found
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              detail:
-                type: string
-                example: "Resource not found"
-              error_code:
-                type: string
-                example: "RESOURCE_NOT_FOUND"
-    
-    ValidationError:
-      description: Validation Error
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              detail:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    loc:
-                      type: array
-                      items:
-                        type: string
-                    msg:
-                      type: string
-                    type:
-                      type: string
-    
-    InternalServerError:
-      description: Internal Server Error
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              detail:
-                type: string
-                example: "Internal server error"
-              error_code:
-                type: string
-                example: "INTERNAL_ERROR"
-    
-    ServiceUnavailable:
-      description: Service Unavailable
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              detail:
-                type: string
-                example: "Service temporarily unavailable"
-              error_code:
-                type: string
-                example: "SERVICE_UNAVAILABLE"

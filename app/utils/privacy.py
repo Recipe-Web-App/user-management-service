@@ -1,14 +1,21 @@
 """Privacy utility functions for user data access control."""
 
-from uuid import UUID
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
 
+if TYPE_CHECKING:
+    from uuid import UUID
+
 from app.core.logging import get_logger
-from app.db.sql.models.user.user import User
 from app.db.sql.models.user.user_follows import UserFollows
-from app.db.sql.sql_database_session import SqlDatabaseSession
 from app.enums.preferences.profile_visibility_enum import ProfileVisibilityEnum
+
+if TYPE_CHECKING:
+    from app.db.sql.models.user.user import User
+    from app.db.sql.sql_database_session import SqlDatabaseSession
 
 _log = get_logger(__name__)
 

@@ -1,5 +1,7 @@
 """Custom SQL database session with common query methods."""
 
+from __future__ import annotations
+
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from typing import Any

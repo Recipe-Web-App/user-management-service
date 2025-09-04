@@ -16,13 +16,15 @@ This service supports **dual authentication modes** for flexibility and backward
 ### 1. OAuth2 Integration (Recommended)
 
 **Features**:
+
 - **Authorization Code Flow with PKCE** for web/mobile apps
-- **Client Credentials Flow** for service-to-service authentication  
+- **Client Credentials Flow** for service-to-service authentication
 - **Token Introspection** for real-time validation
 - **Scope-based authorization** with granular permissions
 - **JWT shared secret** validation for performance
 
 **Available Scopes**:
+
 - `openid` - Basic user identification
 - `profile` - User profile information
 - `user:read` - Read user data and profiles
@@ -32,6 +34,7 @@ This service supports **dual authentication modes** for flexibility and backward
 ### 2. Legacy JWT Authentication (Backward Compatibility)
 
 **Features**:
+
 - Local JWT token generation and validation
 - Role-based authorization (USER/ADMIN)
 - Refresh token support
@@ -43,7 +46,8 @@ This service supports **dual authentication modes** for flexibility and backward
 
 ### Authorization Code Flow with PKCE
 
-**Step 1: Authorization Request**
+#### Step 1: Authorization Request
+
 ```http
 GET https://oauth2-service/authorize
   ?response_type=code
@@ -55,7 +59,8 @@ GET https://oauth2-service/authorize
   &code_challenge_method=S256
 ```
 
-**Step 2: Token Exchange**
+#### Step 2: Token Exchange
+
 ```http
 POST https://oauth2-service/token
 Content-Type: application/x-www-form-urlencoded
@@ -67,7 +72,8 @@ client_id=recipe-web-client&
 code_verifier=code_verifier_value
 ```
 
-**Step 3: Use Access Token**
+#### Step 3: Use Access Token
+
 ```http
 GET /api/v1/users/profile
 Authorization: Bearer <oauth2_access_token>
@@ -76,6 +82,7 @@ Authorization: Bearer <oauth2_access_token>
 ### Service-to-Service Authentication
 
 **Client Credentials Flow**:
+
 ```http
 POST https://oauth2-service/token
 Content-Type: application/x-www-form-urlencoded
@@ -815,11 +822,13 @@ Rate limit headers are included in responses:
 ## Authentication Headers
 
 ### OAuth2 Authentication
+
 ```http
 Authorization: Bearer {oauth2_access_token}
 ```
 
-### Legacy JWT Authentication  
+### Legacy JWT Authentication
+
 ```http
 Authorization: Bearer {jwt_access_token}
 ```
@@ -827,12 +836,14 @@ Authorization: Bearer {jwt_access_token}
 ## Token Management
 
 ### OAuth2 Tokens
+
 - **Access tokens**: Configured by OAuth2 service (typically 1-24 hours)
-- **Refresh tokens**: Configured by OAuth2 service (typically 7-30 days) 
+- **Refresh tokens**: Configured by OAuth2 service (typically 7-30 days)
 - **Token introspection**: Real-time validation available
 - **Token caching**: Service-to-service tokens cached for performance
 
 ### Legacy JWT Tokens
+
 - **Access tokens**: Valid for 30 minutes
 - **Refresh tokens**: Valid for 7 days
 - **Password reset tokens**: Valid for 15 minutes
@@ -840,12 +851,14 @@ Authorization: Bearer {jwt_access_token}
 ## Security Considerations
 
 ### OAuth2 Security
+
 - **PKCE (Proof Key for Code Exchange)** prevents authorization code interception
 - **Scope-based authorization** provides granular access control
 - **Token introspection** enables real-time revocation
 - **Client authentication** secures service-to-service communication
 
 ### General Security Notes
+
 - Always use HTTPS in production
 - Store tokens securely (not in localStorage for web apps)
 - Implement proper token refresh logic
@@ -856,13 +869,13 @@ Authorization: Bearer {jwt_access_token}
 
 ### Available Scopes
 
-| Scope | Description | Endpoints Affected |
-|-------|-------------|-------------------|
-| `openid` | Basic user identification | All authenticated endpoints |
-| `profile` | User profile information | Profile endpoints |
-| `user:read` | Read user data | GET /users/*, /search |
-| `user:write` | Modify user data | POST/PUT /users/* |
-| `admin` | Administrative operations | /admin/* endpoints |
+| Scope        | Description               | Endpoints Affected          |
+| ------------ | ------------------------- | --------------------------- |
+| `openid`     | Basic user identification | All authenticated endpoints |
+| `profile`    | User profile information  | Profile endpoints           |
+| `user:read`  | Read user data            | GET /users/\*, /search      |
+| `user:write` | Modify user data          | POST/PUT /users/\*          |
+| `admin`      | Administrative operations | /admin/\* endpoints         |
 
 ### Scope Validation
 
@@ -879,6 +892,7 @@ If the token lacks required scopes, a 403 Forbidden response is returned with de
 ### Fallback Authorization
 
 When OAuth2 is disabled (`OAUTH2_SERVICE_ENABLED=false`), the service falls back to role-based authorization:
+
 - `admin` scope → `ADMIN` role required
 - `user:*` scopes → `USER` role required
 
@@ -969,13 +983,15 @@ OAuth2 service URLs are configured in `config/oauth2.json`:
 ### Token Validation Modes
 
 **1. JWT Shared Secret (Default - Faster)**:
+
 - `OAUTH2_INTROSPECTION_ENABLED=false`
 - Validates JWT signature using shared secret
 - Offline validation, better performance
 - Requires synchronized JWT secrets between services
 
 **2. Token Introspection (Real-time)**:
-- `OAUTH2_INTROSPECTION_ENABLED=true` 
+
+- `OAUTH2_INTROSPECTION_ENABLED=true`
 - Validates tokens by calling OAuth2 introspection endpoint
 - Real-time validation, supports token revocation
 - Requires network call to OAuth2 service
@@ -983,17 +999,20 @@ OAuth2 service URLs are configured in `config/oauth2.json`:
 ### Migration and Compatibility
 
 **Phase 1 - Enable OAuth2**:
+
 ```bash
 OAUTH2_SERVICE_ENABLED=true
 OAUTH2_INTROSPECTION_ENABLED=false
 ```
 
 **Phase 2 - Enable Introspection** (optional):
+
 ```bash
 OAUTH2_INTROSPECTION_ENABLED=true
 ```
 
 **Phase 3 - Disable Legacy JWT** (optional):
+
 - Remove legacy JWT endpoints
 - Update client applications to use OAuth2 flow
 

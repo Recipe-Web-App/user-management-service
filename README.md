@@ -69,6 +69,7 @@ This service follows **Clean Architecture** principles with clear separation of 
    ```
 
    **OAuth2 Integration Setup** (recommended):
+
    ```bash
    # Enable OAuth2 integration
    OAUTH2_SERVICE_ENABLED=true
@@ -151,6 +152,7 @@ Development: http://localhost:8000/api/v1
 ### Authentication
 
 **OAuth2 Integration** (recommended):
+
 ```bash
 # OAuth2 Authorization Code Flow with PKCE
 # 1. Redirect to OAuth2 service for authorization
@@ -167,6 +169,7 @@ grant_type=client_credentials&client_id=service&client_secret=secret&scope=user:
 ```
 
 **Legacy JWT Authentication** (backward compatibility):
+
 ```bash
 # User Registration
 POST /auth/register
@@ -195,6 +198,7 @@ Authorization: Bearer <refresh_token>
 ### User Management with Scope-Based Authorization
 
 **OAuth2 Scopes**:
+
 - `user:read` - Read user profiles and search
 - `user:write` - Update user profiles
 - `admin` - Administrative operations
@@ -322,24 +326,24 @@ kubectl exec -n user-management deployment/user-management -- curl localhost:800
 
 ### Environment Variables
 
-| Variable                         | Description                        | Required |
-| -------------------------------- | ---------------------------------- | -------- |
-| `POSTGRES_HOST`                  | PostgreSQL host                    | ✅       |
-| `POSTGRES_PORT`                  | PostgreSQL port                    | ✅       |
-| `POSTGRES_DB`                    | Database name                      | ✅       |
-| `USER_MANAGEMENT_DB_USER`        | DB username                        | ✅       |
-| `USER_MANAGEMENT_DB_PASSWORD`    | DB password                        | ✅       |
-| `JWT_SECRET_KEY`                 | JWT signing secret (legacy)        | ✅       |
-| `REDIS_HOST`                     | Redis host                         | ✅       |
-| `REDIS_PASSWORD`                 | Redis password                     | ✅       |
-| `ALLOWED_ORIGIN_HOSTS`           | CORS allowed origins               | ✅       |
-| **OAuth2 Configuration**        |                                    |          |
-| `JWT_SECRET`                     | OAuth2 JWT shared secret           | ✅       |
-| `OAUTH2_SERVICE_ENABLED`         | Enable OAuth2 integration          | ✅       |
-| `OAUTH2_SERVICE_TO_SERVICE_ENABLED` | Enable service-to-service auth   | ✅       |
-| `OAUTH2_INTROSPECTION_ENABLED`   | Use token introspection vs JWT     | ✅       |
-| `OAUTH2_CLIENT_ID`               | OAuth2 client identifier           | ✅       |
-| `OAUTH2_CLIENT_SECRET`           | OAuth2 client secret               | ✅       |
+| Variable                            | Description                    | Required |
+| ----------------------------------- | ------------------------------ | -------- |
+| `POSTGRES_HOST`                     | PostgreSQL host                | ✅       |
+| `POSTGRES_PORT`                     | PostgreSQL port                | ✅       |
+| `POSTGRES_DB`                       | Database name                  | ✅       |
+| `USER_MANAGEMENT_DB_USER`           | DB username                    | ✅       |
+| `USER_MANAGEMENT_DB_PASSWORD`       | DB password                    | ✅       |
+| `JWT_SECRET_KEY`                    | JWT signing secret (legacy)    | ✅       |
+| `REDIS_HOST`                        | Redis host                     | ✅       |
+| `REDIS_PASSWORD`                    | Redis password                 | ✅       |
+| `ALLOWED_ORIGIN_HOSTS`              | CORS allowed origins           | ✅       |
+| **OAuth2 Configuration**            |                                |          |
+| `JWT_SECRET`                        | OAuth2 JWT shared secret       | ✅       |
+| `OAUTH2_SERVICE_ENABLED`            | Enable OAuth2 integration      | ✅       |
+| `OAUTH2_SERVICE_TO_SERVICE_ENABLED` | Enable service-to-service auth | ✅       |
+| `OAUTH2_INTROSPECTION_ENABLED`      | Use token introspection vs JWT | ✅       |
+| `OAUTH2_CLIENT_ID`                  | OAuth2 client identifier       | ✅       |
+| `OAUTH2_CLIENT_SECRET`              | OAuth2 client secret           | ✅       |
 
 See `.env.example` for complete configuration.
 

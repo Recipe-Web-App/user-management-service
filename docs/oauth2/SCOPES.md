@@ -4,33 +4,34 @@ This guide explains how to implement and use scope-based authorization in the Us
 
 ## Overview
 
-**Scope-based authorization** provides **granular permission control** by associating specific scopes (permissions) with OAuth2 access tokens. This is more flexible than traditional role-based access control and aligns with OAuth2 best practices.
+**Scope-based authorization** provides **granular permission control** by associating specific scopes (permissions) with
+OAuth2 access tokens. This is more flexible than traditional role-based access control and aligns with OAuth2 best practices.
 
 ## Available Scopes
 
 ### Core Scopes
 
-| Scope | Purpose | Description | Example Use Cases |
-|-------|---------|-------------|-------------------|
-| `openid` | **Identity** | Basic user identification (required) | All authenticated endpoints |
-| `profile` | **Profile Data** | Access to user profile information | Profile views, user cards |
+| Scope     | Purpose          | Description                          | Example Use Cases           |
+| --------- | ---------------- | ------------------------------------ | --------------------------- |
+| `openid`  | **Identity**     | Basic user identification (required) | All authenticated endpoints |
+| `profile` | **Profile Data** | Access to user profile information   | Profile views, user cards   |
 
 ### User Management Scopes
 
-| Scope | Purpose | Description | Example Use Cases |
-|-------|---------|-------------|-------------------|
-| `user:read` | **Read Users** | Read user profiles, search users | User directory, profile views |
-| `user:write` | **Modify Users** | Create/update user profiles | Profile editing, user registration |
+| Scope        | Purpose          | Description                      | Example Use Cases                  |
+| ------------ | ---------------- | -------------------------------- | ---------------------------------- |
+| `user:read`  | **Read Users**   | Read user profiles, search users | User directory, profile views      |
+| `user:write` | **Modify Users** | Create/update user profiles      | Profile editing, user registration |
 
 ### Administrative Scopes
 
-| Scope | Purpose | Description | Example Use Cases |
-|-------|---------|-------------|-------------------|
+| Scope   | Purpose            | Description                | Example Use Cases                      |
+| ------- | ------------------ | -------------------------- | -------------------------------------- |
 | `admin` | **Administration** | Full administrative access | User management, system administration |
 
 ## Scope Enforcement Architecture
 
-```
+```text
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │  OAuth2 Token   │    │  Scope Check    │    │   Endpoint      │
 │                 │    │                 │    │                 │
@@ -65,7 +66,7 @@ This guide explains how to implement and use scope-based authorization in the Us
 ```python
 from app.deps.auth import (
     RequireReadScope,      # Requires user:read
-    RequireWriteScope,     # Requires user:write  
+    RequireWriteScope,     # Requires user:write
     RequireAdminScope,     # Requires admin (or falls back to ADMIN role)
     UserContextDep,        # Basic user context (no scope requirements)
 )
@@ -79,7 +80,7 @@ async def search_users(
     # Implementation
     pass
 
-# Write endpoint  
+# Write endpoint
 @router.put("/users/profile")
 async def update_profile(
     user_context: WriteScopeDep,  # Requires user:write scope
@@ -89,7 +90,7 @@ async def update_profile(
     pass
 
 # Admin endpoint
-@router.get("/admin/users/stats") 
+@router.get("/admin/users/stats")
 async def get_user_stats(
     user_context: AdminScopeDep,  # Requires admin scope
 ):
@@ -150,7 +151,7 @@ async def conditional_endpoint(
 ):
     # Basic data always available
     data = get_basic_data()
-    
+
     # Conditional sensitive data
     if include_sensitive:
         if not user_context.has_scope("admin"):
@@ -159,7 +160,7 @@ async def conditional_endpoint(
                 detail="Admin scope required for sensitive data"
             )
         data.update(get_sensitive_data())
-    
+
     return data
 ```
 
@@ -203,7 +204,7 @@ class UserContext:
 # Check single scope
 user_context.has_scope("user:write") -> bool
 
-# Check any of multiple scopes  
+# Check any of multiple scopes
 user_context.has_any_scope(["user:read", "admin"]) -> bool
 
 # Check all of multiple scopes
@@ -217,16 +218,16 @@ user_context.has_all_scopes(["user:write", "profile"]) -> bool
 async def example_endpoint(user_context: UserContextDep):
     # Get user ID
     user_id = user_context.user_id
-    
+
     # Check individual scopes
     can_read = user_context.has_scope("user:read")
     can_write = user_context.has_scope("user:write")
     is_admin = user_context.has_scope("admin")
-    
+
     # Check multiple scopes
     has_user_access = user_context.has_any_scope(["user:read", "user:write"])
     has_full_access = user_context.has_all_scopes(["user:read", "user:write", "admin"])
-    
+
     return {
         "user_id": user_id,
         "permissions": {
@@ -260,47 +261,48 @@ When a user lacks required scopes, the service returns a detailed error:
 
 ```javascript
 async function callUserAPI(endpoint, options = {}) {
-    try {
-        const response = await fetch(`/api/v1${endpoint}`, {
-            ...options,
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
-                ...options.headers
-            }
-        });
-        
-        if (!response.ok) {
-            const error = await response.json();
-            
-            if (error.error_code === 'INSUFFICIENT_SCOPE') {
-                // Handle scope error
-                console.error('Missing scopes:', error.required_scopes);
-                
-                // Redirect to get additional scopes
-                requestAdditionalScopes(error.required_scopes);
-                return;
-            }
-            
-            throw new Error(error.detail);
-        }
-        
-        return await response.json();
-    } catch (error) {
-        console.error('API call failed:', error);
-        throw error;
+  try {
+    const response = await fetch(`/api/v1${endpoint}`, {
+      ...options,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+
+      if (error.error_code === "INSUFFICIENT_SCOPE") {
+        // Handle scope error
+        console.error("Missing scopes:", error.required_scopes);
+
+        // Redirect to get additional scopes
+        requestAdditionalScopes(error.required_scopes);
+        return;
+      }
+
+      throw new Error(error.detail);
     }
+
+    return await response.json();
+  } catch (error) {
+    console.error("API call failed:", error);
+    throw error;
+  }
 }
 
 function requestAdditionalScopes(requiredScopes) {
-    const currentScopes = 'openid profile user:read'; // Current scopes
-    const allScopes = currentScopes + ' ' + requiredScopes.join(' ');
-    
-    // Redirect to OAuth2 authorize endpoint with additional scopes
-    window.location.href = `https://auth-service.example.com/authorize?` +
-        `response_type=code&client_id=web-client&` +
-        `scope=${encodeURIComponent(allScopes)}&` +
-        `redirect_uri=${encodeURIComponent(window.location.href)}`;
+  const currentScopes = "openid profile user:read"; // Current scopes
+  const allScopes = currentScopes + " " + requiredScopes.join(" ");
+
+  // Redirect to OAuth2 authorize endpoint with additional scopes
+  window.location.href =
+    `https://auth-service.example.com/authorize?` +
+    `response_type=code&client_id=web-client&` +
+    `scope=${encodeURIComponent(allScopes)}&` +
+    `redirect_uri=${encodeURIComponent(window.location.href)}`;
 }
 ```
 
@@ -321,12 +323,14 @@ async def admin_stats(user_context: AdminScopeDep):
 ```
 
 **Fallback mapping:**
+
 - `admin` scope → `ADMIN` role required
 - `user:*` scopes → `USER` role required (any authenticated user)
 
 ### Migration Strategy
 
 **Phase 1 - Enable OAuth2 with fallback:**
+
 ```python
 # Both OAuth2 scopes and legacy roles work
 @router.get("/endpoint")
@@ -337,12 +341,14 @@ async def endpoint(user_context: AdminScopeDep):
 ```
 
 **Phase 2 - OAuth2 primary:**
+
 ```python
 # Most clients use OAuth2, some still use legacy JWT
 # Same code works for both
 ```
 
 **Phase 3 - OAuth2 only:**
+
 ```python
 # Remove legacy JWT endpoints
 # All authorization uses scopes
@@ -354,7 +360,7 @@ async def endpoint(user_context: AdminScopeDep):
 
 **Pattern**: `resource:action`
 
-```
+```text
 user:read       # Read user data
 user:write      # Write user data
 recipe:read     # Read recipes
@@ -365,21 +371,22 @@ recipe:write    # Write recipes
 
 **Pattern**: Broader scopes include narrower ones
 
-```
+```text
 admin           # Includes all permissions
 user:write      # Includes user:read
 user:read       # Basic read permission
 ```
 
 **Implementation:**
+
 ```python
 def has_permission(user_scopes: list[str], required: str) -> bool:
     if "admin" in user_scopes:
         return True  # Admin can do everything
-    
+
     if required == "user:read" and "user:write" in user_scopes:
         return True  # Write implies read
-        
+
     return required in user_scopes
 ```
 
@@ -396,11 +403,11 @@ async def get_profile(
     # Additional check: users can always read their own profile
     if user_context.user_id == user_id:
         return get_user_profile(user_id)
-    
+
     # Others need explicit read permission
     if not user_context.has_scope("user:read"):
         raise HTTPException(403, "Cannot read other user's profile")
-    
+
     # Apply privacy filters for other users
     return get_filtered_profile(user_id, user_context.user_id)
 ```
@@ -422,14 +429,14 @@ def test_user_context_scopes():
         token_type="Bearer",
         authenticated_at=None
     )
-    
+
     assert context.has_scope("user:read")
     assert not context.has_scope("user:write")
     assert not context.has_scope("admin")
-    
+
     assert context.has_any_scope(["user:read", "admin"])
     assert not context.has_any_scope(["user:write", "admin"])
-    
+
     assert context.has_all_scopes(["openid", "profile"])
     assert not context.has_all_scopes(["openid", "user:write"])
 ```
@@ -443,15 +450,15 @@ from fastapi.testclient import TestClient
 def test_scope_enforcement(client: TestClient, oauth2_token):
     # Token with user:read scope only
     headers = {"Authorization": f"Bearer {oauth2_token(['user:read'])}"}
-    
+
     # Should succeed - requires user:read
     response = client.get("/api/v1/users/search", headers=headers)
     assert response.status_code == 200
-    
-    # Should fail - requires user:write  
+
+    # Should fail - requires user:write
     response = client.put("/api/v1/users/profile", headers=headers, json={})
     assert response.status_code == 403
-    
+
     error = response.json()
     assert error["error_code"] == "INSUFFICIENT_SCOPE"
     assert "user:write" in error["required_scopes"]
@@ -477,7 +484,7 @@ def create_test_token(scopes: list[str], user_id: str = "test-user") -> str:
 
 # Usage in tests
 read_token = create_test_token(["openid", "profile", "user:read"])
-write_token = create_test_token(["openid", "profile", "user:read", "user:write"]) 
+write_token = create_test_token(["openid", "profile", "user:read", "user:write"])
 admin_token = create_test_token(["openid", "profile", "admin"])
 ```
 
@@ -486,11 +493,12 @@ admin_token = create_test_token(["openid", "profile", "admin"])
 ### 1. Principle of Least Privilege
 
 **Request only necessary scopes:**
+
 ```javascript
 // Good: Request specific scopes
 const scopes = "openid profile user:read";
 
-// Bad: Request excessive scopes  
+// Bad: Request excessive scopes
 const scopes = "openid profile user:read user:write admin";
 ```
 
@@ -502,17 +510,17 @@ const scopes = "openid profile user:read user:write admin";
 @router.get("/users/dashboard")
 async def user_dashboard(user_context: UserContextDep):
     dashboard = {"user_id": user_context.user_id}
-    
+
     # Add features based on available scopes
     if user_context.has_scope("user:read"):
         dashboard["profile"] = get_profile_data(user_context.user_id)
-    
+
     if user_context.has_scope("user:write"):
         dashboard["edit_profile_url"] = "/profile/edit"
-    
+
     if user_context.has_scope("admin"):
         dashboard["admin_panel_url"] = "/admin"
-    
+
     return dashboard
 ```
 
@@ -535,7 +543,7 @@ def require_custom_scope(required_scope: str):
                 }
             )
         return user_context
-    
+
     return Depends(scope_dependency)
 ```
 
@@ -551,9 +559,9 @@ async def update_profile(
 ):
     """
     Update user profile.
-    
+
     **Required OAuth2 Scopes**: `user:write`
-    
+
     **Fallback Authorization**: USER role (when OAuth2 disabled)
     """
     pass
@@ -568,23 +576,23 @@ from app.deps.auth import get_user_context
 
 def require_profile_access(target_user_id: str = None):
     """Custom dependency that allows access to own profile or requires admin scope."""
-    
+
     async def profile_access_dependency(
         user_context: Annotated[UserContext, Depends(get_user_context)]
     ):
         # Users can always access their own profile
         if target_user_id and user_context.user_id == target_user_id:
             return user_context
-        
+
         # Others need admin scope
         if not user_context.has_scope("admin"):
             raise HTTPException(
                 status_code=403,
                 detail="Admin scope required to access other user's profile"
             )
-        
+
         return user_context
-    
+
     return Depends(profile_access_dependency)
 
 @router.get("/users/{user_id}/private-profile")
@@ -596,4 +604,5 @@ async def get_private_profile(
     pass
 ```
 
-This guide provides comprehensive coverage of scope-based authorization patterns and best practices for the User Management Service. Use these patterns to implement fine-grained access control in your OAuth2-integrated application.
+This guide provides comprehensive coverage of scope-based authorization patterns and best practices for the User Management
+Service. Use these patterns to implement fine-grained access control in your OAuth2-integrated application.

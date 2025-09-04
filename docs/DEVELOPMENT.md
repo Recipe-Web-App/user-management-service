@@ -85,6 +85,7 @@ ALLOWED_ORIGIN_HOSTS=http://localhost:3000,http://localhost:8080
 ### 4. Set Up OAuth2 Configuration
 
 **Create OAuth2 configuration file:**
+
 ```bash
 # Create config directory if it doesn't exist
 mkdir -p config
@@ -94,7 +95,7 @@ cat > config/oauth2.json << 'EOF'
 {
   "oauth2_service_urls": {
     "authorization_url": "https://auth-service.local/authorize",
-    "token_url": "https://auth-service.local/token", 
+    "token_url": "https://auth-service.local/token",
     "introspection_url": "https://auth-service.local/introspect",
     "userinfo_url": "https://auth-service.local/userinfo"
   },
@@ -152,6 +153,7 @@ open http://localhost:8000/docs
 ```
 
 **OAuth2 Integration verification:**
+
 ```bash
 # Check OAuth2 configuration loaded correctly
 poetry run python -c "from app.core.config import settings; print('OAuth2 enabled:', settings.oauth2_service_enabled)"
@@ -316,6 +318,7 @@ FLUSHALL  # Clear all data (development only!)
 #### OAuth2 Authentication Flow
 
 **For development with OAuth2 service:**
+
 ```bash
 # 1. Get authorization code (redirect to OAuth2 service)
 open "https://auth-service.local/authorize?response_type=code&client_id=recipe-web-client&redirect_uri=http://localhost:3000/callback&scope=openid+profile+user:read+user:write&state=dev-state&code_challenge=dev-challenge&code_challenge_method=S256"
@@ -332,6 +335,7 @@ curl -X GET "http://localhost:8000/api/v1/users/profile" \
 ```
 
 **Service-to-service authentication:**
+
 ```bash
 # Get service token
 curl -X POST "https://auth-service.local/token" \
@@ -378,12 +382,13 @@ curl -X GET "http://localhost:8000/api/v1/users/profile" \
 The project includes HTTP test files in `tests/http/`:
 
 - `auth.http` - Legacy authentication endpoints
-- `users.http` - User management endpoints  
+- `users.http` - User management endpoints
 - `social.http` - Social features
 - `admin.http` - Admin endpoints
 - `oauth2.http` - OAuth2 authentication flow (new)
 
 **Create `tests/http/oauth2.http` for OAuth2 testing:**
+
 ```http
 ### OAuth2 Authorization URL
 # Open this URL in browser
@@ -574,7 +579,7 @@ docker exec -it user-management-redis redis-cli FLUSHALL
 # Check environment variables
 poetry run python -c "from app.core.config import settings; print(settings.model_dump())"
 
-# Check OAuth2 configuration specifically  
+# Check OAuth2 configuration specifically
 poetry run python -c "
 from app.core.config import settings
 print('OAuth2 enabled:', settings.oauth2_service_enabled)
@@ -600,7 +605,7 @@ async def test_oauth2_connectivity():
     if not settings.oauth2_service_enabled:
         print('OAuth2 not enabled')
         return
-    
+
     introspection_url = settings.oauth2_introspection_url
     if introspection_url:
         try:

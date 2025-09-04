@@ -8,7 +8,6 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from fastapi.responses import JSONResponse
 
 from app.api.v1.schemas.request.user.user_account_delete_request import (
     UserAccountDeleteRequest,
@@ -24,10 +23,13 @@ from app.api.v1.schemas.response.user.user_account_delete_response import (
     UserAccountDeleteRequestResponse,
 )
 from app.api.v1.schemas.response.user.user_profile_response import UserProfileResponse
-from app.api.v1.schemas.response.user.user_search_response import UserSearchResponse
+from app.api.v1.schemas.response.user.user_search_response import (
+    UserSearchResponse,
+    UserSearchResult,
+)
 from app.deps.auth import ReadScopeDep, WriteScopeDep
 from app.deps.services import UserServiceDep
-from app.middleware.auth_middleware import get_current_user_id
+from app.middleware.auth_middleware import get_current_user_id, get_optional_user_id
 
 router = APIRouter()
 
@@ -349,18 +351,55 @@ async def search_users(  # noqa: PLR0913
     "/user-management/users/{user_id}",
     tags=["users"],
     summary="Get user by ID",
-    description="Retrieve public profile of another user",
+    description=(
+        "Retrieve public profile of another user. Respects privacy settings - "
+        "private profiles may not be accessible to anonymous users or other users "
+        "depending on their privacy preferences."
+    ),
+    response_model=UserSearchResult,
+    responses={
+        HTTPStatus.OK: {
+            "model": UserSearchResult,
+            "description": "Public user profile retrieved successfully",
+        },
+        HTTPStatus.NOT_FOUND: {
+            "model": ErrorResponse,
+            "description": "User not found or not accessible due to privacy settings",
+        },
+        HTTPStatus.UNPROCESSABLE_ENTITY: {
+            "model": ErrorResponse,
+            "description": "Validation error",
+        },
+        HTTPStatus.INTERNAL_SERVER_ERROR: {
+            "model": ErrorResponse,
+            "description": "Internal server error",
+        },
+        HTTPStatus.SERVICE_UNAVAILABLE: {
+            "model": ErrorResponse,
+            "description": "Service temporarily unavailable",
+        },
+    },
 )
 async def get_user_by_id(
     user_id: Annotated[UUID, Path(description="User ID")],
-) -> JSONResponse:
-    """Get user by ID.
+    requester_user_id: Annotated[str | None, Depends(get_optional_user_id)],
+    user_service: UserServiceDep,
+) -> UserSearchResult:
+    """Get public user profile by ID.
 
     Args:
         user_id: The user's unique identifier
+        requester_user_id: The authenticated user making the request (optional)
+        user_service: User service instance
 
     Returns:
-        JSONResponse: Public user profile data
+        UserSearchResult: Public user profile data
+
+    Raises:
+        HTTPException: If user not found or access denied due to privacy settings
     """
-    # TODO: Implement get user by ID
-    return JSONResponse(content={"message": f"Get user {user_id} endpoint"})
+    requester_uuid = UUID(requester_user_id) if requester_user_id else None
+    return await user_service.get_public_user_by_id(
+        user_id=user_id,
+        requester_user_id=requester_uuid,
+    )

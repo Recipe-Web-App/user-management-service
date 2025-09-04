@@ -29,6 +29,7 @@ from app.core.logging import get_logger
 from app.db.redis.redis_database_session import RedisDatabaseSession
 from app.db.sql.models.user.user import User
 from app.db.sql.sql_database_session import SqlDatabaseSession
+from app.enums.preferences.profile_visibility_enum import ProfileVisibilityEnum
 from app.exceptions.custom_exceptions.database_exceptions import DatabaseError
 from app.utils.privacy import PrivacyChecker
 
@@ -538,3 +539,92 @@ class UserService:
             return False
         # For now, use the same privacy check - can be extended later
         return await self.privacy_checker.check_access(target_user, requester_user_id)
+
+    async def get_public_user_by_id(
+        self, user_id: UUID, requester_user_id: UUID | None = None
+    ) -> UserSearchResult:
+        """Get public user profile by ID with privacy checks.
+
+        Args:
+            user_id: The user's unique identifier
+            requester_user_id: The user making the request (optional for anonymous
+                access)
+
+        Returns:
+            UserSearchResult: Public user profile data
+
+        Raises:
+            HTTPException: If user not found, forbidden, or database error
+        """
+        _log.info(
+            f"Getting public profile for user: {user_id} by requester: "
+            f"{requester_user_id}"
+        )
+
+        try:
+            # Get user with privacy preferences
+            result = await self.db.execute(
+                select(User)
+                .options(selectinload(User.privacy_preferences))
+                .where(User.user_id == user_id)
+            )
+            user = result.scalar_one_or_none()
+
+            if not user:
+                _log.warning(f"User not found: {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found",
+                )
+
+            # Check if user is active
+            if not user.is_active:
+                _log.warning(f"Inactive user profile requested: {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found",
+                )
+
+            # Check privacy preferences using centralized utility
+            # Handle anonymous access (requester_user_id is None)
+            if requester_user_id is None:
+                # For anonymous users, only allow access to PUBLIC profiles
+                if not user.privacy_preferences:
+                    # No privacy preferences means default to public
+                    pass
+                else:
+                    profile_visibility = user.privacy_preferences.profile_visibility
+                    if profile_visibility != ProfileVisibilityEnum.PUBLIC:
+                        _log.warning(
+                            f"Anonymous access denied for non-public profile: {user_id}"
+                        )
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail="User not found",
+                        )
+            elif not await self.privacy_checker.check_access(user, requester_user_id):
+                _log.warning(
+                    f"Privacy access denied for user: {user_id} by requester: "
+                    f"{requester_user_id}"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found",
+                )
+
+            # Return public profile data
+            return UserSearchResult(
+                user_id=user.user_id,
+                username=user.username,
+                full_name=user.full_name,
+                is_active=user.is_active,
+                created_at=user.created_at,
+                updated_at=user.updated_at,
+            )
+
+        except DatabaseError as e:
+            _log.error(f"Database error getting public user profile: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e

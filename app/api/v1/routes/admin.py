@@ -34,7 +34,7 @@ router = APIRouter()
     "/user-management/admin/redis/session-stats",
     tags=["admin"],
     summary="Get Redis session stats",
-    description="Return Redis session statistics.",
+    description="Return Redis session statistics. **Required OAuth2 Scope**: `admin`",
     response_model=RedisSessionStatsResponse,
     responses={
         HTTPStatus.OK: {

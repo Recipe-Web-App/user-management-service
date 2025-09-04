@@ -13,6 +13,7 @@ from sqlalchemy.exc import TimeoutError as SATimeoutError
 from app.api.v1.schemas.response.dependency_health import DependencyHealth
 from app.api.v1.schemas.response.liveness_response import LivenessResponse
 from app.api.v1.schemas.response.readiness_response import ReadinessResponse
+from app.core.config import settings
 from app.db.redis.redis_database_manager import redis_client
 from app.db.sql.sql_database_manager import engine
 from app.enums.health_status import HealthStatus
@@ -163,6 +164,108 @@ class HealthService:
                 response_time_ms=response_time,
             )
 
+    def _create_oauth2_health_response(
+        self, healthy: bool, status: HealthStatus, message: str, response_time_ms: float
+    ) -> DependencyHealth:
+        """Create OAuth2 health response with consistent structure."""
+        return DependencyHealth(
+            healthy=healthy,
+            status=status,
+            message=message,
+            response_time_ms=response_time_ms,
+        )
+
+    def _validate_oauth2_config(self, start_time: float) -> DependencyHealth | None:
+        """Validate OAuth2 configuration and return error response if invalid."""
+        # Check if OAuth2 is disabled
+        if not settings.oauth2_service_enabled:
+            return self._create_oauth2_health_response(
+                True, HealthStatus.HEALTHY, "OAuth2 integration disabled", 0.0
+            )
+
+        # Check token URL configuration
+        if not settings.oauth2_token_url:
+            return self._create_oauth2_health_response(
+                False,
+                HealthStatus.ERROR,
+                "OAuth2 token URL not configured",
+                (time.time() - start_time) * 1000,
+            )
+
+        # For JWT mode, validate JWT secret
+        if not settings.oauth2_introspection_enabled and not settings.jwt_secret:
+            return self._create_oauth2_health_response(
+                False,
+                HealthStatus.ERROR,
+                "JWT secret not configured for OAuth2 JWT validation",
+                (time.time() - start_time) * 1000,
+            )
+
+        # For introspection mode, validate client credentials and URL
+        if settings.oauth2_introspection_enabled:
+            if not settings.oauth2_client_id or not settings.oauth2_client_secret:
+                return self._create_oauth2_health_response(
+                    False,
+                    HealthStatus.ERROR,
+                    "OAuth2 client credentials not configured",
+                    (time.time() - start_time) * 1000,
+                )
+            if not settings.oauth2_introspection_url:
+                return self._create_oauth2_health_response(
+                    False,
+                    HealthStatus.ERROR,
+                    "OAuth2 introspection URL not configured",
+                    (time.time() - start_time) * 1000,
+                )
+
+        return None  # Configuration is valid
+
+    async def check_oauth2_health(self) -> DependencyHealth:
+        """Check OAuth2 service connectivity and health.
+
+        Returns:
+            DependencyHealth: Health status with details about the check
+        """
+        start_time = time.time()
+
+        try:
+            logger.debug("Checking OAuth2 service connectivity")
+
+            # Validate configuration first
+            config_error = self._validate_oauth2_config(start_time)
+            if config_error:
+                return config_error
+
+            response_time = (time.time() - start_time) * 1000
+
+            # Determine success message based on mode
+            if settings.oauth2_introspection_enabled:
+                logger.debug(
+                    "OAuth2 introspection mode configuration check successful "
+                    f"({response_time:.2f}ms)"
+                )
+                message = "OAuth2 introspection mode configuration valid"
+            else:
+                logger.debug(
+                    "OAuth2 JWT mode configuration check successful "
+                    f"({response_time:.2f}ms)"
+                )
+                message = "OAuth2 JWT mode configuration valid"
+
+            return self._create_oauth2_health_response(
+                True, HealthStatus.HEALTHY, message, response_time
+            )
+
+        except Exception as e:
+            response_time = (time.time() - start_time) * 1000
+            logger.exception("OAuth2 service health check unexpected error")
+            return self._create_oauth2_health_response(
+                False,
+                HealthStatus.ERROR,
+                f"OAuth2 configuration error: {type(e).__name__}",
+                response_time,
+            )
+
     async def get_readiness_status(self) -> ReadinessResponse:
         """Get comprehensive readiness status including all dependencies.
 
@@ -178,34 +281,25 @@ class HealthService:
 
         db_health = await self.check_database_health()
         redis_health = await self.check_redis_health()
+        oauth2_health = await self.check_oauth2_health()
 
-        # Service is ready if Redis is healthy (database can be degraded)
+        # Service is ready if Redis is healthy (database and OAuth2 can be degraded)
         redis_healthy = redis_health.healthy
         db_healthy = db_health.healthy
-        all_healthy = db_healthy and redis_healthy
+        oauth2_healthy = oauth2_health.healthy
+        all_healthy = db_healthy and redis_healthy and oauth2_healthy
 
         # Determine overall service status
         if all_healthy:
             service_ready = True
             service_degraded = False
             service_status = "ready"
-        elif redis_healthy and not db_healthy:
-            # Database is down but Redis is up - degraded mode
-            service_ready = True
-            service_degraded = True
-            service_status = "degraded"
-        elif db_healthy and not redis_healthy:
-            # Redis is down but database is up - degraded mode
-            service_ready = True
-            service_degraded = True
-            service_status = "degraded"
-        elif not db_healthy and not redis_healthy:
-            # Both dependencies are down - degraded mode (basic service still works)
+        elif redis_healthy or db_healthy or oauth2_healthy:
             service_ready = True
             service_degraded = True
             service_status = "degraded"
         else:
-            # Should not reach here, but fallback to not ready
+            # Redis is down and no other services are healthy - not ready
             service_ready = False
             service_degraded = False
             service_status = "not ready"
@@ -213,6 +307,7 @@ class HealthService:
         dependencies: dict[str, DependencyHealth] = {
             "database": db_health,
             "redis": redis_health,
+            "oauth2": oauth2_health,
         }
 
         status = ReadinessResponse(
@@ -227,12 +322,13 @@ class HealthService:
         elif service_degraded:
             logger.warning(
                 f"Service running in degraded mode - Database: {db_health.status}, "
-                f"Redis: {redis_health.status}. Dependency reconnection service active."
+                f"Redis: {redis_health.status}, OAuth2: {oauth2_health.status}. "
+                f"Dependency reconnection service active."
             )
         else:
             logger.warning(
                 f"Service not ready - Database: {db_health.status}, "
-                f"Redis: {redis_health.status}"
+                f"Redis: {redis_health.status}, OAuth2: {oauth2_health.status}"
             )
 
         return status

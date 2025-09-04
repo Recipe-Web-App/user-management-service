@@ -25,6 +25,7 @@ from app.api.v1.schemas.response.user.user_account_delete_response import (
 )
 from app.api.v1.schemas.response.user.user_profile_response import UserProfileResponse
 from app.api.v1.schemas.response.user.user_search_response import UserSearchResponse
+from app.deps.auth import ReadScopeDep, WriteScopeDep
 from app.deps.services import UserServiceDep
 from app.middleware.auth_middleware import get_current_user_id
 
@@ -35,7 +36,10 @@ router = APIRouter()
     "/user-management/users/{user_id}/profile",
     tags=["users"],
     summary="Get user profile",
-    description="Retrieve user profile information with privacy checks",
+    description=(
+        "Retrieve user profile information with privacy checks. "
+        "**Required OAuth2 Scope**: `user:read`"
+    ),
     response_model=UserProfileResponse,
     responses={
         HTTPStatus.OK: {
@@ -74,14 +78,14 @@ router = APIRouter()
 )
 async def get_profile(
     user_id: Annotated[UUID, Path(description="User ID")],
-    authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
+    user_context: ReadScopeDep,
     user_service: UserServiceDep,
 ) -> UserProfileResponse:
     """Get user profile.
 
     Args:
         user_id: The user's unique identifier
-        authenticated_user_id: The authenticated user making the request
+        user_context: OAuth2 user context with required user:read scope
         user_service: User service instance
 
     Returns:
@@ -92,7 +96,7 @@ async def get_profile(
     """
     return await user_service.get_user_profile(
         user_id=user_id,
-        requester_user_id=UUID(authenticated_user_id),
+        requester_user_id=UUID(user_context.user_id),
     )
 
 
@@ -100,7 +104,10 @@ async def get_profile(
     "/user-management/users/profile",
     tags=["users"],
     summary="Update user profile",
-    description="Update current user's profile information",
+    description=(
+        "Update current user's profile information. "
+        "**Required OAuth2 Scope**: `user:write`"
+    ),
     response_model=UserProfileResponse,
     responses={
         HTTPStatus.OK: {
@@ -135,14 +142,14 @@ async def get_profile(
 )
 async def update_profile(
     update_data: UserProfileUpdateRequest,
-    authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
+    user_context: WriteScopeDep,
     user_service: UserServiceDep,
 ) -> UserProfileResponse:
     """Update user profile.
 
     Args:
         update_data: The profile data to update
-        authenticated_user_id: The authenticated user making the request
+        user_context: OAuth2 user context with required user:write scope
         user_service: User service instance
 
     Returns:
@@ -152,7 +159,7 @@ async def update_profile(
         HTTPException: If user not found, validation error, or database error
     """
     return await user_service.update_user_profile(
-        user_id=UUID(authenticated_user_id),
+        user_id=UUID(user_context.user_id),
         update_data=update_data,
     )
 

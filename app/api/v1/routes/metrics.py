@@ -15,7 +15,7 @@ from app.services.cache_service import CacheService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/metrics", tags=["metrics"])
+router = APIRouter(prefix="/user-management/metrics", tags=["metrics"])
 
 
 @router.get("/performance")

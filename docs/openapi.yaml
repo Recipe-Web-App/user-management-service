@@ -16,19 +16,16 @@ info:
 
     ## Authentication
 
-    This service supports **dual authentication modes**:
+    This service uses **OAuth2 authentication** provided by an external OAuth2 service:
 
-    ### OAuth2 Integration (Recommended)
     - **Authorization Code Flow with PKCE** for web/mobile applications
     - **Client Credentials Flow** for service-to-service communication
     - **Scope-based authorization** with granular permissions
-    - **Token introspection** or JWT validation
-
-    ### Legacy JWT Authentication (Backward Compatibility)
-    - Local JWT token generation and validation
-    - Role-based authorization (USER/ADMIN)
+    - **Token introspection** and validation handled externally
 
     Include tokens in the Authorization header: `Authorization: Bearer <token>`
+
+    **Note**: User registration, login, and password reset are handled by the external OAuth2 service, not by this API.
 
     ## Available OAuth2 Scopes
     - `openid` - Basic user identification (required)
@@ -48,12 +45,9 @@ servers:
     description: Production server
 
 security:
-  - oauth2: ["openid", "profile"]
-  - bearerAuth: []
+  - HTTPBearer: []
 
 tags:
-  - name: authentication
-    description: User authentication and account management
   - name: users
     description: User profile and account operations
   - name: social
@@ -68,93 +62,8 @@ tags:
     description: Service health checks
 
 paths:
-  # Authentication Endpoints
-  /user-management/auth/register:
-    post:
-      tags:
-        - authentication
-      summary: Register a new user
-      description: Create a new user account
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UserRegistrationRequest"
-      responses:
-        "200":
-          description: User registered successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UserRegistrationResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "422":
-          $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-
-  /user-management/auth/reset-password:
-    post:
-      tags:
-        - authentication
-      summary: Request password reset
-      description: Send password reset email
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UserPasswordResetRequest"
-      responses:
-        "200":
-          description: Password reset email sent successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UserPasswordResetResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "422":
-          $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-
-  /user-management/auth/reset-password/confirm:
-    post:
-      tags:
-        - authentication
-      summary: Confirm password reset
-      description: Reset password using token
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UserPasswordResetConfirmRequest"
-      responses:
-        "200":
-          description: Password reset successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UserPasswordResetConfirmResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "422":
-          $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
+  # Note: Authentication endpoints are handled by external OAuth2 service
+  # This service only provides user management functionality
 
   # User Management Endpoints
   /user-management/users/{user_id}/profile:
@@ -309,20 +218,27 @@ paths:
       tags:
         - users
       summary: Get user by ID
-      description: Retrieve public profile of another user (NOT IMPLEMENTED)
+      description: >-
+        Retrieve public profile of another user. Respects privacy settings -
+        private profiles may not be accessible to anonymous users or other users
+        depending on their privacy preferences.
       parameters:
         - $ref: "#/components/parameters/UserIdPath"
       responses:
         "200":
-          description: Public user profile data
+          description: Public user profile retrieved successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Get user endpoint - NOT IMPLEMENTED"
+                $ref: "#/components/schemas/UserSearchResult"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   # Social Features Endpoints
   /user-management/users/{user_id}/following:
@@ -773,7 +689,7 @@ paths:
           $ref: "#/components/responses/InternalServerError"
 
   # Metrics Endpoints
-  /metrics/performance:
+  /user-management/metrics/performance:
     get:
       tags:
         - metrics
@@ -791,7 +707,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
-  /metrics/cache:
+  /user-management/metrics/cache:
     get:
       tags:
         - metrics
@@ -809,7 +725,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
-  /metrics/cache/clear:
+  /user-management/metrics/cache/clear:
     post:
       tags:
         - metrics
@@ -838,7 +754,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
-  /metrics/system:
+  /user-management/metrics/system:
     get:
       tags:
         - metrics
@@ -856,7 +772,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
-  /metrics/health/detailed:
+  /user-management/metrics/health/detailed:
     get:
       tags:
         - metrics
@@ -916,46 +832,16 @@ paths:
 
 components:
   securitySchemes:
-    oauth2:
-      type: oauth2
-      description: |
-        OAuth2 Authorization Code Flow with PKCE for secure authentication.
-
-        **Authorization URL**: Configure in OAuth2 service
-        **Token URL**: Configure in OAuth2 service
-        **Scopes**:
-        - `openid`: Basic user identification (required)
-        - `profile`: User profile information
-        - `user:read`: Read user data and profiles
-        - `user:write`: Create and update user data
-        - `admin`: Administrative operations
-
-        **Service-to-Service**: Use Client Credentials flow with appropriate scopes.
-      flows:
-        authorizationCode:
-          authorizationUrl: https://oauth2-service.example.com/authorize
-          tokenUrl: https://oauth2-service.example.com/token
-          scopes:
-            openid: "Basic user identification (required for all authenticated endpoints)"
-            profile: "Access to user profile information (name, email, etc.)"
-            user:read: "Read access to user data, profiles, and search functionality"
-            user:write: "Write access to create and update user data and profiles"
-            admin: "Administrative access to user management and system operations"
-        clientCredentials:
-          tokenUrl: https://oauth2-service.example.com/token
-          scopes:
-            user:read: "Service-to-service read access to user data"
-            user:write: "Service-to-service write access to user data"
-            admin: "Service-to-service administrative access"
-    bearerAuth:
+    HTTPBearer:
       type: http
       scheme: bearer
-      bearerFormat: JWT
       description: |
-        Legacy JWT Bearer token authentication for backward compatibility.
+        Bearer token authentication using OAuth2 tokens.
 
-        **Note**: OAuth2 authentication is recommended for new integrations.
-        This method is maintained for existing clients during migration.
+        Include the token in the Authorization header: `Authorization: Bearer <token>`
+
+        **Note**: Tokens are issued and validated by an external OAuth2 service.
+        This service accepts valid Bearer tokens for authentication.
 
   parameters:
     UserIdPath:
@@ -1087,406 +973,504 @@ components:
           description: Additional error details or context
           additionalProperties: true
 
-    # Authentication Schemas
-    UserRegistrationRequest:
-      type: object
-      required:
-        - username
-        - email
-        - password
-      properties:
-        username:
-          type: string
-          minLength: 3
-          maxLength: 50
-          description: Username for the user account
-          example: john_doe
-        email:
-          type: string
-          format: email
-          description: User email address
-          example: john@example.com
-        password:
-          type: string
-          format: password
-          minLength: 8
-          maxLength: 128
-          description: User password
-          example: SecurePass123!
-        full_name:
-          type: string
-          maxLength: 255
-          description: Full name of the user
-          example: John Doe
-        bio:
-          type: string
-          description: User bio or description
-          example: Software developer
-
-    UserRegistrationResponse:
-      type: object
-      properties:
-        user:
-          $ref: "#/components/schemas/UserBasic"
-        access_token:
-          type: string
-          description: JWT access token
-        refresh_token:
-          type: string
-          description: JWT refresh token
-        token_type:
-          type: string
-          default: bearer
-
-    UserPasswordResetRequest:
-      type: object
-      required:
-        - email
-      properties:
-        email:
-          type: string
-          format: email
-          description: Email address for password reset
-
-    UserPasswordResetResponse:
-      type: object
-      properties:
-        message:
-          type: string
-          example: Password reset email sent successfully
-
-    UserPasswordResetConfirmRequest:
-      type: object
-      required:
-        - token
-        - new_password
-      properties:
-        token:
-          type: string
-          description: Password reset token
-        new_password:
-          type: string
-          format: password
-          minLength: 8
-          maxLength: 128
-          description: New password
-
-    UserPasswordResetConfirmResponse:
-      type: object
-      properties:
-        message:
-          type: string
-          example: Password reset successfully
-
     # User Management Schemas
-    UserBasic:
+    User:
       type: object
+      required:
+        - userId
+        - username
+        - isActive
+        - createdAt
+        - updatedAt
       properties:
-        id:
+        userId:
           type: string
           format: uuid
+          description: Unique identifier for the user
         username:
           type: string
+          minLength: 1
+          maxLength: 50
+          description: Username for the user account
         email:
           type: string
           format: email
-        full_name:
+          nullable: true
+          description: Email address for the user account
+        fullName:
           type: string
+          maxLength: 100
+          nullable: true
+          description: Full name of the user
         bio:
           type: string
-        profile_picture_url:
-          type: string
-          format: uri
-        is_active:
+          maxLength: 500
+          nullable: true
+          description: User's biography or description
+        isActive:
           type: boolean
-        created_at:
+          description: Whether the user account is active
+        createdAt:
           type: string
           format: date-time
-        updated_at:
+          description: Timestamp when the user account was created
+        updatedAt:
           type: string
           format: date-time
+          description: Timestamp when the user account was last updated
+
+    UserSearchResult:
+      type: object
+      required:
+        - userId
+        - username
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: Unique identifier for the user
+        username:
+          type: string
+          description: Username for the user account
+        fullName:
+          type: string
+          nullable: true
+          description: Full name of the user
+        isActive:
+          type: boolean
+          description: Whether the user account is active
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the user account was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the user account was last updated
 
     UserProfileResponse:
       type: object
+      required:
+        - userId
+        - username
+        - isActive
+        - createdAt
+        - updatedAt
       properties:
-        user:
-          $ref: "#/components/schemas/UserBasic"
-        preferences:
-          $ref: "#/components/schemas/UserPreferences"
-        statistics:
-          type: object
-          properties:
-            followers_count:
-              type: integer
-            following_count:
-              type: integer
-            recipes_count:
-              type: integer
+        userId:
+          type: string
+          format: uuid
+          description: Unique identifier for the user
+        username:
+          type: string
+          description: Username for the user account
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: Email address (only included if contact info is visible to requester)
+        fullName:
+          type: string
+          nullable: true
+          description: Full name of the user
+        bio:
+          type: string
+          nullable: true
+          description: User's biography or description
+        isActive:
+          type: boolean
+          description: Whether the user account is active
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the user account was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the user account was last updated
 
     UserProfileUpdateRequest:
       type: object
       properties:
         username:
           type: string
+          nullable: true
           minLength: 3
           maxLength: 50
+          pattern: "^[a-zA-Z0-9_]+$"
+          description: Unique username (3-50 characters, alphanumeric and underscore only)
         email:
           type: string
           format: email
-        full_name:
+          nullable: true
+          description: Valid email address
+        fullName:
           type: string
           maxLength: 255
+          nullable: true
+          description: User's full name (max 255 characters)
         bio:
           type: string
-        profile_picture_url:
-          type: string
-          format: uri
+          maxLength: 1000
+          nullable: true
+          description: User's bio/description (max 1000 characters)
 
     UserAccountDeleteRequest:
       type: object
       required:
-        - confirmation_token
+        - confirmationToken
       properties:
-        confirmation_token:
+        confirmationToken:
           type: string
-          description: Token received from delete request
+          minLength: 1
+          description: Confirmation token received from delete request
 
     UserAccountDeleteRequestResponse:
       type: object
+      required:
+        - userId
+        - confirmationToken
+        - expiresAt
       properties:
-        message:
+        userId:
           type: string
-          example: Account deletion requested. Please check your email for confirmation.
-        confirmation_token:
+          format: uuid
+          description: User ID
+        confirmationToken:
           type: string
           description: Confirmation token for deletion
+        expiresAt:
+          type: string
+          format: date-time
+          description: Token expiration time
 
     UserConfirmAccountDeleteResponse:
       type: object
+      required:
+        - userId
+        - deactivatedAt
       properties:
-        message:
+        userId:
           type: string
-          example: Account successfully deactivated
+          format: uuid
+          description: User ID
+        deactivatedAt:
+          type: string
+          format: date-time
+          description: Account deactivation time
 
     UserSearchResponse:
       type: object
+      required:
+        - results
+        - totalCount
+        - limit
+        - offset
       properties:
-        users:
+        results:
           type: array
           items:
-            $ref: "#/components/schemas/UserBasic"
-        total:
+            $ref: "#/components/schemas/UserSearchResult"
+          description: List of users matching the search query
+        totalCount:
           type: integer
-          description: Total number of matching users
+          description: Total number of users matching the search query
         limit:
           type: integer
+          description: Number of results returned
         offset:
           type: integer
+          description: Number of results skipped
 
     # Social Features Schemas
     GetFollowedUsersResponse:
       type: object
+      required:
+        - totalCount
       properties:
-        users:
+        totalCount:
+          type: integer
+          description: Total number of users being followed
+        followedUsers:
           type: array
           items:
-            $ref: "#/components/schemas/UserBasic"
-        total:
-          type: integer
+            $ref: "#/components/schemas/User"
+          nullable: true
+          description: List of users being followed (null when count_only=true)
         limit:
           type: integer
+          nullable: true
+          description: Number of results returned (null when count_only=true)
         offset:
           type: integer
+          nullable: true
+          description: Number of results skipped (null when count_only=true)
 
     FollowResponse:
       type: object
+      required:
+        - message
+        - isFollowing
       properties:
-        success:
-          type: boolean
         message:
           type: string
-          example: Successfully followed user
-        is_following:
+          description: Success message for the follow/unfollow action
+        isFollowing:
           type: boolean
+          description: Whether the user is now following the target user
 
     UserActivityResponse:
       type: object
+      required:
+        - userId
+        - recentRecipes
+        - recentFollows
+        - recentReviews
+        - recentFavorites
       properties:
-        user_id:
+        userId:
           type: string
           format: uuid
-        activities:
-          type: object
-          properties:
-            recipes:
-              type: array
-              items:
-                $ref: "#/components/schemas/RecipeSummary"
-            follows:
-              type: array
-              items:
-                $ref: "#/components/schemas/UserSummary"
-            reviews:
-              type: array
-              items:
-                $ref: "#/components/schemas/ReviewSummary"
-            favorites:
-              type: array
-              items:
-                $ref: "#/components/schemas/FavoriteSummary"
+          description: Unique identifier for the user
+        recentRecipes:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecipeSummary"
+          description: List of recently created recipes
+        recentFollows:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserSummary"
+          description: List of recently followed users
+        recentReviews:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReviewSummary"
+          description: List of recent reviews written by the user
+        recentFavorites:
+          type: array
+          items:
+            $ref: "#/components/schemas/FavoriteSummary"
+          description: List of recently favorited recipes
 
     RecipeSummary:
       type: object
+      required:
+        - recipeId
+        - title
+        - createdAt
       properties:
-        recipe_id:
-          type: string
-          format: uuid
+        recipeId:
+          type: integer
+          description: Unique identifier for the recipe
         title:
           type: string
-        created_at:
+          description: Title of the recipe
+        createdAt:
           type: string
           format: date-time
+          description: Timestamp when the recipe was created
 
     UserSummary:
       type: object
+      required:
+        - userId
+        - username
+        - followedAt
       properties:
-        user_id:
+        userId:
           type: string
           format: uuid
+          description: Unique identifier for the user
         username:
           type: string
-        followed_at:
+          description: Username of the followed user
+        followedAt:
           type: string
           format: date-time
+          description: Timestamp when the user was followed
 
     ReviewSummary:
       type: object
+      required:
+        - reviewId
+        - recipeId
+        - rating
+        - createdAt
       properties:
-        review_id:
-          type: string
-          format: uuid
-        recipe_id:
-          type: string
-          format: uuid
-        rating:
+        reviewId:
           type: integer
-          minimum: 1
-          maximum: 5
-        created_at:
+          description: Unique identifier for the review
+        recipeId:
+          type: integer
+          description: Unique identifier for the reviewed recipe
+        rating:
+          type: number
+          description: Rating given in the review
+        comment:
+          type: string
+          nullable: true
+          description: Optional comment for the review
+        createdAt:
           type: string
           format: date-time
+          description: Timestamp when the review was created
 
     FavoriteSummary:
       type: object
+      required:
+        - recipeId
+        - title
+        - favoritedAt
       properties:
-        recipe_id:
+        recipeId:
+          type: integer
+          description: Unique identifier for the favorited recipe
+        title:
           type: string
-          format: uuid
-        favorited_at:
+          description: Title of the favorited recipe
+        favoritedAt:
           type: string
           format: date-time
+          description: Timestamp when the recipe was favorited
 
     # Notification Schemas
     Notification:
       type: object
+      required:
+        - notificationId
+        - userId
+        - title
+        - message
+        - notificationType
+        - isRead
+        - isDeleted
+        - createdAt
+        - updatedAt
       properties:
-        id:
+        notificationId:
           type: string
           format: uuid
-        user_id:
+          description: Unique identifier for the notification
+        userId:
           type: string
           format: uuid
-        type:
-          type: string
-          enum: [follow, like, comment, recipe_published, system]
+          description: User ID who owns this notification
         title:
           type: string
+          maxLength: 255
+          description: Notification title
         message:
           type: string
-        is_read:
+          description: Notification message content
+        notificationType:
+          type: string
+          maxLength: 50
+          description: Type of notification
+        isRead:
           type: boolean
-        created_at:
+          description: Whether the notification has been read
+        isDeleted:
+          type: boolean
+          description: Whether the notification has been deleted
+        createdAt:
           type: string
           format: date-time
-        read_at:
+          description: Timestamp when the notification was created
+        updatedAt:
           type: string
           format: date-time
-          nullable: true
-        data:
-          type: object
-          description: Additional notification data
-          additionalProperties: true
+          description: Timestamp when the notification was last updated
 
     NotificationListResponse:
       type: object
+      required:
+        - notifications
+        - totalCount
+        - limit
+        - offset
       properties:
         notifications:
           type: array
           items:
             $ref: "#/components/schemas/Notification"
-        total:
+          description: List of notifications
+        totalCount:
           type: integer
-        unread_count:
-          type: integer
+          description: Total number of notifications
         limit:
           type: integer
+          description: Number of results returned
         offset:
           type: integer
+          description: Number of results skipped
 
     NotificationCountResponse:
       type: object
+      required:
+        - totalCount
       properties:
-        total:
+        totalCount:
           type: integer
-        unread_count:
-          type: integer
+          description: Total number of notifications
 
     NotificationReadResponse:
       type: object
+      required:
+        - message
       properties:
-        success:
-          type: boolean
         message:
           type: string
-          example: Notification marked as read
+          description: Success message
+          example: Notification marked as read successfully
 
     NotificationReadAllResponse:
       type: object
+      required:
+        - message
+        - readNotificationIds
       properties:
-        success:
-          type: boolean
         message:
           type: string
-          example: All notifications marked as read
-        updated_count:
-          type: integer
+          description: Success message
+          example: All notifications marked as read successfully
+        readNotificationIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: List of notification IDs that were marked as read
 
     NotificationDeleteRequest:
       type: object
       required:
-        - notification_ids
+        - notificationIds
       properties:
-        notification_ids:
+        notificationIds:
           type: array
           items:
             type: string
             format: uuid
           minItems: 1
+          maxItems: 100
+          description: List of notification IDs to delete
 
     NotificationDeleteResponse:
       type: object
       properties:
-        success:
-          type: boolean
         message:
           type: string
-        deleted_count:
-          type: integer
-        not_found_ids:
+          description: Success message
+          example: Notifications deleted successfully
+        deleted_notification_ids:
           type: array
           items:
             type: string
             format: uuid
+          description: List of notification IDs that were successfully deleted
 
     # User Preferences Schemas
     UserPreferences:

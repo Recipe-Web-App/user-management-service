@@ -27,7 +27,7 @@ httpx = "^0.28.1"
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"
 ruff = "^0.12.2"
-mypy = "^1.16.1"
+mypy = "^1.17.1"
 pre-commit = "^4.3.0"
 yamllint = "^1.37.1"
 prettier = "^0.0.7"

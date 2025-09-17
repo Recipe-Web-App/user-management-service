@@ -530,14 +530,14 @@ markers = {main = "platform_system == \"Windows\"", dev = "platform_system == \"
 
 [[package]]
 name = "commitlint"
-version = "1.3.0"
-description = "commitlint is is a pre-commit hook designed to lint your commit messages according to the Conventional Commits standard."
+version = "1.3.1"
+description = "commitlint is a pre-commit hook designed to lint your commit messages according to the Conventional Commits standard."
 optional = false
-python-versions = "*"
+python-versions = ">=3.10"
 groups = ["dev"]
 files = [
-    {file = "commitlint-1.3.0-py3-none-any.whl", hash = "sha256:64691dace7caa58ab9bdf904fca27d899935025b445a1c216c911d8fba0b22e4"},
-    {file = "commitlint-1.3.0.tar.gz", hash = "sha256:a8d7f2de60ed0d29d63c1ff2bd71c31acd9425b5e2c2685d90c09abfbb2e3c7f"},
+    {file = "commitlint-1.3.1-py3-none-any.whl", hash = "sha256:02024a64a785c7b5f2c6accb33415efb61d428b90e0231480ac49b8b07624520"},
+    {file = "commitlint-1.3.1.tar.gz", hash = "sha256:2a0123636bd12cb47f96034af0711d302403e80e47bac815f26c495420929d53"},
 ]
 
 [[package]]
@@ -2846,4 +2846,4 @@ dev = ["doc8", "flake8", "flake8-import-order", "rstcheck[sphinx]", "sphinx"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "c9aed8dc0957111edefcba1da2a08b4b9d725cf3d21c261dbf6250c3731a2c5b"
+content-hash = "05b57c795e83290b05811e1be1b7752aaf1f9ccc23252a87cc91f162782e08b1"

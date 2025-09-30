@@ -25,7 +25,7 @@ psutil = "^5.9.0"
 httpx = "^0.28.1"
 
 [tool.poetry.group.dev.dependencies]
-black = "^25.1.0"
+black = "^25.9.0"
 ruff = "^0.12.2"
 mypy = "^1.17.1"
 pre-commit = "^4.3.0"

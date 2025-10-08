@@ -1,0 +1,53 @@
+---
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # Ask a Question
+
+        Have a question about using or developing with the User Management Service? Ask here!
+
+        **Before asking:**
+        - Check the [README](../README.md)
+        - Check the [CLAUDE.md](../CLAUDE.md) for development info
+        - Search existing discussions
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know?
+      placeholder: Ask your question here
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Question Category
+      description: What is your question about?
+      options:
+        - Setup/Installation
+        - Configuration
+        - Usage/API
+        - Development
+        - Testing
+        - Deployment
+        - Performance
+        - Security
+        - Other
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What I've Tried
+      description: What have you already tried?
+      placeholder: Describe what you've tried so far
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any other context or information
+      placeholder: Provide any additional context

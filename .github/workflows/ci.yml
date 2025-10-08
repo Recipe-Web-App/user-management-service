@@ -7,9 +7,18 @@ on:
   pull_request:
     branches: [main, develop]
 
+# Cancel in-progress runs for the same workflow and ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   PYTHON_VERSION: "3.11"
   POETRY_VERSION: "1.8.3"
+
+# Set minimal permissions
+permissions:
+  contents: read
 
 jobs:
   lint-and-format:

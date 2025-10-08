@@ -1,2 +1,25 @@
 # Global code ownership
-* @jsamuelsen11
+* @jsamuelsen
+
+# API routes and endpoints
+/app/api/ @jsamuelsen
+
+# Database models and migrations
+/app/db/ @jsamuelsen
+
+# Core services
+/app/services/ @jsamuelsen
+
+# Tests
+/tests/ @jsamuelsen
+
+# Configuration
+*.yml @jsamuelsen
+*.yaml @jsamuelsen
+.env.example @jsamuelsen
+
+# Documentation
+*.md @jsamuelsen
+
+# GitHub workflows
+/.github/workflows/ @jsamuelsen

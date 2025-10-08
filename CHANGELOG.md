@@ -209,6 +209,6 @@ For more details, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 For questions about releases or to report issues:
 
-- [GitHub Issues](https://github.com/jsamuelsen/user-management-service/issues)
-- [GitHub Discussions](https://github.com/jsamuelsen/user-management-service/discussions)
+- [GitHub Issues](https://github.com/jsamuelsen11/user-management-service/issues)
+- [GitHub Discussions](https://github.com/jsamuelsen11/user-management-service/discussions)
 - Email: support@recipe-app.com

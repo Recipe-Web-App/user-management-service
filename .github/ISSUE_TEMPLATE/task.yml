@@ -4,7 +4,7 @@ description: Create a development task or work item
 title: "[Task]: "
 labels: ["task"]
 assignees:
-  - jsamuelsen
+  - jsamuelsen11
 body:
   - type: markdown
     attributes:

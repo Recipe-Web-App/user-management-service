@@ -24,7 +24,7 @@ This guide provides comprehensive instructions for setting up and developing the
 ### 1. Clone and Enter Repository
 
 ```bash
-git clone https://github.com/jsamuelsen/user-management-service.git
+git clone https://github.com/jsamuelsen11/user-management-service.git
 cd user-management-service
 ```
 

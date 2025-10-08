@@ -1,7 +1,7 @@
 # User Management Service
 
-[![Build Status](https://github.com/jsamuelsen/user-management-service/actions/workflows/security.yml/badge.svg)](https://github.com/jsamuelsen/user-management-service/actions/workflows/security.yml)
-[![Coverage Status](https://img.shields.io/badge/coverage-90%25-brightgreen)](https://github.com/jsamuelsen/user-management-service)
+[![Build Status](https://github.com/jsamuelsen11/user-management-service/actions/workflows/security.yml/badge.svg)](https://github.com/jsamuelsen11/user-management-service/actions/workflows/security.yml)
+[![Coverage Status](https://img.shields.io/badge/coverage-90%25-brightgreen)](https://github.com/jsamuelsen11/user-management-service)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
 [![Python Version](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115.14-009688.svg)](https://fastapi.tiangolo.com)
@@ -51,7 +51,7 @@ This service follows **Clean Architecture** principles with clear separation of 
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/jsamuelsen/user-management-service.git
+   git clone https://github.com/jsamuelsen11/user-management-service.git
    cd user-management-service
    ```
 
@@ -452,8 +452,8 @@ Releases are **fully automated** via GitHub Actions:
 
 ### Latest Release
 
-[![GitHub Release](https://img.shields.io/github/v/release/jsamuelsen/user-management-service?include_prereleases&sort=semver)](https://github.com/jsamuelsen/user-management-service/releases)
-[![GitHub Release Date](https://img.shields.io/github/release-date/jsamuelsen/user-management-service)](https://github.com/jsamuelsen/user-management-service/releases)
+[![GitHub Release](https://img.shields.io/github/v/release/jsamuelsen11/user-management-service?include_prereleases&sort=semver)](https://github.com/jsamuelsen11/user-management-service/releases)
+[![GitHub Release Date](https://img.shields.io/github/release-date/jsamuelsen11/user-management-service)](https://github.com/jsamuelsen11/user-management-service/releases)
 
 ## 🤝 Contributing
 
@@ -518,8 +518,8 @@ For security concerns, please email <security@recipe-app.com> instead of using t
 ## 📞 Support
 
 - **Documentation**: [API Docs](docs/API.md) | [Development Guide](docs/DEVELOPMENT.md)
-- **Issues**: [GitHub Issues](https://github.com/jsamuelsen/user-management-service/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/jsamuelsen/user-management-service/discussions)
+- **Issues**: [GitHub Issues](https://github.com/jsamuelsen11/user-management-service/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/jsamuelsen11/user-management-service/discussions)
 
 ---
 

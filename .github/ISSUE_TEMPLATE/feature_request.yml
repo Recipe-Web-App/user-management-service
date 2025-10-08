@@ -4,7 +4,7 @@ description: Suggest an idea or enhancement for the user management service
 title: "[Feature]: "
 labels: ["enhancement", "needs-triage"]
 assignees:
-  - jsamuelsen
+  - jsamuelsen11
 body:
   - type: markdown
     attributes:

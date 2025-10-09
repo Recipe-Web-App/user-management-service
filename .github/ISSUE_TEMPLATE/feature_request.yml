@@ -1,0 +1,139 @@
+---
+name: Feature Request
+description: Suggest an idea or enhancement for the user management service
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+assignees:
+  - jsamuelsen11
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! Please fill out the form below to help us understand
+        your proposal.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Feature Description
+      description: A clear and concise description of the feature or enhancement
+      placeholder: Describe the feature you're requesting
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? Why is it needed?
+      placeholder: Describe the problem or use case this addresses
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How do you imagine this feature being implemented?
+      placeholder: Describe your proposed solution
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What alternative solutions or features have you considered?
+      placeholder: Describe any alternatives you've thought about
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component Area
+      description: Which area of the service does this feature relate to?
+      options:
+        - User Authentication
+        - User Registration
+        - User Profile Management
+        - User Search
+        - Admin Functions
+        - Social Features (Follow/Followers)
+        - Notifications
+        - API Endpoints
+        - Database Schema
+        - Caching/Performance
+        - Security
+        - Deployment/Infrastructure
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Critical (Blocking my use case)
+        - High (Very important)
+        - Medium (Would be nice to have)
+        - Low (Minor enhancement)
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use Case
+      description: Describe how you would use this feature
+      placeholder: |
+        As a [user type], I want to [action] so that [benefit]...
+    validations:
+      required: true
+
+  - type: textarea
+    id: api_design
+    attributes:
+      label: API Design (Optional)
+      description: If this involves API changes, describe the proposed API
+      placeholder: |
+        POST /api/v1/users/...
+        Request: {...}
+        Response: {...}
+
+  - type: checkboxes
+    id: breaking
+    attributes:
+      label: Breaking Changes
+      description: Would this feature introduce breaking changes?
+      options:
+        - label: This feature may introduce breaking changes
+          required: false
+
+  - type: checkboxes
+    id: security
+    attributes:
+      label: Security Implications
+      description: Does this feature have security considerations?
+      options:
+        - label: This feature has security implications
+          required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or mockups about the feature request
+      placeholder: Any additional information that might help
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched for existing or closed feature requests
+          required: true
+        - label: I have provided all necessary information above
+          required: true

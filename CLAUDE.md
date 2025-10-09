@@ -106,7 +106,7 @@ make load-test                   # Run load tests (including slow tests)
 
 **Clean Architecture Pattern** with FastAPI microservice for user management:
 
-- **API Layer:** `/app/api/v1/routes/` - FastAPI routers (auth, users, admin, social, notifications)
+- **API Layer:** `/app/api/v1/routes/` - FastAPI routers (users, admin, social, notifications, health, metrics)
 - **Service Layer:** `/app/services/` - Business logic services
 - **Data Layer:** `/app/db/` - SQLAlchemy models and session management
 - **Schema Layer:** `/app/api/v1/schemas/` - Pydantic request/response models
@@ -114,7 +114,28 @@ make load-test                   # Run load tests (including slow tests)
 **Dual Database Setup:**
 
 - **PostgreSQL** - Primary data storage with async SQLAlchemy
-- **Redis** - JWT session management and caching
+- **Redis** - Session management and caching
+
+**Authentication Architecture:**
+
+This service supports **dual authentication modes**:
+
+1. **OAuth2 Integration** (recommended for production):
+   - External OAuth2 service handles authentication
+   - Authorization Code Flow with PKCE support
+   - Token introspection OR JWT validation (configurable)
+   - Service-to-service authentication via client credentials
+   - Scope-based authorization: `user:read`, `user:write`, `admin`, `openid`, `profile`
+   - Configure via: `OAUTH2_SERVICE_ENABLED=true`, `OAUTH2_INTROSPECTION_ENABLED=false` (for JWT)
+
+2. **Legacy JWT Authentication** (backward compatibility):
+   - Internal JWT token generation and validation
+   - Access & refresh tokens with Redis session management
+   - Role-based access control (USER/ADMIN)
+   - Enable when: `OAUTH2_SERVICE_ENABLED=false`
+
+**Note:** This service has NO `/auth/*` endpoints - authentication is delegated to external OAuth2 service.
+All endpoints expect valid OAuth2 tokens or legacy JWT tokens in Authorization header.
 
 **Development Dependencies:**
 
@@ -142,11 +163,12 @@ make load-test                   # Run load tests (including slow tests)
 
 All endpoints use `/api/v1/` prefix. Main route modules:
 
-- **auth.py** - Registration, login, logout, password reset
 - **users.py** - Profile management, search, CRUD operations
 - **admin.py** - Administrative functions and system monitoring
 - **social.py** - Following/followers functionality
 - **notifications.py** - User notification management
+- **health.py** - Health checks (`/health` for readiness, `/live` for liveness)
+- **metrics.py** - Prometheus-compatible metrics endpoint
 
 **Request/Response Pattern:**
 
@@ -233,8 +255,32 @@ make docs                        # Open API documentation (/docs)
 
 **Security Features:**
 
-- JWT authentication with refresh tokens
+- OAuth2 integration with scope-based authorization OR legacy JWT authentication
 - bcrypt password hashing
-- Role-based access control (USER/ADMIN)
+- Role-based access control (USER/ADMIN) with OAuth2 scope fallback
 - Sensitive data protection utilities
 - Request ID middleware for tracing
+
+## Known Limitations & Development Notes
+
+**Missing Implementations (from README):**
+
+- **Email service integration** - Password reset currently only logs tokens
+  (see `app/services/auth_service.py:437-439`). Needs SMTP/email provider integration.
+- **Incomplete services** - `SocialService`, `NotificationService`, and some `AdminService` methods are partial implementations
+- **Placeholder endpoint** - `GET /users/{user_id}` returns placeholder response (`app/api/v1/routes/users.py:358`)
+- **Database migrations** - No automated migration system. Currently uses manual `init.sql`.
+  Consider implementing Alembic for production.
+
+**OAuth2 Configuration:**
+
+When enabling OAuth2 integration, ensure these environment variables are set:
+
+- `JWT_SECRET` - Must match the shared secret with external OAuth2 service
+- `OAUTH2_CLIENT_ID` and `OAUTH2_CLIENT_SECRET` - For service-to-service auth
+- `OAUTH2_INTROSPECTION_ENABLED=false` - Recommended for better performance (uses JWT validation instead)
+
+**Health Check Endpoints:**
+
+- `/api/v1/user-management/health` - Readiness check with dependency status (PostgreSQL + Redis)
+- `/api/v1/user-management/live` - Liveness check for Kubernetes probes

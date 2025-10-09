@@ -668,30 +668,13 @@ Clear all active user sessions.
 
 ## Health Check Endpoints
 
-### Basic Health Check
+### Readiness Health Check
 
 ```http
-GET /health
+GET /user-management/health
 ```
 
-Basic health check endpoint.
-
-**Response (200 OK):**
-
-```json
-{
-  "status": "healthy",
-  "timestamp": "2024-01-20T16:00:00Z"
-}
-```
-
-### Detailed Health Check
-
-```http
-GET /health/detailed
-```
-
-Detailed health check with dependency status.
+Comprehensive readiness check with dependency status (PostgreSQL and Redis).
 
 **Response (200 OK):**
 
@@ -700,11 +683,53 @@ Detailed health check with dependency status.
   "status": "healthy",
   "timestamp": "2024-01-20T16:00:00Z",
   "dependencies": {
-    "database": "healthy",
-    "redis": "healthy"
+    "database": {
+      "status": "healthy",
+      "response_time_ms": 15
+    },
+    "redis": {
+      "status": "healthy",
+      "response_time_ms": 2
+    }
   },
   "version": "1.0.0",
   "uptime_seconds": 86400
+}
+```
+
+**Response (503 Service Unavailable)** - When dependencies are unhealthy:
+
+```json
+{
+  "status": "unhealthy",
+  "timestamp": "2024-01-20T16:00:00Z",
+  "dependencies": {
+    "database": {
+      "status": "unhealthy",
+      "error": "Connection timeout"
+    },
+    "redis": {
+      "status": "healthy",
+      "response_time_ms": 2
+    }
+  }
+}
+```
+
+### Liveness Health Check
+
+```http
+GET /user-management/live
+```
+
+Simple liveness check for Kubernetes probes. Returns 200 OK if the service is running.
+
+**Response (200 OK):**
+
+```json
+{
+  "status": "alive",
+  "timestamp": "2024-01-20T16:00:00Z"
 }
 ```
 

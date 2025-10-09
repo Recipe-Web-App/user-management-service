@@ -1,0 +1,161 @@
+---
+name: Performance Issue
+description: Report a performance problem or optimization opportunity
+title: "[Performance]: "
+labels: ["performance", "needs-triage"]
+assignees:
+  - jsamuelsen11
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a performance issue! This helps us keep the service fast and responsive.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Performance Issue Description
+      description: Describe the performance problem
+      placeholder: What is slow or inefficient?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Performance Issue Type
+      description: What type of performance issue is this?
+      options:
+        - Slow API Response
+        - High Database Query Time
+        - High Memory Usage
+        - High CPU Usage
+        - Slow Startup Time
+        - Redis Cache Miss
+        - N+1 Query Problem
+        - Large Payload Size
+        - Connection Pool Exhaustion
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current Performance
+      description: What is the current performance?
+      placeholder: |
+        - Response time: X ms
+        - Query time: Y ms
+        - Memory usage: Z MB
+        - etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Performance
+      description: What performance do you expect?
+      placeholder: |
+        - Response time: should be < X ms
+        - Query time: should be < Y ms
+        - etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this performance issue?
+      placeholder: |
+        1. Make request to...
+        2. With payload...
+        3. Observe slow response...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected Component
+      description: Which component has the performance issue?
+      options:
+        - User Authentication
+        - User Registration
+        - User Search
+        - User Profile
+        - Admin Functions
+        - Social Features
+        - Notifications
+        - Database Queries
+        - Redis Cache
+        - API Endpoints
+        - Kubernetes Resources
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this performance issue?
+      options:
+        - Critical (Service unusable)
+        - High (Significantly impacts users)
+        - Medium (Noticeable slowdown)
+        - Low (Minor optimization)
+    validations:
+      required: true
+
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Performance Metrics
+      description: Include any relevant metrics, logs, or profiling data
+      render: shell
+      placeholder: |
+        Paste metrics, logs, or profiling results here
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Environment details
+      value: |
+        - Python version:
+        - Deployment: (Docker/Kubernetes/Local)
+        - PostgreSQL version:
+        - Redis version:
+        - Load: (requests/second)
+        - Database size:
+    validations:
+      required: true
+
+  - type: textarea
+    id: investigation
+    attributes:
+      label: Investigation Notes
+      description: Have you investigated the cause? Any findings?
+      placeholder: Describe any investigation or profiling you've done
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Optimization Suggestion
+      description: Do you have suggestions for how to improve performance?
+      placeholder: Describe potential optimizations
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched for existing performance issues
+          required: true
+        - label: I have provided performance metrics
+          required: true
+        - label: I can reproduce this consistently
+          required: true

@@ -1,0 +1,102 @@
+---
+name: Task
+description: Create a development task or work item
+title: "[Task]: "
+labels: ["task"]
+assignees:
+  - jsamuelsen11
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to create a development task, work item, or technical debt item.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Task Description
+      description: What needs to be done?
+      placeholder: Describe the task clearly
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Task Type
+      description: What type of task is this?
+      options:
+        - New Feature Development
+        - Bug Fix
+        - Refactoring
+        - Technical Debt
+        - Performance Optimization
+        - Documentation
+        - Testing
+        - CI/CD
+        - Infrastructure
+        - Security
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this task?
+      options:
+        - Critical
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: What defines done for this task?
+      placeholder: |
+        - [ ] Criteria 1
+        - [ ] Criteria 2
+        - [ ] Criteria 3
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation Notes
+      description: Technical notes or implementation details
+      placeholder: Describe the approach or technical considerations
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Does this task depend on other tasks or have blockers?
+      placeholder: List any dependencies or blockers
+
+  - type: dropdown
+    id: estimate
+    attributes:
+      label: Estimated Effort
+      description: Rough estimate of effort required
+      options:
+        - XS (< 2 hours)
+        - S (2-4 hours)
+        - M (4-8 hours)
+        - L (1-2 days)
+        - XL (2-5 days)
+        - XXL (> 5 days)
+
+  - type: textarea
+    id: related
+    attributes:
+      label: Related Issues
+      description: Link to related issues or pull requests
+      placeholder: |
+        - Relates to #123
+        - Blocks #456

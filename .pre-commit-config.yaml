@@ -37,21 +37,21 @@ repos:
 
   # Import sorting (keep before black)
   - repo: https://github.com/pycqa/isort
-    rev: 6.0.1
+    rev: 6.1.0
     hooks:
       - id: isort
         language_version: python3.11
 
   # Code formatting
   - repo: https://github.com/psf/black
-    rev: 25.1.0
+    rev: 25.9.0
     hooks:
       - id: black
         language_version: python3.11
 
   # Linting and code quality (run after black)
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.11
+    rev: v0.14.0
     hooks:
       - id: ruff-check
         args: ["--fix"]
@@ -59,14 +59,14 @@ repos:
 
   # Code modernization and best practices
   - repo: https://github.com/dosisod/refurb
-    rev: v2.1.0
+    rev: v2.2.0
     hooks:
       - id: refurb
         language_version: python3.11
 
   # Type checking
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.17.1
+    rev: v1.18.2
     hooks:
       - id: mypy
         language_version: python3.11

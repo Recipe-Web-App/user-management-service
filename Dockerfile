@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
     libpq-dev \
+    libffi-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -36,8 +37,8 @@ ENV PATH="/root/.local/bin:$PATH"
 # Copy only the dependency files first for better caching
 COPY pyproject.toml poetry.lock* ./
 
-# Install Python dependencies via Poetry (no virtualenv)
-RUN poetry install --no-root
+# Install Python dependencies via Poetry (no virtualenv, production only)
+RUN poetry install --no-root --only main
 
 # Copy the rest of the application
 COPY . .

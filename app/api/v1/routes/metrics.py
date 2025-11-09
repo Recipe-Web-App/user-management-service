@@ -190,7 +190,7 @@ async def get_detailed_health_metrics(
     # Check Redis health
     try:
         start_time = asyncio.get_event_loop().time()
-        await redis_session.ping()
+        await redis_session.ping()  # type: ignore[misc]
         redis_response_time = (asyncio.get_event_loop().time() - start_time) * 1000
 
         cache_service = CacheService(redis_session)

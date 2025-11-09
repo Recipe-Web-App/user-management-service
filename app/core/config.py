@@ -107,6 +107,9 @@ class _Settings(BaseSettings):
     REDIS_PASSWORD: str = Field(..., alias="REDIS_PASSWORD")
     REDIS_DB: int = Field(..., alias="REDIS_DB")
 
+    # Deployment Environment Configuration
+    ENVIRONMENT: str = Field("local", alias="ENVIRONMENT")
+
     # State Configuration
     _STARTUP_TIME: datetime = PrivateAttr(default_factory=lambda: datetime.now(UTC))
 
@@ -233,6 +236,11 @@ class _Settings(BaseSettings):
     def redis_db(self) -> int:
         """Get Redis database number."""
         return self.REDIS_DB
+
+    @property
+    def environment(self) -> str:
+        """Get the current deployment context (local, production, k8s, etc.)."""
+        return self.ENVIRONMENT
 
     @property
     def logging_sinks(self) -> list["LoggingSink"]:

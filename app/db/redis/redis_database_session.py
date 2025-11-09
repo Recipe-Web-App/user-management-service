@@ -414,7 +414,7 @@ class RedisDatabaseSession:
             bool: True if connection is successful
         """
         try:
-            return bool(await self.redis.ping())
+            return bool(await self.redis.ping())  # type: ignore[misc]
         except redis.exceptions.ConnectionError:
             return False
 

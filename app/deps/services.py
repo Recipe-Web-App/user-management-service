@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import Depends
 
+from app.clients.notification_client import NotificationClient, get_notification_client
 from app.deps.database import DatabaseSession, RedisDbSession
 from app.services.admin_service import AdminService
 from app.services.notification_service import NotificationService
@@ -29,9 +30,20 @@ async def get_admin_service(
 
 async def get_social_service(
     db_session: DatabaseSession,
+    notification_client: Annotated[
+        NotificationClient, Depends(get_notification_client)
+    ],
 ) -> SocialService:
-    """Get social service dependency."""
-    return SocialService(db_session)
+    """Get social service dependency.
+
+    Args:
+        db_session: Database session
+        notification_client: Notification service client for sending notifications
+
+    Returns:
+        Configured SocialService instance
+    """
+    return SocialService(db_session, notification_client)
 
 
 async def get_notification_service(

@@ -127,7 +127,7 @@ class DatabaseReconnectionService:
             bool: True if connection is healthy, False otherwise
         """
         try:
-            pong = await redis_client.ping()
+            pong = await redis_client.ping()  # type: ignore[misc]
         except (RedisConnectionError, RedisTimeoutError, RedisError):
             return False
         except Exception:

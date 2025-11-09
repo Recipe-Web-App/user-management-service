@@ -284,3 +284,95 @@ When enabling OAuth2 integration, ensure these environment variables are set:
 
 - `/api/v1/user-management/health` - Readiness check with dependency status (PostgreSQL + Redis)
 - `/api/v1/user-management/live` - Liveness check for Kubernetes probes
+
+## Notification Service Integration
+
+**Overview:**
+
+The user-management-service integrates with the notification-service to send email notifications for social
+interactions. This integration uses OAuth2 client credentials flow for service-to-service authentication.
+
+**Integration Points:**
+
+- **New Follower Notifications** - When a user follows another user, a notification is sent to the followed user
+  - Endpoint: `POST /notifications/new-follower` on notification-service
+  - Checks user notification preferences before sending
+  - Graceful degradation: follow operations succeed even if notifications fail
+
+**Configuration:**
+
+Notification service URLs and scopes are hard-coded in `app/clients/constants.py`:
+
+```python
+# Local development
+NOTIFICATION_SERVICE_URL_LOCAL = "http://notification-service.local/api/v1/notification"
+
+# Kubernetes/production
+NOTIFICATION_SERVICE_URL_K8S = "http://notification-service.notification.svc.cluster.local:8000/api/v1/notification"
+
+# Required OAuth2 scopes
+NOTIFICATION_SERVICE_SCOPES = ["notification:admin"]
+```
+
+**Architecture:**
+
+1. **OAuth2 Token Manager** (`app/clients/oauth2_token_manager.py`)
+   - Manages OAuth2 access tokens for service-to-service calls
+   - Automatically refreshes tokens when expired (no arbitrary caching buffer)
+   - Thread-safe for concurrent requests
+
+2. **Base OAuth2 Service Client** (`app/clients/base_oauth2_service_client.py`)
+   - Reusable HTTP client with persistent connection pooling (httpx)
+   - Automatic OAuth2 token injection in Authorization header
+   - Configurable timeouts and error handling
+
+3. **Notification Client** (`app/clients/notification_client.py`)
+   - Extends BaseOAuth2ServiceClient
+   - Implements `send_new_follower_notification()` method
+   - Handles graceful degradation on failures
+
+4. **Integration in Social Service** (`app/services/social_service.py`)
+   - Checks user notification preferences before sending
+   - Required preferences: `email_notifications=True` AND `social_interactions=True`
+   - Non-blocking: notification failures don't affect core functionality
+
+**Preference Checking:**
+
+Before sending notifications, the service checks the target user's preferences:
+
+```python
+# Required database fields (UserNotificationPreferences model)
+email_notifications: bool       # Must be True
+social_interactions: bool       # Must be True
+```
+
+If either preference is `False` or preferences don't exist, notifications are skipped.
+
+**Environment Detection:**
+
+The service automatically selects the correct notification service URL based on the `settings.environment` value:
+
+- `production` → Uses Kubernetes URL
+- Any other value → Uses local URL
+
+**Graceful Degradation:**
+
+All notification operations implement graceful degradation:
+
+- HTTP errors (503, timeout, etc.) are logged but don't raise exceptions
+- Invalid responses are logged and return `None`
+- User operations (like following) always succeed regardless of notification status
+
+**Testing:**
+
+- Unit tests: `tests/unit/clients/test_oauth2_token_manager.py`
+- Unit tests: `tests/unit/clients/test_notification_client.py`
+- Component tests: `tests/component/test_notification_integration.py`
+
+**Downstream Schemas:**
+
+Request/response schemas for notification service are in `app/api/v1/schemas/downstream/notification/`:
+
+- `NewFollowerNotificationRequest` - Request schema
+- `BatchNotificationResponse` - Response schema (202 Accepted)
+- `NotificationItem` - Individual notification in batch response

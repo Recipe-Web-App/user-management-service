@@ -33,7 +33,7 @@ async def get_redis_session() -> RedisDatabaseSession:
 
 async def init_redis() -> None:
     """Initialize Redis connection."""
-    await redis_client.ping()
+    await redis_client.ping()  # type: ignore[misc]
 
 
 async def close_redis() -> None:

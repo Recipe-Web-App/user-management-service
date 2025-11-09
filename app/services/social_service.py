@@ -16,7 +16,11 @@ from app.api.v1.schemas.response.user_activity.user_activity_response import (
     UserActivityResponse,
 )
 from app.api.v1.schemas.response.user_activity.user_summary import UserSummary
+from app.clients.notification_client import NotificationClient
 from app.core.logging import get_logger
+from app.db.sql.models.preference.notification_preferences import (
+    UserNotificationPreferences,
+)
 from app.db.sql.models.recipe.recipe import Recipe
 from app.db.sql.models.recipe.recipe_favorite import RecipeFavorite
 from app.db.sql.models.recipe.recipe_review import RecipeReview
@@ -32,10 +36,20 @@ _log = get_logger(__name__)
 class SocialService:
     """Service for social operations."""
 
-    def __init__(self, db: SqlDatabaseSession) -> None:
-        """Initialize social service with database session."""
+    def __init__(
+        self,
+        db: SqlDatabaseSession,
+        notification_client: NotificationClient | None = None,
+    ) -> None:
+        """Initialize social service with database session.
+
+        Args:
+            db: Database session
+            notification_client: Optional notification client for sending notifications
+        """
         self.db = db
         self.privacy_checker = PrivacyChecker(db)
+        self.notification_client = notification_client
 
     async def get_followed_users(
         self,
@@ -304,6 +318,13 @@ class SocialService:
             await self.db.commit()
 
             _log.info(f"User {follower_id} successfully followed {target_user_id}")
+
+            # Send new follower notification (async, non-blocking)
+            await self._send_new_follower_notification(
+                follower_id=follower_id,
+                target_user_id=target_user_id,
+            )
+
             return FollowResponse(
                 message="Successfully followed user",
                 is_following=True,
@@ -546,3 +567,76 @@ class SocialService:
                     "Please try again later."
                 ),
             ) from e
+
+    async def _send_new_follower_notification(
+        self, follower_id: UUID, target_user_id: UUID
+    ) -> None:
+        """Send new follower notification to target user.
+
+        This method checks the target user's notification preferences and sends
+        a notification if they have enabled follower notifications.
+
+        Args:
+            follower_id: UUID of the user who followed
+            target_user_id: UUID of the user being followed (notification recipient)
+
+        Note:
+            This method implements graceful degradation - all errors are logged
+            but not raised, ensuring follow operations always succeed even if
+            notifications fail.
+        """
+        if self.notification_client is None:
+            _log.debug("Notification client not available, skipping notification")
+            return
+
+        try:
+            # Fetch target user's notification preferences
+            prefs_result = await self.db.execute(
+                select(UserNotificationPreferences).where(
+                    UserNotificationPreferences.user_id == target_user_id
+                )
+            )
+            notification_prefs = prefs_result.scalar_one_or_none()
+
+            # Check if user has preferences set and notifications enabled
+            if notification_prefs is None:
+                _log.debug(
+                    f"No notification preferences found for user {target_user_id}, "
+                    f"skipping notification"
+                )
+                return
+
+            # Check if user wants email notifications and social interaction
+            # notifications
+            if not notification_prefs.email_notifications:
+                _log.debug(
+                    f"User {target_user_id} has email notifications disabled, "
+                    f"skipping notification"
+                )
+                return
+
+            if not notification_prefs.social_interactions:
+                _log.debug(
+                    f"User {target_user_id} has social interaction "
+                    f"notifications disabled, skipping notification"
+                )
+                return
+
+            # Send notification via notification service
+            _log.info(
+                f"Sending new follower notification: follower={follower_id}, "
+                f"recipient={target_user_id}"
+            )
+
+            await self.notification_client.send_new_follower_notification(
+                follower_id=str(follower_id),
+                recipient_ids=[str(target_user_id)],
+            )
+
+        except Exception as e:
+            # Log but don't raise - notifications should never break core functionality
+            _log.error(
+                f"Failed to send new follower notification: follower={follower_id}, "
+                f"target={target_user_id}, error={e}",
+                exc_info=True,
+            )

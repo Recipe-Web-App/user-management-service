@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.routes import api_router
+from app.clients.notification_client import close_notification_client
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.db.database_reconnection import database_reconnection_service
@@ -45,6 +46,13 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
         _log.error("Could not start database reconnection service: %s", e)
 
     yield
+
+    # Close notification client
+    try:
+        await close_notification_client()
+        _log.info("Notification client closed")
+    except Exception as e:
+        _log.error("Error closing notification client: %s", e)
 
     # Stop database reconnection service
     try:

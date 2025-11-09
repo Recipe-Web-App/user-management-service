@@ -108,7 +108,7 @@ class HealthService:
 
         try:
             logger.debug("Checking Redis connectivity")
-            pong = await redis_client.ping()
+            pong = await redis_client.ping()  # type: ignore[misc]
             response_time = (time.time() - start_time) * 1000
 
             if pong:

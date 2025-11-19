@@ -6,6 +6,7 @@ import httpx
 
 from app.api.v1.schemas.downstream.notification import (
     BatchNotificationResponse,
+    EmailChangedNotificationRequest,
     NewFollowerNotificationRequest,
 )
 from app.clients.base_oauth2_service_client import BaseOAuth2ServiceClient
@@ -118,6 +119,86 @@ class NotificationClient(BaseOAuth2ServiceClient):
         except Exception as e:
             _log.error(
                 f"Unexpected error sending notification: {e}",
+                exc_info=True,
+            )
+
+        return None
+
+    async def send_email_changed_notification(
+        self,
+        user_id: str,
+        old_email: str,
+        new_email: str,
+    ) -> BatchNotificationResponse | None:
+        """Send email change notification to both old and new email addresses.
+
+        This is a security-critical notification that alerts the user when their
+        email address is changed. The notification service sends emails to both
+        the old and new addresses.
+
+        Args:
+            user_id: UUID of the user whose email changed
+            old_email: Previous email address
+            new_email: New email address
+
+        Returns:
+            BatchNotificationResponse if successful, None if failed (graceful
+            degradation)
+
+        Note:
+            This method implements graceful degradation - if the notification
+            service is unavailable or returns an error, it logs the error but
+            does not raise an exception. Email updates should not fail due to
+            notification failures.
+        """
+        request_data = EmailChangedNotificationRequest(
+            recipient_ids=[user_id],
+            old_email=old_email,
+            new_email=new_email,
+        )
+
+        try:
+            _log.debug(
+                f"Sending email change notification: user={user_id}, "
+                f"old={old_email}, new={new_email}"
+            )
+
+            response = await self._post(
+                endpoint="/notifications/email-changed",
+                json_data=request_data.model_dump(),
+            )
+
+            # Notification service returns 202 Accepted for queued notifications
+            if response.status_code != HTTPStatus.ACCEPTED:
+                _log.warning(
+                    f"Unexpected status code from email-changed notification: "
+                    f"{response.status_code}"
+                )
+            else:
+                batch_response = BatchNotificationResponse(**response.json())
+                _log.info(
+                    f"Successfully queued email change notification for user {user_id}"
+                )
+                return batch_response
+
+        except httpx.HTTPStatusError as e:
+            _log.error(
+                f"Notification service HTTP error: {e.response.status_code} - "
+                f"{e.response.text}",
+                exc_info=True,
+            )
+            return None
+
+        except httpx.RequestError as e:
+            _log.error(
+                f"Notification service request failed: {e}",
+                exc_info=True,
+            )
+            return None
+
+        except Exception as e:
+            _log.error(
+                f"Unexpected error sending email change notification: {e}",
                 exc_info=True,
             )
 

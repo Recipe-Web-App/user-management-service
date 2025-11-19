@@ -25,6 +25,7 @@ from app.api.v1.schemas.response.user.user_search_response import (
     UserSearchResponse,
     UserSearchResult,
 )
+from app.clients.notification_client import NotificationClient
 from app.core.logging import get_logger
 from app.db.redis.redis_database_session import RedisDatabaseSession
 from app.db.sql.models.user.user import User
@@ -39,10 +40,23 @@ _log = get_logger(__name__)
 class UserService:
     """Service for user profile operations."""
 
-    def __init__(self, db: SqlDatabaseSession, redis: RedisDatabaseSession) -> None:
-        """Initialize user service with database session."""
+    def __init__(
+        self,
+        db: SqlDatabaseSession,
+        redis: RedisDatabaseSession,
+        notification_client: NotificationClient | None = None,
+    ) -> None:
+        """Initialize user service with database session.
+
+        Args:
+            db: SQL database session
+            redis: Redis database session
+            notification_client: Optional notification service client for
+                sending notifications
+        """
         self.db = db
         self.redis = redis
+        self.notification_client = notification_client
         self.privacy_checker = PrivacyChecker(db)
 
     async def get_user_profile(
@@ -193,6 +207,9 @@ class UserService:
                         detail="Email already registered",
                     )
 
+            # Track old email for notification (if email is being updated)
+            old_email: str | None = None
+
             # Update user fields
             if update_data.username is not None:
                 user.username = update_data.username
@@ -201,8 +218,12 @@ class UserService:
                 )
 
             if update_data.email is not None:
+                old_email = user.email  # Capture before updating
                 user.email = update_data.email
-                _log.info(f"Updated email for user {user_id}: {update_data.email}")
+                _log.info(
+                    f"Updated email for user {user_id}: "
+                    f"{old_email} -> {update_data.email}"
+                )
 
             if update_data.full_name is not None:
                 user.full_name = update_data.full_name
@@ -219,6 +240,14 @@ class UserService:
 
             # Refresh the user object to get the latest data including updated_at
             await self.db.refresh(user)
+
+            # Send email change notification if email was updated
+            if old_email is not None and update_data.email is not None:
+                await self._send_email_change_notification(
+                    user_id=user_id,
+                    old_email=old_email,
+                    new_email=update_data.email,
+                )
 
             _log.info(f"Successfully updated profile for user: {user_id}")
 
@@ -240,6 +269,42 @@ class UserService:
                 status_code=e.status_code,
                 detail=str(e),
             ) from e
+
+    async def _send_email_change_notification(
+        self,
+        user_id: UUID,
+        old_email: str,
+        new_email: str,
+    ) -> None:
+        """Send email change notification (security-critical, bypasses preferences).
+
+        This is a security-critical notification that is always sent when a user's
+        email address changes, regardless of their notification preferences.
+
+        Args:
+            user_id: UUID of the user whose email changed
+            old_email: Previous email address
+            new_email: New email address
+        """
+        if self.notification_client is None:
+            _log.debug(
+                "Notification client not available, skipping email change notification"
+            )
+            return
+
+        try:
+            # Security notifications bypass user preferences
+            await self.notification_client.send_email_changed_notification(
+                user_id=str(user_id),
+                old_email=old_email,
+                new_email=new_email,
+            )
+        except Exception as e:
+            # Log but don't raise - notifications should never break core functionality
+            _log.error(
+                f"Failed to send email change notification for user {user_id}: {e}",
+                exc_info=True,
+            )
 
     async def request_account_deletion(
         self, user_id: UUID

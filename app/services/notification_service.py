@@ -177,6 +177,7 @@ class NotificationService:
                 _log.warning(
                     f"Notification {notification_id} not found for user {user_id}"
                 )
+            else:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Notification not found",

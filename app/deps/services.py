@@ -15,9 +15,21 @@ from app.services.user_service import UserService
 async def get_user_service(
     db_session: DatabaseSession,
     redis_session: RedisDbSession,
+    notification_client: Annotated[
+        NotificationClient, Depends(get_notification_client)
+    ],
 ) -> UserService:
-    """Get user service dependency."""
-    return UserService(db_session, redis_session)
+    """Get user service dependency.
+
+    Args:
+        db_session: Database session
+        redis_session: Redis database session
+        notification_client: Notification service client for sending notifications
+
+    Returns:
+        Configured UserService instance
+    """
+    return UserService(db_session, redis_session, notification_client)
 
 
 async def get_admin_service(

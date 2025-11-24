@@ -11,7 +11,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = "^3.11"
-fastapi = "^0.121.1"
+fastapi = "^0.121.3"
 uvicorn = "^0.38.0"
 pydantic = "^2.12.4"
 pydantic-settings = "^2.12.0"
@@ -26,7 +26,7 @@ httpx = "^0.28.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.11.0"
-ruff = "^0.14.4"
+ruff = "^0.14.6"
 mypy = "^1.18.2"
 pre-commit = "^4.4.0"
 yamllint = "^1.37.1"
@@ -44,7 +44,7 @@ types-requests = "^2.32.4"
 types-PyYAML = "^6.0.12"
 kubernetes = "^34.1.0"
 rich = "^14.2.0"
-click = "^8.3.0"
+click = "^8.3.1"
 docformatter = "^1.7.5"
 kubernetes-typed = "^18.20.2"
 docker = "^7.1.0"

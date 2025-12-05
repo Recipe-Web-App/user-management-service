@@ -55,10 +55,17 @@ async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
     user_service: Annotated[UserService, Depends(get_user_service_for_auth)],
 ) -> User:
-    """Get current authenticated user."""
+    """Get current authenticated user.
+
+    This dependency requires a user token. Service tokens are not supported.
+    """
     # Use the OAuth2-aware middleware to get user ID and scopes
     authorization = f"Bearer {credentials.credentials}"
     user_id, scopes, client_id = await get_current_user_id_and_scopes(authorization)
+
+    # Reject service tokens (no user_id)
+    if not user_id:
+        _raise_invalid_token_error()
 
     # Get user from database
     user = await user_service.get_user_by_id(user_id)
@@ -104,6 +111,9 @@ def get_user_context(
 ) -> UserContext:
     """Get user context with OAuth2 scopes.
 
+    This dependency requires a user token and looks up the user in the database.
+    For service-to-service authentication, use get_token_context() instead.
+
     Args:
         current_user: Current authenticated user
 
@@ -115,6 +125,32 @@ def get_user_context(
 
     return UserContext(
         user_id=str(current_user.user_id),
+        scopes=scopes,
+        client_id=client_id,
+        token_type="Bearer",
+        authenticated_at=None,
+    )
+
+
+async def get_token_context(
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
+) -> UserContext:
+    """Get authentication context from token without database lookup.
+
+    Supports both user tokens (with user_id) and service tokens (client_id only).
+    Use this for endpoints that need to support service-to-service authentication.
+
+    Args:
+        credentials: Bearer token credentials
+
+    Returns:
+        UserContext: Authentication context (user_id may be None for service tokens)
+    """
+    authorization = f"Bearer {credentials.credentials}"
+    user_id, scopes, client_id = await get_current_user_id_and_scopes(authorization)
+
+    return UserContext(
+        user_id=user_id,
         scopes=scopes,
         client_id=client_id,
         token_type="Bearer",
@@ -260,6 +296,7 @@ RequireUserManagementScope = require_user_management_scope()
 
 # Annotated types for OAuth2 context
 UserContextDep = Annotated[UserContext, Depends(get_user_context)]
+TokenContextDep = Annotated[UserContext, Depends(get_token_context)]
 ReadScopeDep = Annotated[UserContext, RequireReadScope]
 WriteScopeDep = Annotated[UserContext, RequireWriteScope]
 AdminScopeDep = Annotated[UserContext, RequireAdminScope]

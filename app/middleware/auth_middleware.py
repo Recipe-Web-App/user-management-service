@@ -97,14 +97,18 @@ async def _introspect_token(token: str) -> OAuth2IntrospectionData:
             return introspection_data
 
 
-async def _validate_token(token: str) -> tuple[str, list[str], str | None]:
-    """Validate token and extract user ID and scopes.
+async def _validate_token(
+    token: str,
+) -> tuple[str | None, list[str], str | None]:
+    """Validate token and extract user ID, scopes, and client ID.
+
+    Supports both user tokens (with user_id) and service tokens (with client_id only).
 
     Args:
         token: JWT or opaque token to validate
 
     Returns:
-        tuple: (user_id, scopes, client_id)
+        tuple: (user_id, scopes, client_id) - user_id may be None for service tokens
 
     Raises:
         HTTPException: If token validation fails
@@ -123,8 +127,9 @@ async def _validate_token(token: str) -> tuple[str, list[str], str | None]:
             scopes = payload.effective_scopes
             client_id = payload.client_id
 
-        if not user_id:
-            _log.warning("Token missing user identification")
+        # Token must have either user_id (user token) or client_id (service token)
+        if not user_id and not client_id:
+            _log.warning("Token missing both user and client identification")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
             )
@@ -142,6 +147,9 @@ async def get_current_user_id(
 ) -> str:
     """Extract user ID from JWT token in Authorization header.
 
+    This function requires a user token (with user_id). For service tokens,
+    use get_current_user_id_and_scopes() instead.
+
     Args:
         authorization: Authorization header containing Bearer token
 
@@ -149,7 +157,7 @@ async def get_current_user_id(
         str: User ID from the token
 
     Raises:
-        HTTPException: If token is invalid or missing
+        HTTPException: If token is invalid, missing, or is a service token
     """
     if not authorization.startswith("Bearer "):
         _log.warning("Invalid authorization header format")
@@ -160,19 +168,29 @@ async def get_current_user_id(
 
     token = authorization.replace("Bearer ", "")
     user_id, _, _ = await _validate_token(token)
+
+    if not user_id:
+        _log.warning("Endpoint requires user token but received service token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="This endpoint requires a user token",
+        )
+
     return user_id
 
 
 async def get_current_user_id_and_scopes(
     authorization: Annotated[str, Header()],
-) -> tuple[str, list[str], str | None]:
+) -> tuple[str | None, list[str], str | None]:
     """Extract user ID, scopes, and client ID from JWT token in Authorization header.
+
+    Supports both user tokens (with user_id) and service tokens (with client_id only).
 
     Args:
         authorization: Authorization header containing Bearer token
 
     Returns:
-        tuple: (user_id, scopes, client_id)
+        tuple: (user_id, scopes, client_id) - user_id may be None for service tokens
 
     Raises:
         HTTPException: If token is invalid or missing

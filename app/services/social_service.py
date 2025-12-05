@@ -147,7 +147,7 @@ class SocialService:
     async def get_followers(
         self,
         user_id: UUID,
-        requester_user_id: UUID,
+        requester_user_id: UUID | None,
         limit: int = 20,
         offset: int = 0,
         count_only: bool = False,
@@ -199,12 +199,16 @@ class SocialService:
             )
             followers = followers_result.scalars().all()
 
-            # Per-user privacy filtering
-            filtered_users = [
-                u
-                for u in followers
-                if await self.privacy_checker.check_access(u, requester_user_id)
-            ]
+            # Per-user privacy filtering (skip for service tokens)
+            if requester_user_id is not None:
+                filtered_users = [
+                    u
+                    for u in followers
+                    if await self.privacy_checker.check_access(u, requester_user_id)
+                ]
+            else:
+                # Service tokens bypass per-user privacy filtering
+                filtered_users = list(followers)
             user_schemas = [
                 UserSchema.model_validate(u).model_copy(update={"email": None})
                 for u in filtered_users

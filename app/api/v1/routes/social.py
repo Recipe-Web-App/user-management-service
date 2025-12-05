@@ -14,6 +14,7 @@ from app.api.v1.schemas.response.social import FollowResponse, GetFollowedUsersR
 from app.api.v1.schemas.response.user_activity.user_activity_response import (
     UserActivityResponse,
 )
+from app.deps.auth import TokenContextDep
 from app.deps.services import SocialServiceDep
 from app.middleware.auth_middleware import get_current_user_id
 
@@ -99,7 +100,8 @@ async def get_followed_users(  # noqa: PLR0913
     "/user-management/users/{user_id}/followers",
     tags=["social"],
     summary="Get followers list",
-    description="Retrieve list of users following the current user",
+    description="Retrieve list of users following the current user. "
+    "Supports both user tokens and service tokens with user:read scope.",
     response_model=GetFollowedUsersResponse,
     responses={
         HTTPStatus.OK: {
@@ -109,6 +111,14 @@ async def get_followed_users(  # noqa: PLR0913
         HTTPStatus.BAD_REQUEST: {
             "model": ErrorResponse,
             "description": "Bad request",
+        },
+        HTTPStatus.UNAUTHORIZED: {
+            "model": ErrorResponse,
+            "description": "Invalid or missing authorization token",
+        },
+        HTTPStatus.FORBIDDEN: {
+            "model": ErrorResponse,
+            "description": "Service token missing required scope",
         },
         HTTPStatus.NOT_FOUND: {
             "model": ErrorResponse,
@@ -130,7 +140,7 @@ async def get_followed_users(  # noqa: PLR0913
 )
 async def get_followers(  # noqa: PLR0913
     user_id: Annotated[UUID, Path(description="User ID")],
-    authenticated_user_id: Annotated[str, Depends(get_current_user_id)],
+    auth_context: TokenContextDep,
     social_service: SocialServiceDep,
     limit: Annotated[
         int, Query(ge=1, le=100, description="Number of results to return")
@@ -142,8 +152,13 @@ async def get_followers(  # noqa: PLR0913
 ) -> GetFollowedUsersResponse:
     """Get followers list.
 
+    Supports both user tokens and service tokens:
+    - User tokens: Uses authenticated user for privacy checks
+    - Service tokens: Requires user:read scope, bypasses privacy checks
+
     Args:
         user_id: The user's unique identifier
+        auth_context: Authentication context (user or service token)
         limit: Number of results to return (1-100)
         offset: Number of results to skip
         count_only: Return only the count of results
@@ -157,12 +172,26 @@ async def get_followers(  # noqa: PLR0913
             status_code=HTTPStatus.BAD_REQUEST,
             detail="Offset cannot be greater than limit.",
         )
+
+    # Determine requester_user_id based on token type
+    requester_user_id: UUID | None = None
+    if auth_context.user_id:
+        # User token - use user_id for privacy checks
+        requester_user_id = UUID(auth_context.user_id)
+    elif auth_context.is_service_token and not auth_context.has_scope("user:read"):
+        # Service token without required scope
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="Service token requires user:read scope",
+        )
+    # Service tokens with user:read scope bypass privacy checks
+
     return await social_service.get_followers(
         user_id=user_id,
         limit=limit,
         offset=offset,
         count_only=count_only,
-        requester_user_id=UUID(authenticated_user_id),
+        requester_user_id=requester_user_id,
     )
 
 

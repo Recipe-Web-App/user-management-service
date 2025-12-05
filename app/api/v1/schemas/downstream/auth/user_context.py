@@ -8,15 +8,26 @@ from app.api.v1.schemas.base_schema_model import BaseSchemaModel
 
 
 class UserContext(BaseSchemaModel):
-    """User authentication context."""
+    """User or service authentication context.
 
-    user_id: str = Field(..., description="User identifier")
-    scopes: list[str] = Field(default_factory=list, description="User scopes")
+    For user tokens: user_id is set, client_id may be set
+    For service tokens: user_id is None, client_id is set
+    """
+
+    user_id: str | None = Field(
+        None, description="User identifier (None for service tokens)"
+    )
+    scopes: list[str] = Field(default_factory=list, description="Token scopes")
     client_id: str | None = Field(None, description="OAuth2 client identifier")
     token_type: str = Field(default="Bearer", description="Token type")
     authenticated_at: datetime | None = Field(
         None, description="Authentication timestamp"
     )
+
+    @property
+    def is_service_token(self) -> bool:
+        """Check if this context is from a service token (no user_id)."""
+        return self.user_id is None and self.client_id is not None
 
     def has_scope(self, required_scope: str) -> bool:
         """Check if user has required scope."""

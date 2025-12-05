@@ -18,6 +18,7 @@ class OAuth2IntrospectionData(BaseSchemaModel):
     iat: int | None = Field(None, description="Issued at timestamp")
     aud: list[str] | None = Field(None, description="Audience")
     iss: str | None = Field(None, description="Issuer")
+    jti: str | None = Field(None, description="JWT ID (unique token identifier)")
 
     @property
     def scopes(self) -> list[str]:

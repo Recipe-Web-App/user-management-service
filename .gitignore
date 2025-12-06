@@ -18,7 +18,8 @@
 go.work
 
 # Env
-.env
+.env*
+!.env.example
 
 # Binary
 bin/

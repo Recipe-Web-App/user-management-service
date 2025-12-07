@@ -1,20 +1,4 @@
----
-ci:
-  autofix_commit_msg: |
-    chore(pre-commit-ci): auto fixes from pre-commit hooks
-
-    for more information, see https://pre-commit.ci
-  autofix_prs: true
-  autoupdate_branch: ""
-  autoupdate_commit_msg: "chore(pre-commit-ci): pre-commit autoupdate"
-  autoupdate_schedule: weekly
-  skip:
-    # Skip local hooks only - these require system dependencies
-    - kube-score
-  submodules: false
-
 repos:
-  # Basic file quality checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
@@ -22,166 +6,61 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-json
-      - id: debug-statements
-      - id: check-merge-conflict
       - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: mixed-line-ending
 
-  # Code formatting for multiple file types
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v4.0.0-alpha.8
-    hooks:
-      - id: prettier
-        types_or: [javascript, jsx, ts, tsx, json, yaml, markdown, html, css]
-
-  # Modern Python syntax upgrades
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v3.20.0
-    hooks:
-      - id: pyupgrade
-        args: ["--py311-plus"]
-        language_version: python3.11
-
-  # Remove unused imports
-  - repo: https://github.com/hadialqattan/pycln
-    rev: v2.5.0
-    hooks:
-      - id: pycln
-        args: ["--all"]
-        language_version: python3.11
-
-  # Import sorting (keep before black)
-  - repo: https://github.com/pycqa/isort
-    rev: 6.1.0
-    hooks:
-      - id: isort
-        language_version: python3.11
-
-  # Code formatting
-  - repo: https://github.com/psf/black
-    rev: 25.9.0
-    hooks:
-      - id: black
-        language_version: python3.11
-
-  # Linting and code quality (run after black)
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.0
-    hooks:
-      - id: ruff-check
-        args: ["--fix"]
-        language_version: python3.11
-
-  # Code modernization and best practices
-  - repo: https://github.com/dosisod/refurb
-    rev: v2.2.0
-    hooks:
-      - id: refurb
-        language_version: python3.11
-
-  # Type checking
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.18.2
-    hooks:
-      - id: mypy
-        language_version: python3.11
-        additional_dependencies:
-          - fastapi
-          - pydantic>=2.0.0
-          - pydantic-settings>=2.0.0
-          - starlette
-          - types-PyYAML
-          - kubernetes
-          - kubernetes-typed
-          - uvicorn
-          - passlib[bcrypt]
-          - python-jose[cryptography]
-          - asyncpg
-          - sqlalchemy[asyncio]
-          - email-validator
-          - redis[hiredis]
-          - pytest
-          - pytest-asyncio
-          - httpx
-
-  # Documentation formatting
-  - repo: https://github.com/PyCQA/docformatter
-    rev: v1.7.7
-    hooks:
-      - id: docformatter
-        args:
-          ["--in-place", "--wrap-summaries", "88", "--wrap-descriptions", "88"]
-        language_version: python3.11
-
-  # Documentation style checking
-  - repo: https://github.com/PyCQA/pydocstyle
-    rev: 6.3.0
-    hooks:
-      - id: pydocstyle
-        language_version: python3.11
-
-  # Security scanning
-  - repo: https://github.com/PyCQA/bandit
-    rev: 1.8.6
-    hooks:
-      - id: bandit
-        args: ["-ll"]
-        language_version: python3.11
-
-  # Dead code detection
-  - repo: https://github.com/jendrikseipp/vulture
-    rev: v2.14
-    hooks:
-      - id: vulture
-        args: ["app", "--min-confidence", "80"]
-        language_version: python3.11
-
-  # Secret scanning
-  - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.28.0
-    hooks:
-      - id: gitleaks
-
-  # Shell script linting
   - repo: https://github.com/shellcheck-py/shellcheck-py
     rev: v0.11.0.1
     hooks:
       - id: shellcheck
-        files: ".*\\.sh$"
+        args: ["--severity=warning"]
 
-  # Markdown linting and formatting
-  - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.45.0
-    hooks:
-      - id: markdownlint
-        args: ["--fix"]
-        exclude: |
-          (?x)^(
-            CHANGELOG\.md$
-          )$
-
-  # YAML linting
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.37.1
     hooks:
       - id: yamllint
-        args: [-c=.yamllint.yml]
+        args: ["-d", "{extends: relaxed, rules: {line-length: {max: 120}}}"]
 
-  # Conventional commits enforcement
-  - repo: https://github.com/compilerla/conventional-pre-commit
-    rev: v4.2.0
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v2.7.1
     hooks:
-      - id: conventional-pre-commit
+      - id: golangci-lint
+        args: ["--config=.golangci.yml"]
+
+  - repo: https://github.com/dnephin/pre-commit-golang
+    rev: v0.5.1
+    hooks:
+      - id: go-mod-tidy
+      - id: go-build
+      - id: go-unit-tests
+        args: [-race, -short, -q]
+
+  - repo: https://github.com/zricethezav/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.14.0
+    hooks:
+      - id: hadolint-docker
+
+  - repo: https://github.com/bridgecrewio/checkov
+    rev: 3.2.495
+    hooks:
+      - id: checkov
+        args: ["--quiet", "--compact"]
+
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.46.0
+    hooks:
+      - id: markdownlint
+        args: ["--config", ".markdownlint.yaml", "--fix"]
+
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v9.23.0
+    hooks:
+      - id: commitlint
         stages: [commit-msg]
-        args: [--strict, --verbose]
-
-  - repo: local
-    hooks:
-      - id: kube-score
-        name: kube-score
-        entry: >-
-          sh -c 'find k8s -name "*.yaml" -type f -not -path "*/templates/*" |
-          xargs kube-score score'
-        language: system
-        files: k8s/.*\.yaml$
-        pass_filenames: false
-        args: []
+        additional_dependencies: ["@commitlint/config-conventional"]

@@ -1,9 +1,0 @@
-{
-  "recommendations": [
-    "ms-python.python",
-    "ms-python.black-formatter",
-    "charliermarsh.ruff",
-    "esbenp.prettier-vscode",
-    "redhat.vscode-yaml"
-  ]
-}

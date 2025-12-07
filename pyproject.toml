@@ -26,7 +26,7 @@ httpx = "^0.28.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.11.0"
-ruff = "^0.14.7"
+ruff = "^0.14.8"
 mypy = "^1.19.0"
 pre-commit = "^4.5.0"
 yamllint = "^1.37.1"
@@ -49,7 +49,7 @@ docformatter = "^1.7.5"
 kubernetes-typed = "^18.20.2"
 docker = "^7.1.0"
 pydantic-settings = {extras = ["all"], version = "^2.12.0"}
-pytest = "^9.0.1"
+pytest = "^9.0.2"
 pytest-asyncio = "^1.3.0"
 refurb = "^2.2.0"
 types-redis = "^4.6.0.20241004"

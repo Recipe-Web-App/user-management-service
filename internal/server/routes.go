@@ -39,6 +39,7 @@ func RegisterRoutes() http.Handler {
 
 	r.Route("/api/v1/user-management", func(r chi.Router) {
 		r.Get("/health", handler.HealthHandler)
+		r.Get("/ready", handler.ReadyHandler)
 	})
 
 	return r

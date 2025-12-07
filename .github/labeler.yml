@@ -1,0 +1,82 @@
+---
+# API changes
+api:
+  - changed-files:
+      - any-glob-to-any-file: "app/api/**/*"
+
+# Database changes
+database:
+  - changed-files:
+      - any-glob-to-any-file: "app/db/**/*"
+
+# Services
+services:
+  - changed-files:
+      - any-glob-to-any-file: "app/services/**/*"
+
+# Schemas
+schemas:
+  - changed-files:
+      - any-glob-to-any-file: "app/api/v1/schemas/**/*"
+
+# Tests
+tests:
+  - changed-files:
+      - any-glob-to-any-file: "tests/**/*"
+
+# Unit tests
+unit-tests:
+  - changed-files:
+      - any-glob-to-any-file: "tests/unit/**/*"
+
+# Component tests
+component-tests:
+  - changed-files:
+      - any-glob-to-any-file: "tests/component/**/*"
+
+# Performance tests
+performance-tests:
+  - changed-files:
+      - any-glob-to-any-file: "tests/performance/**/*"
+
+# Documentation
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "docs/**/*"
+
+# Configuration
+configuration:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.yml"
+          - "**/*.yaml"
+          - "**/*.toml"
+          - "**/*.json"
+          - ".env.example"
+
+# Docker
+docker:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "Dockerfile"
+          - "docker-compose*.yml"
+          - ".dockerignore"
+
+# Kubernetes
+kubernetes:
+  - changed-files:
+      - any-glob-to-any-file: "k8s/**/*"
+
+# GitHub workflows
+github-actions:
+  - changed-files:
+      - any-glob-to-any-file: ".github/workflows/**/*"
+
+# Dependencies
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "poetry.lock"
+          - "pyproject.toml"

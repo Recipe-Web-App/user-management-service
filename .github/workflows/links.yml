@@ -1,0 +1,46 @@
+---
+name: Check Links
+
+on:
+  schedule:
+    - cron: "0 0 * * 0" # Weekly on Sunday at midnight
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "**.md"
+      - "docs/**"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  link-check:
+    name: Check Markdown Links
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Check links in Markdown files
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: "yes"
+          use-verbose-mode: "no"
+          config-file: ".github/markdown-link-check-config.json"
+          folder-path: "."
+          file-path: "./README.md, ./CLAUDE.md"
+          max-depth: -1
+
+      - name: Create issue if links are broken
+        if: failure() && github.event_name == 'schedule'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🔗 Broken links detected in documentation',
+              body: 'The scheduled link check found broken links. Please review the workflow logs.',
+              labels: ['documentation', 'maintenance']
+            })

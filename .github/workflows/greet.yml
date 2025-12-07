@@ -1,0 +1,44 @@
+---
+name: Greet
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  greeting:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/first-interaction@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: |
+            👋 Thanks for opening your first issue in the User Management Service repository!
+
+            A maintainer will review your issue soon. In the meantime:
+            - Make sure you've provided all the requested information in the issue template
+            - Check if there are any similar existing issues
+            - Review our [Contributing Guidelines][contrib]
+
+            We appreciate your contribution to making this project better! 🎉
+
+            [contrib]: https://github.com/Recipe-Web-App/user-management-service/blob/main/.github/CONTRIBUTING.md
+          pr-message: |
+            👋 Thanks for opening your first pull request in the User Management Service repository!
+
+            A maintainer will review your PR soon. In the meantime:
+            - Make sure all CI checks pass
+            - Ensure you've filled out the PR template completely
+            - Review our [Contributing Guidelines][contrib]
+            - Make sure your commits follow the [Conventional Commits][commits] format
+
+            We appreciate your contribution! 🎉
+
+            [contrib]: https://github.com/Recipe-Web-App/user-management-service/blob/main/.github/CONTRIBUTING.md
+            [commits]: https://www.conventionalcommits.org/

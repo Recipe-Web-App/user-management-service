@@ -1,6 +1,0 @@
-server:
-  port: 8080
-  timeout: "60s"
-  idleTimeout: "1m"
-  readTimeout: "10s"
-  writeTimeout: "30s"

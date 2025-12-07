@@ -22,14 +22,19 @@ func RegisterRoutes() http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Compress(5))
 
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   config.Instance.Cors.AllowedOrigins,
-		AllowedMethods:   config.Instance.Cors.AllowedMethods,
-		AllowedHeaders:   config.Instance.Cors.AllowedHeaders,
-		ExposedHeaders:   config.Instance.Cors.ExposedHeaders,
-		AllowCredentials: config.Instance.Cors.AllowCredentials,
-		MaxAge:           int(config.Instance.Cors.MaxAge.Seconds()),
-	}))
+	corsOptions := cors.Options{}
+	if config.Instance != nil {
+		corsOptions = cors.Options{
+			AllowedOrigins:   config.Instance.Cors.AllowedOrigins,
+			AllowedMethods:   config.Instance.Cors.AllowedMethods,
+			AllowedHeaders:   config.Instance.Cors.AllowedHeaders,
+			ExposedHeaders:   config.Instance.Cors.ExposedHeaders,
+			AllowCredentials: config.Instance.Cors.AllowCredentials,
+			MaxAge:           int(config.Instance.Cors.MaxAge.Seconds()),
+		}
+	}
+
+	r.Use(cors.Handler(corsOptions))
 
 	timeout := 60 * time.Second
 	if config.Instance != nil {

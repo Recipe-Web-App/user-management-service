@@ -1,0 +1,47 @@
+run:
+  concurrency: 4
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+
+# version 2 is required for newer golangci-lint
+version: "2"
+
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  goimports:
+    local-prefixes: github.com/jsamuelsen/recipe-web-app/user-management-service
+  revive:
+    severity: warning
+  staticcheck:
+    checks: ["all"]
+  lll:
+    line-length: 120
+
+linters:
+  enable-all: true
+  disable:
+    # Mutually exclusive / Conflicting / overly noisy
+    - wsl              # Too strict about whitespace
+    - nlreturn         # Too strict about newlines
+    - depguard         # Requires specific config
+    - varnamelen       # Too strict about variable naming length
+    - ireturn          # Too strict about interface returns
+    - gochecknoglobals # Globals are sometimes necessary
+    - gochecknoinits   # Inits are sometimes necessary
+    - gochecknoinits   # Inits are sometimes necessary
+    - exhaustruct      # Often too noisy for existing code
+    - nonamedreturns   # Named returns are fine
+    - testpackage      # Forces white-box testing to black-box, maybe not desired immediately
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - funlen
+        - goconst

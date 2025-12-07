@@ -1,0 +1,52 @@
+---
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ask questions about using the User Management Service!
+
+        Before asking, please check:
+        - [README.md](../README.md)
+        - [CLAUDE.md](../CLAUDE.md)
+        - [Existing Discussions](https://github.com/jsamuelsen/recipe-web-app/discussions)
+
+  - type: textarea
+    attributes:
+      label: Question
+      description: What would you like to know?
+      placeholder: Your question here...
+    validations:
+      required: true
+
+  - type: dropdown
+    attributes:
+      label: Topic Area
+      description: What is your question about?
+      options:
+        - User Management
+        - Configuration
+        - Deployment
+        - Integration
+        - Security
+        - Performance
+        - Troubleshooting
+        - Development
+        - Other
+
+  - type: textarea
+    attributes:
+      label: Context
+      description: Provide relevant context
+      placeholder: |
+        What are you trying to accomplish?
+        What have you tried so far?
+        Environment details, etc.
+
+  - type: textarea
+    attributes:
+      label: Relevant Configuration
+      description: Share relevant config (redact secrets!)
+      render: bash
+      placeholder: |
+        Environment variables, deployment setup, etc.

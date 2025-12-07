@@ -1,44 +1,150 @@
+---
 name: Bug Report
-description: Create a report to help us improve the User Management Service
+description: Report a bug or unexpected behavior in the user management service
 title: "[Bug]: "
-labels: ["bug"]
+labels: ["bug", "needs-triage"]
 assignees:
   - jsamuelsen11
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to fill out this bug report!
+        Thanks for taking the time to report a bug! Please fill out the form below to help us
+        investigate and fix the issue.
+
   - type: textarea
-    id: what-happened
+    id: description
     attributes:
-      label: What happened?
-      description: Also tell us, what did you expect to happen?
-      placeholder: Tell us what you see!
+      label: Bug Description
+      description: A clear and concise description of what the bug is
+      placeholder: Describe the issue you're experiencing
     validations:
       required: true
-  - type: input
-    id: go-version
-    attributes:
-      label: Go Version
-      description: What version of Go are you running? (e.g., 1.21.x)
-      placeholder: go version go1.21.5 linux/amd64
-    validations:
-      required: true
+
   - type: textarea
-    id: reproduction
+    id: steps
     attributes:
       label: Steps to Reproduce
-      description: Clear steps to reproduce the bug.
+      description: Steps to reproduce the behavior
       placeholder: |
-        1. Run '...'
-        2. Make request to '...'
-        3. See error...
+        1. Send request to '...'
+        2. With parameters '...'
+        3. Observe error '...'
     validations:
       required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen
+      placeholder: Describe what should have happened
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened
+      placeholder: Describe what actually happened
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which component is affected?
+      options:
+        - User Authentication
+        - User Registration
+        - User Profile Management
+        - User Search
+        - Admin Functions
+        - Social Features (Follow/Followers)
+        - Notifications
+        - API Endpoints
+        - Database (PostgreSQL)
+        - Cache (Redis)
+        - Middleware (CORS, Logging, etc.)
+        - Health Checks
+        - Kubernetes Deployment
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this bug?
+      options:
+        - Critical (Service is down/unusable)
+        - High (Major functionality broken)
+        - Medium (Functionality impaired)
+        - Low (Minor issue/inconvenience)
+    validations:
+      required: true
+
   - type: textarea
     id: logs
     attributes:
-      label: Relevant Log Output
-      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
+      label: Relevant Logs
+      description: Include relevant log output (please redact sensitive information)
       render: shell
+      placeholder: Paste relevant logs here
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Information about your deployment environment
+      value: |
+        - Python version:
+        - Poetry version:
+        - Deployment: (Docker/Kubernetes/Local)
+        - OS:
+        - PostgreSQL version:
+        - Redis version:
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: Relevant configuration (redact secrets!)
+      placeholder: |
+        JWT_SIGNING_ALGORITHM=HS256
+        ACCESS_TOKEN_EXPIRE_MINUTES=30
+        etc.
+
+  - type: checkboxes
+    id: security
+    attributes:
+      label: Security Impact
+      description: Does this bug have security implications?
+      options:
+        - label: This bug may have security implications
+          required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or information about the problem
+      placeholder: Any additional information that might help
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues to avoid duplicates
+          required: true
+        - label: I have included all relevant information
+          required: true
+        - label: I have redacted all sensitive information (secrets, tokens, passwords)
+          required: true

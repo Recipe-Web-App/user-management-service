@@ -1,0 +1,1650 @@
+{
+  "info": {
+    "name": "User Management API",
+    "description": "Comprehensive API collection for User Management Service endpoints including user management, social features, notifications, admin functions, and health checks. Authentication is handled externally via OAuth2.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "2.0.0"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "description": "System health and status endpoints",
+      "item": [
+        {
+          "name": "Readiness Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Readiness check response received', function () {",
+                  "    pm.expect([200, 503]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "pm.test('Response contains readiness status', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('ready');",
+                  "    pm.expect(response).to.have.property('status');",
+                  "    pm.expect(response).to.have.property('checks');",
+                  "});",
+                  "",
+                  "pm.test('Health checks included', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.checks).to.have.property('app');",
+                  "    pm.expect(response.checks).to.have.property('database');",
+                  "    pm.expect(response.checks).to.have.property('redis');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "health"]
+            }
+          }
+        },
+        {
+          "name": "Liveness Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Liveness check successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains liveness status', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('alive');",
+                  "    pm.expect(response).to.have.property('timestamp');",
+                  "    pm.expect(response.alive).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/live",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "live"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Management",
+      "description": "User profile and account management endpoints",
+      "item": [
+        {
+          "name": "Get User by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('User profile retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains user data', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('userId');",
+                  "    pm.expect(response).to.have.property('username');",
+                  "    pm.expect(response).to.have.property('isActive');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/users/{{targetUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "users", "{{targetUserId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get User Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Profile retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains complete profile data', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('userId');",
+                  "    pm.expect(response).to.have.property('username');",
+                  "    pm.expect(response).to.have.property('email');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/users/{{userId}}/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "users", "{{userId}}", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Update User Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Profile updated successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains updated profile data', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('userId');",
+                  "    pm.expect(response).to.have.property('username');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{testUsername}}_updated\",\n  \"email\": \"{{testEmail}}\",\n  \"fullName\": \"{{testFullName}} Updated\",\n  \"bio\": \"Updated bio for testing\"\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/users/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "users", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Search Users - Default",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Search successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains search results', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('results');",
+                  "    pm.expect(response).to.have.property('totalCount');",
+                  "    pm.expect(response).to.have.property('limit');",
+                  "    pm.expect(response).to.have.property('offset');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/users/search",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "users", "search"]
+            }
+          }
+        },
+        {
+          "name": "Search Users - With Query",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Search with query successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Search results match query', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.results).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/users/search?query=test&limit=10&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "users", "search"],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "test"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Users - Count Only",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Count query successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains only count data', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('totalCount');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/users/search?count_only=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "users", "search"],
+              "query": [
+                {
+                  "key": "count_only",
+                  "value": "true"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Request Account Deletion",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Account deletion request successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains deletion token', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('confirmationToken');",
+                  "    pm.expect(response).to.have.property('expiresAt');",
+                  "    pm.environment.set('deletionToken', response.confirmationToken);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/users/account/delete-request",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "users", "account", "delete-request"]
+            }
+          }
+        },
+        {
+          "name": "Confirm Account Deletion",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Account deletion confirmed', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains deactivation confirmation', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('userId');",
+                  "    pm.expect(response).to.have.property('deactivatedAt');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"confirmationToken\": \"{{deletionToken}}\"\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/users/account",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "users", "account"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Social Features",
+      "description": "User social interaction endpoints",
+      "item": [
+        {
+          "name": "Get Following List - Default",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Following list retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains following data', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('totalCount');",
+                  "    if (response.followedUsers !== null) {",
+                  "        pm.expect(response).to.have.property('followedUsers');",
+                  "        pm.expect(response).to.have.property('limit');",
+                  "        pm.expect(response).to.have.property('offset');",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/users/{{userId}}/following",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "users", "{{userId}}", "following"]
+            }
+          }
+        },
+        {
+          "name": "Get Following List - Count Only",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Following count retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains only count', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('totalCount');",
+                  "    pm.expect(response.followedUsers).to.be.null;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/users/{{userId}}/following?count_only=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "users", "{{userId}}", "following"],
+              "query": [
+                {
+                  "key": "count_only",
+                  "value": "true"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Followers List - Default",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Followers list retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains followers data', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('totalCount');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/users/{{userId}}/followers",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "users", "{{userId}}", "followers"]
+            }
+          }
+        },
+        {
+          "name": "Follow User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Follow user successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains follow status', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('message');",
+                  "    pm.expect(response).to.have.property('isFollowing');",
+                  "    pm.expect(response.isFollowing).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/users/{{userId}}/follow/{{targetUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "user-management",
+                "users",
+                "{{userId}}",
+                "follow",
+                "{{targetUserId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Unfollow User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Unfollow user successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains unfollow status', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('message');",
+                  "    pm.expect(response).to.have.property('isFollowing');",
+                  "    pm.expect(response.isFollowing).to.be.false;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/users/{{userId}}/follow/{{targetUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "user-management",
+                "users",
+                "{{userId}}",
+                "follow",
+                "{{targetUserId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User Activity",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('User activity retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains activity data', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('userId');",
+                  "    pm.expect(response).to.have.property('recentRecipes');",
+                  "    pm.expect(response).to.have.property('recentFollows');",
+                  "    pm.expect(response).to.have.property('recentReviews');",
+                  "    pm.expect(response).to.have.property('recentFavorites');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/users/{{targetUserId}}/activity?per_type_limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "user-management",
+                "users",
+                "{{targetUserId}}",
+                "activity"
+              ],
+              "query": [
+                {
+                  "key": "per_type_limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "description": "User notification management endpoints",
+      "item": [
+        {
+          "name": "Get Notifications - Default",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Notifications retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains notification data', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('notifications');",
+                  "    pm.expect(response).to.have.property('totalCount');",
+                  "    pm.expect(response).to.have.property('limit');",
+                  "    pm.expect(response).to.have.property('offset');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/notifications",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "notifications"]
+            }
+          }
+        },
+        {
+          "name": "Get Notifications - Count Only",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Notification count retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains count data', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('totalCount');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/notifications?count_only=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "notifications"],
+              "query": [
+                {
+                  "key": "count_only",
+                  "value": "true"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mark Notification as Read",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Notification marked as read successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains success message', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('message');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/notifications/{{notificationId}}/read",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "user-management",
+                "notifications",
+                "{{notificationId}}",
+                "read"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mark All Notifications as Read",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('All notifications marked as read successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains read notification IDs', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('message');",
+                  "    pm.expect(response).to.have.property('readNotificationIds');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/notifications/read-all",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "notifications", "read-all"]
+            }
+          }
+        },
+        {
+          "name": "Delete Notifications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Notifications deleted successfully', function () {",
+                  "    pm.expect([200, 206]).to.include(pm.response.code);",
+                  "});",
+                  "",
+                  "pm.test('Response contains deletion info', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('message');",
+                  "    pm.expect(response).to.have.property('deletedNotificationIds');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notificationIds\": [\n    \"{{notificationId1}}\",\n    \"{{notificationId2}}\"\n  ]\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/notifications",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "notifications"]
+            }
+          }
+        },
+        {
+          "name": "Get Notification Preferences",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Notification preferences retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains preferences', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('preferences');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/notifications/preferences",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "notifications", "preferences"]
+            }
+          }
+        },
+        {
+          "name": "Update Notification Preferences",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Notification preferences updated successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains updated preferences', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('preferences');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notificationPreferences\": {\n    \"emailNotifications\": false,\n    \"pushNotifications\": true,\n    \"followNotifications\": true,\n    \"likeNotifications\": true,\n    \"commentNotifications\": true,\n    \"recipeNotifications\": true,\n    \"systemNotifications\": true\n  },\n  \"privacyPreferences\": {\n    \"profileVisibility\": \"public\",\n    \"showEmail\": false,\n    \"showFullName\": true,\n    \"allowFollows\": true,\n    \"allowMessages\": true\n  },\n  \"displayPreferences\": {\n    \"theme\": \"dark\",\n    \"language\": \"en\",\n    \"timezone\": \"UTC\"\n  }\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/notifications/preferences",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "notifications", "preferences"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Functions",
+      "description": "Administrative endpoints for system management (requires admin role)",
+      "item": [
+        {
+          "name": "Get Redis Session Stats",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Redis stats retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains session stats', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('totalSessions');",
+                  "    pm.expect(response).to.have.property('activeSessions');",
+                  "    pm.expect(response).to.have.property('memoryUsage');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/admin/redis/session-stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "admin", "redis", "session-stats"]
+            }
+          }
+        },
+        {
+          "name": "Get User Statistics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('User stats retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains user statistics', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('totalUsers');",
+                  "    pm.expect(response).to.have.property('activeUsers');",
+                  "    pm.expect(response).to.have.property('newUsersToday');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/admin/users/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "admin", "users", "stats"]
+            }
+          }
+        },
+        {
+          "name": "Get System Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('System health retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains health data', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('status');",
+                  "    pm.expect(response).to.have.property('databaseStatus');",
+                  "    pm.expect(response).to.have.property('redisStatus');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/admin/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "admin", "health"]
+            }
+          }
+        },
+        {
+          "name": "Force Logout User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Force logout successful', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains logout info', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('message');",
+                  "    pm.expect(response).to.have.property('sessionsCleared');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/admin/users/{{targetUserId}}/force-logout",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "user-management",
+                "admin",
+                "users",
+                "{{targetUserId}}",
+                "force-logout"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Clear All Redis Sessions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Sessions cleared successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains clear info', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('message');",
+                  "    pm.expect(response).to.have.property('sessionsCleared');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/admin/redis/sessions",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "admin", "redis", "sessions"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Metrics",
+      "description": "System metrics and monitoring endpoints (requires admin role)",
+      "item": [
+        {
+          "name": "Get Performance Metrics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Performance metrics retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains performance data', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('responseTimes');",
+                  "    pm.expect(response).to.have.property('requestCounts');",
+                  "    pm.expect(response).to.have.property('errorRates');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/metrics/performance",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "metrics", "performance"]
+            }
+          }
+        },
+        {
+          "name": "Get Cache Metrics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cache metrics retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains cache data', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('memoryUsage');",
+                  "    pm.expect(response).to.have.property('hitRate');",
+                  "    pm.expect(response).to.have.property('keysCount');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/metrics/cache",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "metrics", "cache"]
+            }
+          }
+        },
+        {
+          "name": "Clear Cache",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cache cleared successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains clear info', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('message');",
+                  "    pm.expect(response).to.have.property('clearedCount');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pattern\": \"*\"\n}"
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/metrics/cache/clear",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "metrics", "cache", "clear"]
+            }
+          }
+        },
+        {
+          "name": "Get System Metrics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('System metrics retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains system data', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('system');",
+                  "    pm.expect(response).to.have.property('process');",
+                  "    pm.expect(response).to.have.property('uptimeSeconds');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/metrics/system",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "metrics", "system"]
+            }
+          }
+        },
+        {
+          "name": "Get Detailed Health Metrics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Detailed health metrics retrieved successfully', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response contains detailed health data', function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('overallStatus');",
+                  "    pm.expect(response).to.have.property('services');",
+                  "    pm.expect(response).to.have.property('application');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user-management/metrics/health/detailed",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-management", "metrics", "health", "detailed"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  }
+}

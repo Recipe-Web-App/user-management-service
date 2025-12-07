@@ -39,9 +39,9 @@ info:
     email: support@example.com
 
 servers:
-  - url: http://localhost:8000/api/v1/user-management
+  - url: http://localhost:8000/api/v1
     description: Development server
-  - url: https://user-management.local/api/v1/user-management
+  - url: https://api.example.com/api/v1
     description: Production server
 
 security:
@@ -66,7 +66,7 @@ paths:
   # This service only provides user management functionality
 
   # User Management Endpoints
-  /users/{user_id}/profile:
+  /user-management/users/{user_id}/profile:
     get:
       tags:
         - users
@@ -96,7 +96,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /users/profile:
+  /user-management/users/profile:
     put:
       tags:
         - users
@@ -128,7 +128,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /users/account/delete-request:
+  /user-management/users/account/delete-request:
     post:
       tags:
         - users
@@ -152,7 +152,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /users/account:
+  /user-management/users/account:
     delete:
       tags:
         - users
@@ -182,7 +182,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /users/search:
+  /user-management/users/search:
     get:
       tags:
         - users
@@ -213,7 +213,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /users/{user_id}:
+  /user-management/users/{user_id}:
     get:
       tags:
         - users
@@ -241,7 +241,7 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
 
   # Social Features Endpoints
-  /users/{user_id}/following:
+  /user-management/users/{user_id}/following:
     get:
       tags:
         - social
@@ -272,7 +272,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /users/{user_id}/followers:
+  /user-management/users/{user_id}/followers:
     get:
       tags:
         - social
@@ -301,7 +301,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /users/{user_id}/follow/{target_user_id}:
+  /user-management/users/{user_id}/follow/{target_user_id}:
     post:
       tags:
         - social
@@ -366,7 +366,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /users/{user_id}/activity:
+  /user-management/users/{user_id}/activity:
     get:
       tags:
         - social
@@ -397,7 +397,7 @@ paths:
           $ref: "#/components/responses/NotFound"
 
   # Notification Endpoints
-  /notifications:
+  /user-management/notifications:
     get:
       tags:
         - notifications
@@ -464,7 +464,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /notifications/{notification_id}/read:
+  /user-management/notifications/{notification_id}/read:
     put:
       tags:
         - notifications
@@ -498,7 +498,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /notifications/read-all:
+  /user-management/notifications/read-all:
     put:
       tags:
         - notifications
@@ -522,7 +522,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /notifications/preferences:
+  /user-management/notifications/preferences:
     get:
       tags:
         - notifications
@@ -580,7 +580,7 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
 
   # Admin Endpoints
-  /admin/redis/session-stats:
+  /user-management/admin/redis/session-stats:
     get:
       tags:
         - admin
@@ -602,7 +602,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /admin/users/stats:
+  /user-management/admin/users/stats:
     get:
       tags:
         - admin
@@ -622,7 +622,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /admin/health:
+  /user-management/admin/health:
     get:
       tags:
         - admin
@@ -642,7 +642,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /admin/users/{user_id}/force-logout:
+  /user-management/admin/users/{user_id}/force-logout:
     post:
       tags:
         - admin
@@ -668,7 +668,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /admin/redis/sessions:
+  /user-management/admin/redis/sessions:
     delete:
       tags:
         - admin
@@ -689,7 +689,7 @@ paths:
           $ref: "#/components/responses/InternalServerError"
 
   # Metrics Endpoints
-  /metrics/performance:
+  /user-management/metrics/performance:
     get:
       tags:
         - metrics
@@ -707,7 +707,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
-  /metrics/cache:
+  /user-management/metrics/cache:
     get:
       tags:
         - metrics
@@ -725,7 +725,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
-  /metrics/cache/clear:
+  /user-management/metrics/cache/clear:
     post:
       tags:
         - metrics
@@ -754,7 +754,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
-  /metrics/system:
+  /user-management/metrics/system:
     get:
       tags:
         - metrics
@@ -772,7 +772,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
-  /metrics/health/detailed:
+  /user-management/metrics/health/detailed:
     get:
       tags:
         - metrics
@@ -791,7 +791,7 @@ paths:
           $ref: "#/components/responses/Forbidden"
 
   # Health Check Endpoints
-  /health:
+  /user-management/health:
     get:
       tags:
         - health
@@ -815,7 +815,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ReadinessResponse"
 
-  /live:
+  /user-management/live:
     get:
       tags:
         - health

@@ -1,0 +1,75 @@
+{
+  "editor.formatOnSave": true,
+  "python.formatting.provider": "black",
+  "python.linting.enabled": true,
+  "python.linting.ruffEnabled": true,
+  "python.linting.mypyEnabled": true,
+  "python.linting.mypyArgs": ["--strict"],
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "always"
+  },
+  "python.analysis.typeCheckingMode": "basic",
+  "python.defaultInterpreterPath": "~/.cache/pypoetry/virtualenvs/user-management-service-R2vVcIwx-py3.11/bin/python",
+  "python.formatting.blackArgs": ["--line-length=88"],
+  "python.formatting.blackPath": "~/.cache/pypoetry/virtualenvs/user-management-service-R2vVcIwx-py3.11/bin/black",
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "prettier.executablePath": "~/nvm/versions/node/v20.19.3/bin/prettier",
+  "cursorpyright.analysis.typeCheckingMode": "off",
+  "files.associations": {
+    "*.env.*": "dotenv"
+  },
+  "python.formatting.docformatterPath": "~/.cache/pypoetry/virtualenvs/user-management-service-R2vVcIwx-py3.11/bin/docformatter",
+  "cSpell.words": [
+    "asyncio",
+    "asyncpg",
+    "autoflush",
+    "conlist",
+    "docformatter",
+    "fastapi",
+    "favorited",
+    "followee",
+    "hgetall",
+    "hset",
+    "isort",
+    "mypy",
+    "ondelete",
+    "onupdate",
+    "passlib",
+    "prefs",
+    "pydantic",
+    "pydocstyle",
+    "renderable",
+    "sadd",
+    "selectinload",
+    "sessionmaker",
+    "setex",
+    "shellcheck",
+    "smembers",
+    "sqlalchemy",
+    "SQLCLIENT",
+    "SQLCONNECTION",
+    "sqlstate",
+    "srem",
+    "starlette",
+    "testuser",
+    "unfollowing",
+    "uselist",
+    "uvicorn",
+    "zadd",
+    "zcard",
+    "zcount",
+    "zrangebyscore",
+    "zrem"
+  ]
+}

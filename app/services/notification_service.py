@@ -1,0 +1,522 @@
+"""Notification service for user management."""
+
+from typing import TypeVar
+from uuid import UUID
+
+from fastapi import HTTPException, status
+from pydantic import BaseModel
+from sqlalchemy import func, select
+from sqlalchemy.exc import DisconnectionError
+from sqlalchemy.exc import TimeoutError as SQLTimeoutError
+from sqlalchemy.orm import selectinload
+
+from app.api.v1.schemas.common.notification import Notification as NotificationSchema
+from app.api.v1.schemas.request.preference.update_user_preference_request import (
+    UpdateUserPreferenceRequest,
+)
+from app.api.v1.schemas.response.notification.notification_count_response import (
+    NotificationCountResponse,
+)
+from app.api.v1.schemas.response.notification.notification_delete_response import (
+    NotificationDeleteResponse,
+)
+from app.api.v1.schemas.response.notification.notification_list_response import (
+    NotificationListResponse,
+)
+from app.api.v1.schemas.response.notification.notification_read_all_response import (
+    NotificationReadAllResponse,
+)
+from app.api.v1.schemas.response.notification.notification_read_response import (
+    NotificationReadResponse,
+)
+from app.api.v1.schemas.response.preference.user_preference_response import (
+    UserPreferenceResponse,
+)
+from app.core.logging import get_logger
+from app.db.sql.models.base_sql_model import BaseSqlModel
+from app.db.sql.models.user.notification import Notification as NotificationModel
+from app.db.sql.models.user.user import User
+from app.db.sql.sql_database_session import SqlDatabaseSession
+from app.exceptions.custom_exceptions.database_exceptions import DatabaseError
+
+_log = get_logger(__name__)
+
+T = TypeVar("T", bound=BaseModel)
+
+
+class NotificationService:
+    """Service for notification operations."""
+
+    def __init__(self, db: SqlDatabaseSession) -> None:
+        """Initialize notification service with database session."""
+        self.db = db
+
+    async def get_notifications(
+        self, user_id: UUID, limit: int = 20, offset: int = 0, count_only: bool = False
+    ) -> NotificationListResponse | NotificationCountResponse:
+        """Get notifications for a user.
+
+        Args:
+            user_id: The user's unique identifier
+            limit: Number of results to return (1-100)
+            offset: Number of results to skip
+            count_only: Return only the count of results
+
+        Returns:
+            NotificationListResponse | NotificationCountResponse: Notifications or count
+
+        Raises:
+            HTTPException: If user not found or database services are unavailable
+        """
+        _log.info(f"Getting notifications for user: {user_id}")
+
+        try:
+            # Verify user exists
+            user = await self.db.get_user_by_id(str(user_id))
+            if not user:
+                _log.warning(f"User not found: {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found",
+                )
+
+            if count_only:
+                # Get only count
+                count_result = await self.db.execute(
+                    select(func.count(NotificationModel.notification_id)).where(
+                        NotificationModel.user_id == user_id,
+                        NotificationModel.is_deleted.is_(False),
+                    )
+                )
+                total_count = count_result.scalar()
+                _log.info(f"Notification count for user {user_id}: {total_count}")
+                return NotificationCountResponse(total_count=total_count)
+
+            # Get notifications with pagination
+            notifications_result = await self.db.execute(
+                select(NotificationModel)
+                .where(
+                    NotificationModel.user_id == user_id,
+                    NotificationModel.is_deleted.is_(False),
+                )
+                .order_by(NotificationModel.created_at.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+            notifications = notifications_result.scalars().all()
+
+            # Get total count for pagination
+            count_result = await self.db.execute(
+                select(func.count(NotificationModel.notification_id)).where(
+                    NotificationModel.user_id == user_id,
+                    NotificationModel.is_deleted.is_(False),
+                )
+            )
+            total_count = count_result.scalar()
+
+            # Convert to response schemas
+            notification_schemas = [
+                NotificationSchema.model_validate(notification)
+                for notification in notifications
+            ]
+
+            _log.info(
+                f"Retrieved {len(notification_schemas)} notifications "
+                f"for user {user_id}"
+            )
+
+            return NotificationListResponse(
+                notifications=notification_schemas,
+                total_count=total_count,
+                limit=limit,
+                offset=offset,
+            )
+
+        except DatabaseError as e:
+            _log.error(f"Database error while getting notifications: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
+        except (DisconnectionError, SQLTimeoutError) as e:
+            _log.error(f"Database connection error while getting notifications: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Database service is temporarily unavailable. "
+                    "Please try again later."
+                ),
+            ) from e
+
+    async def mark_notification_read(
+        self, user_id: UUID, notification_id: UUID
+    ) -> NotificationReadResponse:
+        """Mark a notification as read for a user.
+
+        Args:
+            user_id: The user's unique identifier
+            notification_id: The notification's unique identifier
+
+        Returns:
+            NotificationReadResponse: Confirmation of marking as read
+
+        Raises:
+            HTTPException: If notification not found, not owned by user, or DB error
+        """
+        _log.info(f"Marking notification {notification_id} as read for user {user_id}")
+        try:
+            notification_result = await self.db.execute(
+                select(NotificationModel).where(
+                    NotificationModel.notification_id == notification_id,
+                    NotificationModel.user_id == user_id,
+                    NotificationModel.is_deleted.is_(False),
+                )
+            )
+            notification = notification_result.scalar_one_or_none()
+            if not notification:
+                _log.warning(
+                    f"Notification {notification_id} not found for user {user_id}"
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Notification not found",
+                )
+            if notification.is_read:
+                _log.info(f"Notification {notification_id} already marked as read")
+            else:
+                notification.is_read = True
+                await self.db.commit()
+                await self.db.refresh(notification)
+                _log.info(
+                    f"Notification {notification_id} marked as read "
+                    f"for user {user_id}"
+                )
+            return NotificationReadResponse(
+                message="Notification marked as read successfully",
+            )
+        except DatabaseError as e:
+            _log.error(f"Database error while marking notification read: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
+        except (DisconnectionError, SQLTimeoutError) as e:
+            _log.error(
+                f"Database connection error while marking notification read: {e}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Database service is temporarily unavailable. "
+                    "Please try again later."
+                ),
+            ) from e
+
+    async def mark_all_notifications_read(
+        self, user_id: UUID
+    ) -> NotificationReadAllResponse:
+        """Mark all unread notifications as read for a user.
+
+        Args:
+            user_id: The user's unique identifier
+
+        Returns:
+            NotificationReadAllResponse: Confirmation with count of updated
+                notifications
+
+        Raises:
+            HTTPException: If database services are unavailable
+        """
+        _log.info(f"Marking all notifications as read for user {user_id}")
+        try:
+            # Get all unread notifications for the user
+            notifications_result = await self.db.execute(
+                select(NotificationModel).where(
+                    NotificationModel.user_id == user_id,
+                    NotificationModel.is_read.is_(False),
+                    NotificationModel.is_deleted.is_(False),
+                )
+            )
+            notifications = notifications_result.scalars().all()
+
+            read_notification_ids = []
+            for notification in notifications:
+                notification.is_read = True
+                read_notification_ids.append(notification.notification_id)
+
+            if read_notification_ids:
+                await self.db.commit()
+                _log.info(
+                    f"Marked {len(read_notification_ids)} notifications as read "
+                    f"for user {user_id}"
+                )
+            else:
+                _log.info(f"No unread notifications found for user {user_id}")
+
+            return NotificationReadAllResponse(
+                message="All notifications marked as read successfully",
+                read_notification_ids=read_notification_ids,
+            )
+
+        except DatabaseError as e:
+            _log.error(f"Database error while marking all notifications read: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
+        except (DisconnectionError, SQLTimeoutError) as e:
+            _log.error(
+                f"Database connection error while marking all "
+                f"notifications read: {e}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Database service is temporarily unavailable. "
+                    "Please try again later."
+                ),
+            ) from e
+
+    async def delete_notifications(
+        self, user_id: UUID, notification_ids: list[UUID]
+    ) -> tuple[NotificationDeleteResponse, bool]:
+        """Delete notifications for a user.
+
+        Args:
+            user_id: The user's unique identifier
+            notification_ids: List of notification IDs to delete
+
+        Returns:
+            NotificationDeleteResponse: Confirmation with deletion results
+
+        Raises:
+            HTTPException: If user not found, no notifications found, or DB error
+        """
+        _log.info(f"Deleting {len(notification_ids)} notifications for user {user_id}")
+        try:
+            # Verify user exists
+            user = await self.db.get_user_by_id(str(user_id))
+            if not user:
+                _log.warning(f"User not found: {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found",
+                )
+
+            # Get notifications that belong to the user
+            notifications_result = await self.db.execute(
+                select(NotificationModel).where(
+                    NotificationModel.notification_id.in_(notification_ids),
+                    NotificationModel.user_id == user_id,
+                    NotificationModel.is_deleted.is_(False),
+                )
+            )
+            notifications = notifications_result.scalars().all()
+
+            # Track which notifications were found and deleted
+            found_notification_ids = {n.notification_id for n in notifications}
+            not_found_count = len(notification_ids) - len(found_notification_ids)
+
+            if not notifications:
+                _log.warning(
+                    f"No notifications found for user {user_id} "
+                    f"with IDs: {notification_ids}"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="No notifications found",
+                )
+
+            # Mark notifications as deleted
+            deleted_notification_ids = []
+            for notification in notifications:
+                notification.is_deleted = True
+                deleted_notification_ids.append(notification.notification_id)
+
+            await self.db.commit()
+            _log.info(
+                f"Successfully deleted {len(deleted_notification_ids)} notifications "
+                f"for user {user_id}"
+            )
+
+            if not_found_count > 0:
+                _log.warning(
+                    f"Some notifications not found for user {user_id}: "
+                    f"{not_found_count} out of {len(notification_ids)}"
+                )
+
+            response = NotificationDeleteResponse(
+                message="Notifications deleted successfully",
+                deleted_notification_ids=deleted_notification_ids,
+            )
+        except DatabaseError as e:
+            _log.error(f"Database error while deleting notifications: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
+        except (DisconnectionError, SQLTimeoutError) as e:
+            _log.error(f"Database connection error while deleting notifications: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Database service is temporarily unavailable. "
+                    "Please try again later."
+                ),
+            ) from e
+        else:
+            return response, not_found_count > 0
+
+    async def get_notification_preferences(
+        self, user_id: UUID
+    ) -> UserPreferenceResponse:
+        """Get notification preferences for a user.
+
+        Args:
+            user_id: The user's unique identifier
+
+        Returns:
+            UserPreferenceResponse: User's preferences grouped by category
+
+        Raises:
+            HTTPException: If user not found or database services are unavailable
+        """
+        _log.info(f"Getting notification preferences for user: {user_id}")
+        try:
+            # Eagerly load all preference relationships
+            result = await self.db.execute(
+                select(User)
+                .options(
+                    selectinload(User.notification_preferences),
+                    selectinload(User.display_preferences),
+                    selectinload(User.theme_preferences),
+                    selectinload(User.privacy_preferences),
+                    selectinload(User.security_preferences),
+                    selectinload(User.sound_preferences),
+                    selectinload(User.social_preferences),
+                    selectinload(User.language_preferences),
+                    selectinload(User.accessibility_preferences),
+                )
+                .where(User.user_id == str(user_id))
+            )
+            user = result.scalars().first()
+            if not user:
+                _log.warning(f"User not found: {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found",
+                )
+
+            return UserPreferenceResponse.model_validate(
+                {
+                    "user_id": str(user.user_id),
+                    "notification": user.notification_preferences,
+                    "display": user.display_preferences,
+                    "theme": user.theme_preferences,
+                    "privacy": user.privacy_preferences,
+                    "security": user.security_preferences,
+                    "sound": user.sound_preferences,
+                    "social": user.social_preferences,
+                    "language": user.language_preferences,
+                    "accessibility": user.accessibility_preferences,
+                },
+                from_attributes=True,
+            )
+
+        except DatabaseError as e:
+            _log.error(f"Database error while getting notification preferences: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
+        except (DisconnectionError, SQLTimeoutError) as e:
+            _log.error(
+                f"Database connection error while getting notification preferences: {e}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Database service is temporarily unavailable. "
+                    "Please try again later."
+                ),
+            ) from e
+
+    async def update_user_preferences(
+        self, user_id: UUID, preferences: UpdateUserPreferenceRequest
+    ) -> UserPreferenceResponse:
+        """Update user preferences for all categories.
+
+        Args:
+            user_id: The user's unique identifier
+            preferences: UpdateUserPreferenceRequest with optional fields
+
+        Returns:
+            UserPreferenceResponse: Updated preferences
+
+        Raises:
+            HTTPException: If user not found or database services are unavailable
+        """
+        _log.info(f"Updating preferences for user: {user_id}")
+        try:
+            result = await self.db.execute(
+                select(User)
+                .options(
+                    selectinload(User.notification_preferences),
+                    selectinload(User.display_preferences),
+                    selectinload(User.theme_preferences),
+                    selectinload(User.privacy_preferences),
+                    selectinload(User.security_preferences),
+                    selectinload(User.sound_preferences),
+                    selectinload(User.social_preferences),
+                    selectinload(User.language_preferences),
+                    selectinload(User.accessibility_preferences),
+                )
+                .where(User.user_id == str(user_id))
+            )
+            user = result.scalars().first()
+            if not user:
+                _log.warning(f"User not found: {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found",
+                )
+
+            # Helper to update a model from a pydantic schema, skipping None values
+            def update_model(model: BaseSqlModel, schema: BaseModel | None) -> None:
+                if model and schema:
+                    for field, value in schema.model_dump(exclude_unset=True).items():
+                        if value is not None:
+                            setattr(model, field, value)
+
+            update_model(user.notification_preferences, preferences.notification)
+            update_model(user.display_preferences, preferences.display)
+            update_model(user.theme_preferences, preferences.theme)
+            update_model(user.privacy_preferences, preferences.privacy)
+            update_model(user.security_preferences, preferences.security)
+            update_model(user.sound_preferences, preferences.sound)
+            update_model(user.social_preferences, preferences.social)
+            update_model(user.language_preferences, preferences.language)
+            update_model(user.accessibility_preferences, preferences.accessibility)
+
+            await self.db.commit()
+            await self.db.refresh(user)
+
+            _log.info(f"Preferences updated for user: {user_id}")
+            return await self.get_notification_preferences(user_id)
+
+        except DatabaseError as e:
+            _log.error(f"Database error while updating preferences: {e}")
+            raise HTTPException(
+                status_code=e.status_code,
+                detail=str(e),
+            ) from e
+        except (DisconnectionError, SQLTimeoutError) as e:
+            _log.error(f"Database connection error while updating preferences: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Database service is temporarily unavailable. "
+                    "Please try again later."
+                ),
+            ) from e

@@ -1,0 +1,44 @@
+name: Bug Report
+description: Create a report to help us improve the User Management Service
+title: "[Bug]: "
+labels: ["bug"]
+assignees:
+  - jsamuelsen11
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Also tell us, what did you expect to happen?
+      placeholder: Tell us what you see!
+    validations:
+      required: true
+  - type: input
+    id: go-version
+    attributes:
+      label: Go Version
+      description: What version of Go are you running? (e.g., 1.21.x)
+      placeholder: go version go1.21.5 linux/amd64
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Clear steps to reproduce the bug.
+      placeholder: |
+        1. Run '...'
+        2. Make request to '...'
+        3. See error...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Log Output
+      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
+      render: shell

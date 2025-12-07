@@ -1,0 +1,22 @@
+name: Task
+description: Track a development task or work item
+title: "[Task]: "
+labels: ["task"]
+assignees:
+  - jsamuelsen11
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Task Description
+      description: What needs to be done?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: definition of done
+      value: |
+        - [ ] Criteria 1
+        - [ ] Criteria 2

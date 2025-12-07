@@ -1,0 +1,25 @@
+name: Performance Issue
+description: Report a performance degradation or optimization opportunity
+title: "[Perf]: "
+labels: ["performance"]
+assignees:
+  - jsamuelsen11
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What is slow or inefficient?
+    validations:
+      required: true
+  - type: input
+    id: endpoint
+    attributes:
+      label: Affected Endpoint/Component
+      placeholder: e.g. GET /users/{id}
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Metrics / Evidence
+      description: Provide pprof data, latency numbers, or CPU/Memory usage logs.
+      render: shell

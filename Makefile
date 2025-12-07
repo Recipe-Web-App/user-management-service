@@ -16,4 +16,10 @@ test:
 	@echo "Testing..."
 	@go test ./... -v
 
-.PHONY: build run clean test
+lint:
+	@echo "Running pre-commit hooks..."
+	@pre-commit run --all-files
+
+check: lint test build
+
+.PHONY: build run clean test lint check

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-management-config
+  namespace: user-management-dev-poc
+data:
+  # Environment
+  ENVIRONMENT: "${ENVIRONMENT}"
+
+  # PostgreSQL Database Settings
+  POSTGRES_HOST: "${POSTGRES_HOST}"
+  POSTGRES_PORT: "${POSTGRES_PORT}"
+  POSTGRES_DB: "${POSTGRES_DB}"
+  POSTGRES_SCHEMA: "${POSTGRES_SCHEMA}"
+  POSTGRES_USER: "${POSTGRES_USER}"
+
+  # Redis Server Settings
+  REDIS_HOST: "${REDIS_HOST}"
+  REDIS_PORT: "${REDIS_PORT}"
+  REDIS_DB: "${REDIS_DB}"

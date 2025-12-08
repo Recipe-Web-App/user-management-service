@@ -61,10 +61,15 @@ type PostgresConfig struct {
 }
 
 type RedisConfig struct {
-	Host     string
-	Port     int
-	Database int
-	Password string
+	Host         string
+	Port         int
+	Database     int
+	Password     string
+	DialTimeout  time.Duration
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+	PoolSize     int
+	MinIdleConns int
 }
 
 const fatalConfigErr = "fatal error config file: %w"

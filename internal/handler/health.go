@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/database"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/redis"
 )
 
 func HealthHandler(w http.ResponseWriter, r *http.Request) {
@@ -25,7 +26,9 @@ func ReadyHandler(w http.ResponseWriter, r *http.Request) {
 	statusCode := http.StatusOK
 
 	dbStats := database.Instance.Health()
-	if dbStats["status"] != "up" {
+	redisStats := redis.Instance.Health()
+
+	if dbStats["status"] != "up" || redisStats["status"] != "up" {
 		status = "DEGRADED"
 		// Requirement: Return 200 OK even if DB is down to keep the pod in service.
 		// Errors will be handled gracefully by individual endpoints.
@@ -34,6 +37,7 @@ func ReadyHandler(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]any{
 		"status":   status,
 		"database": dbStats,
+		"redis":    redisStats,
 	}
 
 	jsonResp, _ := json.Marshal(resp)

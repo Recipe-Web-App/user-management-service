@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -9,9 +10,12 @@ import (
 )
 
 type Config struct {
-	Server  ServerConfig
-	Logging LoggingConfig
-	Cors    CorsConfig
+	Environment string
+	Server      ServerConfig
+	Logging     LoggingConfig
+	Cors        CorsConfig
+	Postgres    PostgresConfig
+	Redis       RedisConfig
 }
 
 type ServerConfig struct {
@@ -42,6 +46,25 @@ type LoggingConfig struct {
 	MaxBackups     int
 	MaxAge         int // days
 	Compress       bool
+}
+
+type PostgresConfig struct {
+	Host                   string
+	Port                   int
+	Database               string
+	Schema                 string
+	User                   string
+	Password               string
+	DefaultMaxOpenConns    int
+	DefaultMaxIdleConns    int
+	DefaultConnMaxLifetime time.Duration
+}
+
+type RedisConfig struct {
+	Host     string
+	Port     int
+	Database int
+	Password string
 }
 
 const fatalConfigErr = "fatal error config file: %w"
@@ -90,6 +113,34 @@ func Load() *Config {
 			panic(fmt.Errorf(fatalConfigErr, err))
 		}
 	}
+
+	// Merge database config
+	viper.SetConfigName("database")
+	viper.SetConfigType("yaml")
+
+	err := viper.MergeInConfig()
+	if err != nil {
+		var configFileNotFoundError viper.ConfigFileNotFoundError
+		if errors.As(err, &configFileNotFoundError) {
+			panic("database config file not found")
+		} else {
+			panic(fmt.Errorf(fatalConfigErr, err))
+		}
+	}
+
+	// Postgres defaults and env binding
+	_ = viper.BindEnv("postgres.host", "POSTGRES_HOST")
+	_ = viper.BindEnv("postgres.port", "POSTGRES_PORT")
+	_ = viper.BindEnv("postgres.database", "POSTGRES_DB")
+	_ = viper.BindEnv("postgres.schema", "POSTGRES_SCHEMA")
+	_ = viper.BindEnv("postgres.user", "POSTGRES_USER")
+	_ = viper.BindEnv("postgres.password", "POSTGRES_PASSWORD")
+
+	// Redis defaults and env binding
+	_ = viper.BindEnv("redis.host", "REDIS_HOST")
+	_ = viper.BindEnv("redis.port", "REDIS_PORT")
+	_ = viper.BindEnv("redis.database", "REDIS_DB")
+	_ = viper.BindEnv("redis.password", "REDIS_PASSWORD")
 
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {

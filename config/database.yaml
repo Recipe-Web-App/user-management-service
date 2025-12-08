@@ -1,0 +1,4 @@
+postgres:
+  defaultMaxOpenConns: 25
+  defaultMaxIdleConns: 25
+  defaultConnMaxLifetime: 5m

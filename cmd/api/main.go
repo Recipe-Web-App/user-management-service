@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/config"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/database"
 	customLogger "github.com/jsamuelsen/recipe-web-app/user-management-service/internal/logger"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/redis"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/server"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
@@ -20,6 +22,30 @@ import (
 func main() {
 	// Load config
 	_ = config.Load()
+
+	// Initialize database
+	database.Init()
+
+	if database.Instance != nil {
+		defer func() {
+			err := database.Instance.Close()
+			if err != nil {
+				slog.Error("failed to close database", "error", err)
+			}
+		}()
+	}
+
+	// Initialize Redis
+	redis.Init()
+
+	if redis.Instance != nil {
+		defer func() {
+			err := redis.Instance.Close()
+			if err != nil {
+				slog.Error("failed to close redis", "error", err)
+			}
+		}()
+	}
 
 	setupLogger()
 	runServer()

@@ -42,9 +42,10 @@ func TestReadyEndpoint(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var response map[string]string
+	var response map[string]any
 
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	require.NoError(t, err)
-	assert.Equal(t, "READY", response["status"])
+	// Since no DB is configured for component tests, it should be DEGRADED
+	assert.Equal(t, "DEGRADED", response["status"])
 }

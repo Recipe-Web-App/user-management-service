@@ -45,7 +45,14 @@ logging:
   consolelevel: "debug"
   fileenabled: false
   filelevel: "info"
+
   format: "json"
+`)
+	createConfigFile(t, configDir, "database.yaml", `
+postgres:
+  defaultmaxopenconns: 10
+  defaultmaxidleconns: 10
+  defaultconnmaxlifetime: 60s
 `)
 
 	// Change working directory to the temp dir so "./config" resolves correctly
@@ -79,6 +86,51 @@ func TestLoad_PanicOnMissingConfig(t *testing.T) {
 	assert.PanicsWithValue(t, "server config file not found", func() {
 		Load()
 	})
+}
+
+func TestLoad_FromEnv(t *testing.T) {
+	viper.Reset()
+
+	tmpDir := t.TempDir()
+	configDir := filepath.Join(tmpDir, "config")
+	err := os.Mkdir(configDir, 0750)
+	require.NoError(t, err)
+
+	// Create minimal config files to satisfy Load() requirements
+	createConfigFile(t, configDir, "server.yaml", "server:\n  port: 8080")
+	createConfigFile(t, configDir, "cors.yaml", "cors:\n  allowedorigins: ['*']")
+	createConfigFile(t, configDir, "logging.yaml", "logging:\n  consoleenabled: true")
+	createConfigFile(t, configDir, "database.yaml", "postgres:\n  defaultmaxopenconns: 10")
+
+	t.Chdir(tmpDir)
+
+	// Set environment variables using t.Setenv (cleans up automatically)
+	t.Setenv("POSTGRES_HOST", "db.example.com")
+	t.Setenv("POSTGRES_PORT", "5432")
+	t.Setenv("POSTGRES_DB", "mydb")
+	t.Setenv("POSTGRES_SCHEMA", "myschema")
+	t.Setenv("POSTGRES_USER", "myuser")
+	t.Setenv("POSTGRES_PASSWORD", "mypass")
+
+	t.Setenv("REDIS_HOST", "redis.example.com")
+	t.Setenv("REDIS_PORT", "6379")
+	t.Setenv("REDIS_DB", "1")
+	t.Setenv("REDIS_PASSWORD", "redispass")
+
+	cfg := Load()
+
+	assert.NotNil(t, cfg)
+	assert.Equal(t, "db.example.com", cfg.Postgres.Host)
+	assert.Equal(t, 5432, cfg.Postgres.Port)
+	assert.Equal(t, "mydb", cfg.Postgres.Database)
+	assert.Equal(t, "myschema", cfg.Postgres.Schema)
+	assert.Equal(t, "myuser", cfg.Postgres.User)
+	assert.Equal(t, "mypass", cfg.Postgres.Password)
+
+	assert.Equal(t, "redis.example.com", cfg.Redis.Host)
+	assert.Equal(t, 6379, cfg.Redis.Port)
+	assert.Equal(t, 1, cfg.Redis.Database)
+	assert.Equal(t, "redispass", cfg.Redis.Password)
 }
 
 func createConfigFile(t *testing.T, dir, name, content string) {

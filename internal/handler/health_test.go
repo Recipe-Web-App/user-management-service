@@ -57,11 +57,13 @@ func TestReadyHandler(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
 
 	// Check the response body is what we expect.
-	expected := map[string]string{"status": "READY"}
+	// Since database.Instance is nil in tests, we expect DEGRADED
+	expectedStatus := "DEGRADED"
 
-	var actual map[string]string
+	var actual map[string]any
 
 	err = json.NewDecoder(rr.Body).Decode(&actual)
 	require.NoError(t, err)
-	assert.Equal(t, expected, actual, "handler returned unexpected body")
+	assert.Equal(t, expectedStatus, actual["status"], "handler returned unexpected status")
+	assert.NotNil(t, actual["database"], "handler should return database stats")
 }

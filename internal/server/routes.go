@@ -13,7 +13,8 @@ import (
 	customMiddleware "github.com/jsamuelsen/recipe-web-app/user-management-service/internal/middleware"
 )
 
-func RegisterRoutes() http.Handler {
+// RegisterRoutesWithHandlers creates routes with injected handlers.
+func RegisterRoutesWithHandlers(healthHandler *handler.HealthHandler) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
@@ -43,8 +44,8 @@ func RegisterRoutes() http.Handler {
 	r.Use(middleware.Timeout(timeout))
 
 	r.Route("/api/v1/user-management", func(r chi.Router) {
-		r.Get("/health", handler.HealthHandler)
-		r.Get("/ready", handler.ReadyHandler)
+		r.Get("/health", healthHandler.Health)
+		r.Get("/ready", healthHandler.Ready)
 	})
 
 	return r

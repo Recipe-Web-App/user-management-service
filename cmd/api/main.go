@@ -11,44 +11,36 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/app"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/config"
-	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/database"
 	customLogger "github.com/jsamuelsen/recipe-web-app/user-management-service/internal/logger"
-	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/redis"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/server"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 func main() {
 	// Load config
-	_ = config.Load()
-
-	// Initialize database
-	database.Init()
-
-	if database.Instance != nil {
-		defer func() {
-			err := database.Instance.Close()
-			if err != nil {
-				slog.Error("failed to close database", "error", err)
-			}
-		}()
-	}
-
-	// Initialize Redis
-	redis.Init()
-
-	if redis.Instance != nil {
-		defer func() {
-			err := redis.Instance.Close()
-			if err != nil {
-				slog.Error("failed to close redis", "error", err)
-			}
-		}()
-	}
+	cfg := config.Load()
 
 	setupLogger()
-	runServer()
+
+	// Create dependency container
+	container, err := app.NewContainer(app.ContainerConfig{
+		Config: cfg,
+	})
+	if err != nil {
+		slog.Error("failed to create application container", "error", err)
+		os.Exit(1)
+	}
+
+	defer func() {
+		err := container.Close()
+		if err != nil {
+			slog.Error("failed to close container", "error", err)
+		}
+	}()
+
+	runServerWithContainer(container)
 }
 
 func setupLogger() {
@@ -100,15 +92,16 @@ func setupLogger() {
 	slog.SetDefault(logger)
 }
 
-func runServer() {
-	server := server.NewServer()
+func runServerWithContainer(container *app.Container) {
+	srv := server.NewServerWithContainer(container)
 
 	// Server run context
 	done := make(chan bool, 1)
 
 	go func() {
-		slog.Info("Server listening", "addr", server.Addr)
-		err := server.ListenAndServe()
+		slog.Info("Server listening", "addr", srv.Addr)
+
+		err := srv.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
 			panic(fmt.Sprintf("http server error: %s", err))
 		}
@@ -128,7 +121,8 @@ func runServer() {
 
 	// Doesn't block if no connections, but will otherwise wait
 	// until the timeout deadline.
-	if err := server.Shutdown(ctx); err != nil {
+	err := srv.Shutdown(ctx)
+	if err != nil {
 		slog.Error("Server forced to shutdown", "error", err)
 	}
 

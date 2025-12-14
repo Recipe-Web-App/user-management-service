@@ -5,49 +5,40 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/database"
-	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/redis"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/service"
 )
 
-func HealthHandler(w http.ResponseWriter, r *http.Request) {
-	jsonResp, _ := json.Marshal(map[string]string{"status": "UP"})
+// HealthHandler handles health-related HTTP endpoints.
+type HealthHandler struct {
+	healthService service.HealthServicer
+}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	_, err := w.Write(jsonResp)
-	if err != nil {
-		slog.Error("failed to write health response", "error", err)
+// NewHealthHandler creates a new health handler.
+func NewHealthHandler(hs service.HealthServicer) *HealthHandler {
+	return &HealthHandler{
+		healthService: hs,
 	}
 }
 
-func ReadyHandler(w http.ResponseWriter, r *http.Request) {
-	status := "READY"
-	statusCode := http.StatusOK
-	ctx := r.Context()
+// Health handles GET /health (liveness probe).
+func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
+	status := h.healthService.GetHealth(r.Context())
+	h.writeJSON(w, http.StatusOK, status)
+}
 
-	dbStats := database.Instance.Health(ctx)
-	redisStats := redis.Instance.Health(ctx)
+// Ready handles GET /ready (readiness probe).
+func (h *HealthHandler) Ready(w http.ResponseWriter, r *http.Request) {
+	status := h.healthService.GetReadiness(r.Context())
+	h.writeJSON(w, http.StatusOK, status)
+}
 
-	if dbStats["status"] != "up" || redisStats["status"] != "up" {
-		status = "DEGRADED"
-		// Requirement: Return 200 OK even if DB is down to keep the pod in service.
-		// Errors will be handled gracefully by individual endpoints.
-	}
-
-	resp := map[string]any{
-		"status":   status,
-		"database": dbStats,
-		"redis":    redisStats,
-	}
-
-	jsonResp, _ := json.Marshal(resp)
-
+// writeJSON writes a JSON response.
+func (h *HealthHandler) writeJSON(w http.ResponseWriter, statusCode int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 
-	_, err := w.Write(jsonResp)
+	err := json.NewEncoder(w).Encode(data)
 	if err != nil {
-		slog.Error("failed to write readiness response", "error", err)
+		slog.Error("failed to write response", "error", err)
 	}
 }

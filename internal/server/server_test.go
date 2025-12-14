@@ -124,4 +124,22 @@ func TestRegisterRoutesWithHandlers_HealthReady(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
+
+	t.Run("metrics endpoint returns 200", func(t *testing.T) {
+		t.Parallel()
+
+		req, err := http.NewRequestWithContext(
+			context.Background(),
+			http.MethodGet,
+			ts.URL+"/metrics",
+			nil,
+		)
+		require.NoError(t, err)
+
+		resp, err := ts.Client().Do(req)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = resp.Body.Close() })
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
 }

@@ -14,17 +14,43 @@ import (
 	customMiddleware "github.com/jsamuelsen/recipe-web-app/user-management-service/internal/middleware"
 )
 
+// Handlers contains all HTTP handlers.
+type Handlers struct {
+	Health       *handler.HealthHandler
+	User         *handler.UserHandler
+	Social       *handler.SocialHandler
+	Notification *handler.NotificationHandler
+	Admin        *handler.AdminHandler
+	Metrics      *handler.MetricsHandler
+}
+
 // RegisterRoutesWithHandlers creates routes with injected handlers.
-func RegisterRoutesWithHandlers(healthHandler *handler.HealthHandler) http.Handler {
+func RegisterRoutesWithHandlers(h Handlers) http.Handler {
 	r := chi.NewRouter()
 
-	// Core middleware
+	setupMiddleware(r)
+
+	// Prometheus metrics endpoint (outside /api to avoid auth middleware if added later)
+	r.Handle("/metrics", promhttp.Handler())
+
+	r.Route("/api/v1/user-management", func(r chi.Router) {
+		registerHealthRoutes(r, h)
+		registerUserRoutes(r, h)
+		registerNotificationRoutes(r, h)
+		registerAdminRoutes(r, h)
+		registerMetricsRoutes(r, h)
+	})
+
+	return r
+}
+
+func setupMiddleware(r chi.Router) {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(customMiddleware.Metrics)
 	r.Use(customMiddleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Compress(5))
+	r.Use(middleware.Compress(5)) //nolint:mnd // compression level
 
 	corsOptions := cors.Options{}
 	if config.Instance != nil {
@@ -40,19 +66,64 @@ func RegisterRoutesWithHandlers(healthHandler *handler.HealthHandler) http.Handl
 
 	r.Use(cors.Handler(corsOptions))
 
-	timeout := 60 * time.Second
+	timeout := 60 * time.Second //nolint:mnd // default timeout
 	if config.Instance != nil {
 		timeout = config.Instance.Server.Timeout
 	}
 	r.Use(middleware.Timeout(timeout))
+}
 
-	// Metrics endpoint (outside /api to avoid auth middleware if added later)
-	r.Handle("/metrics", promhttp.Handler())
+func registerHealthRoutes(r chi.Router, h Handlers) {
+	r.Get("/health", h.Health.Health)
+	r.Get("/ready", h.Health.Ready)
+}
 
-	r.Route("/api/v1/user-management", func(r chi.Router) {
-		r.Get("/health", healthHandler.Health)
-		r.Get("/ready", healthHandler.Ready)
+func registerUserRoutes(r chi.Router, h Handlers) {
+	r.Route("/users", func(r chi.Router) {
+		r.Get("/search", h.User.SearchUsers)
+		r.Put("/profile", h.User.UpdateUserProfile)
+		r.Post("/account/delete-request", h.User.RequestAccountDeletion)
+		r.Delete("/account", h.User.ConfirmAccountDeletion)
+
+		r.Route("/{user_id}", func(r chi.Router) {
+			r.Get("/", h.User.GetUserByID)
+			r.Get("/profile", h.User.GetUserProfile)
+			r.Get("/following", h.Social.GetFollowing)
+			r.Get("/followers", h.Social.GetFollowers)
+			r.Get("/activity", h.Social.GetUserActivity)
+			r.Post("/follow/{target_user_id}", h.Social.FollowUser)
+			r.Delete("/follow/{target_user_id}", h.Social.UnfollowUser)
+		})
 	})
+}
 
-	return r
+func registerNotificationRoutes(r chi.Router, h Handlers) {
+	r.Route("/notifications", func(r chi.Router) {
+		r.Get("/", h.Notification.GetNotifications)
+		r.Delete("/", h.Notification.DeleteNotifications)
+		r.Put("/read-all", h.Notification.MarkAllNotificationsRead)
+		r.Get("/preferences", h.Notification.GetNotificationPreferences)
+		r.Put("/preferences", h.Notification.UpdateNotificationPreferences)
+		r.Put("/{notification_id}/read", h.Notification.MarkNotificationRead)
+	})
+}
+
+func registerAdminRoutes(r chi.Router, h Handlers) {
+	r.Route("/admin", func(r chi.Router) {
+		r.Get("/health", h.Admin.GetSystemHealth)
+		r.Get("/users/stats", h.Admin.GetUserStats)
+		r.Get("/redis/session-stats", h.Admin.GetRedisSessionStats)
+		r.Delete("/redis/sessions", h.Admin.ClearAllSessions)
+		r.Post("/users/{user_id}/force-logout", h.Admin.ForceLogoutUser)
+	})
+}
+
+func registerMetricsRoutes(r chi.Router, h Handlers) {
+	r.Route("/metrics", func(r chi.Router) {
+		r.Get("/performance", h.Metrics.GetPerformanceMetrics)
+		r.Get("/cache", h.Metrics.GetCacheMetrics)
+		r.Post("/cache/clear", h.Metrics.ClearCache)
+		r.Get("/system", h.Metrics.GetSystemMetrics)
+		r.Get("/health/detailed", h.Metrics.GetDetailedHealthMetrics)
+	})
 }

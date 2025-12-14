@@ -26,11 +26,18 @@ func NewServerWithContainer(container *app.Container) *http.Server {
 	}
 
 	// Create handlers with dependencies
-	healthHandler := handler.NewHealthHandler(container.HealthService)
+	handlers := Handlers{
+		Health:       handler.NewHealthHandler(container.HealthService),
+		User:         handler.NewUserHandler(),
+		Social:       handler.NewSocialHandler(),
+		Notification: handler.NewNotificationHandler(),
+		Admin:        handler.NewAdminHandler(),
+		Metrics:      handler.NewMetricsHandler(),
+	}
 
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
-		Handler:      RegisterRoutesWithHandlers(healthHandler),
+		Handler:      RegisterRoutesWithHandlers(handlers),
 		IdleTimeout:  idleTimeout,
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,

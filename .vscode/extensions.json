@@ -1,0 +1,11 @@
+{
+  "recommendations": [
+    "golang.go",
+    "eamodio.gitlens",
+    "ms-azuretools.vscode-docker",
+    "davidanson.vscode-markdownlint",
+    "redhat.vscode-yaml",
+    "esbenp.prettier-vscode",
+    "foxundermoon.shell-format"
+  ]
+}

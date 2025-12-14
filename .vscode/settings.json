@@ -1,0 +1,38 @@
+{
+  "files.associations": {
+    "*.env": "properties",
+    "*.env.*": "properties"
+  },
+  "editor.formatOnSave": true,
+  "go.useLanguageServer": true,
+  "go.lintOnSave": "package",
+  "go.lintTool": "golangci-lint",
+  "go.lintFlags": [
+    "--fast"
+  ],
+  "go.formatTool": "gofumpt",
+  "go.toolsManagement.autoUpdate": true,
+  "go.testFlags": [
+    "-v"
+  ],
+  "[go]": {
+    "editor.defaultFormatter": "golang.go",
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "always"
+    }
+  },
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/vendor": true
+  },
+  "search.exclude": {
+    "**/vendor": true,
+    "**/bin": true,
+    "**/coverage.html": true
+  },
+  "terminal.integrated.defaultProfile.linux": "zsh",
+  "gopls": {
+    "ui.semanticTokens": true
+  }
+}

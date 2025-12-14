@@ -8,62 +8,97 @@ import (
 	"testing"
 
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/handler"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// mockHealthService implements service.HealthServicer for testing.
+type mockHealthService struct {
+	healthStatus    service.HealthStatus
+	readinessStatus service.HealthStatus
+}
+
+func (m *mockHealthService) GetHealth(_ context.Context) service.HealthStatus {
+	return m.healthStatus
+}
+
+func (m *mockHealthService) GetReadiness(_ context.Context) service.HealthStatus {
+	return m.readinessStatus
+}
+
 func TestHealthHandler(t *testing.T) {
 	t.Parallel()
-	// Create a request to pass to our handler.
+
+	mockSvc := &mockHealthService{
+		healthStatus: service.HealthStatus{Status: "UP"},
+	}
+	h := handler.NewHealthHandler(mockSvc)
+
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "/health", nil)
 	require.NoError(t, err)
 
-	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(handler.HealthHandler)
+	h.Health(rr, req)
 
-	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
-	// directly and pass in our Request and ResponseRecorder.
-	handler.ServeHTTP(rr, req)
-
-	// Check the status code is what we expect.
 	assert.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
 
-	// Check the response body is what we expect.
-	expected := map[string]string{"status": "UP"}
-
-	var actual map[string]string
-
+	var actual service.HealthStatus
 	err = json.NewDecoder(rr.Body).Decode(&actual)
 	require.NoError(t, err)
-	assert.Equal(t, expected, actual, "handler returned unexpected body")
+	assert.Equal(t, "UP", actual.Status, "handler returned unexpected status")
 }
 
 func TestReadyHandler(t *testing.T) {
 	t.Parallel()
-	// Create a request to pass to our handler.
+
+	mockSvc := &mockHealthService{
+		readinessStatus: service.HealthStatus{
+			Status:   "DEGRADED",
+			Database: map[string]string{"status": "down", "message": "database not configured"},
+			Redis:    map[string]string{"status": "down", "message": "cache not configured"},
+		},
+	}
+	h := handler.NewHealthHandler(mockSvc)
+
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "/ready", nil)
 	require.NoError(t, err)
 
-	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(handler.ReadyHandler)
+	h.Ready(rr, req)
 
-	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method
-	// directly and pass in our Request and ResponseRecorder.
-	handler.ServeHTTP(rr, req)
-
-	// Check the status code is what we expect.
 	assert.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
 
-	// Check the response body is what we expect.
-	// Since database.Instance is nil in tests, we expect DEGRADED
-	expectedStatus := "DEGRADED"
-
-	var actual map[string]any
+	var actual service.HealthStatus
 
 	err = json.NewDecoder(rr.Body).Decode(&actual)
 	require.NoError(t, err)
-	assert.Equal(t, expectedStatus, actual["status"], "handler returned unexpected status")
-	assert.NotNil(t, actual["database"], "handler should return database stats")
+	assert.Equal(t, "DEGRADED", actual.Status, "handler returned unexpected status")
+	assert.NotNil(t, actual.Database, "handler should return database stats")
+}
+
+func TestReadyHandler_AllUp(t *testing.T) {
+	t.Parallel()
+
+	mockSvc := &mockHealthService{
+		readinessStatus: service.HealthStatus{
+			Status:   "READY",
+			Database: map[string]string{"status": "up", "message": "database is healthy"},
+			Redis:    map[string]string{"status": "up", "message": "redis is healthy"},
+		},
+	}
+	h := handler.NewHealthHandler(mockSvc)
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "/ready", nil)
+	require.NoError(t, err)
+
+	rr := httptest.NewRecorder()
+	h.Ready(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
+
+	var actual service.HealthStatus
+	err = json.NewDecoder(rr.Body).Decode(&actual)
+	require.NoError(t, err)
+	assert.Equal(t, "READY", actual.Status, "handler returned unexpected status")
 }

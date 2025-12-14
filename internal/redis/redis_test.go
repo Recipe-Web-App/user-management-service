@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"context"
 	"strconv"
 	"testing"
 
@@ -35,8 +36,10 @@ func TestService(t *testing.T) {
 	require.NotNil(t, Instance)
 	require.NotNil(t, Instance.client)
 
+	ctx := context.Background()
+
 	// Test Health (Up)
-	health := Instance.Health()
+	health := Instance.Health(ctx)
 	assert.Equal(t, "up", health["status"])
 	assert.Equal(t, "redis is healthy", health["message"])
 
@@ -46,7 +49,7 @@ func TestService(t *testing.T) {
 
 	// Test Health (Down after close)
 	// Note: go-redis client might still try to reconnect, but closed client usually returns error
-	health = Instance.Health()
+	health = Instance.Health(ctx)
 	assert.Equal(t, "down", health["status"])
 }
 
@@ -55,7 +58,7 @@ func TestHealthNilInstance(t *testing.T) {
 
 	var s *Service = nil // Explicitly nil service pointer
 
-	stats := s.Health()
+	stats := s.Health(context.Background())
 	assert.Equal(t, "down", stats["status"])
 	assert.Equal(t, "redis instance is nil", stats["message"])
 }

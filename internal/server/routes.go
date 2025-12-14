@@ -7,17 +7,21 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/config"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/handler"
 	customMiddleware "github.com/jsamuelsen/recipe-web-app/user-management-service/internal/middleware"
 )
 
-func RegisterRoutes() http.Handler {
+// RegisterRoutesWithHandlers creates routes with injected handlers.
+func RegisterRoutesWithHandlers(healthHandler *handler.HealthHandler) http.Handler {
 	r := chi.NewRouter()
 
+	// Core middleware
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
+	r.Use(customMiddleware.Metrics)
 	r.Use(customMiddleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Compress(5))
@@ -42,9 +46,12 @@ func RegisterRoutes() http.Handler {
 	}
 	r.Use(middleware.Timeout(timeout))
 
+	// Metrics endpoint (outside /api to avoid auth middleware if added later)
+	r.Handle("/metrics", promhttp.Handler())
+
 	r.Route("/api/v1/user-management", func(r chi.Router) {
-		r.Get("/health", handler.HealthHandler)
-		r.Get("/ready", handler.ReadyHandler)
+		r.Get("/health", healthHandler.Health)
+		r.Get("/ready", healthHandler.Ready)
 	})
 
 	return r

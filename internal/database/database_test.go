@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -40,7 +41,7 @@ func TestInit(t *testing.T) {
 	assert.NotNil(t, Instance)
 	assert.NotNil(t, Instance.db)
 
-	stats := Instance.Health()
+	stats := Instance.Health(context.Background())
 	assert.NotNil(t, stats)
 	// Expect down because we can't connect to this dummy DB
 	assert.Equal(t, "down", stats["status"])
@@ -61,7 +62,7 @@ func TestHealthNilInstance(t *testing.T) {
 
 	var s *Service
 
-	stats := s.Health()
+	stats := s.Health(context.Background())
 
 	assert.Equal(t, "down", stats["status"])
 	assert.Equal(t, "database instance is nil", stats["message"])
@@ -88,7 +89,7 @@ func TestHealthUp(t *testing.T) {
 	mock.ExpectPing()
 
 	s := &Service{db: db}
-	stats := s.Health()
+	stats := s.Health(context.Background())
 
 	assert.Equal(t, "up", stats["status"])
 	assert.Equal(t, "database is healthy", stats["message"])
@@ -107,7 +108,7 @@ func TestHealthPingError(t *testing.T) {
 	mock.ExpectPing().WillReturnError(assert.AnError)
 
 	s := &Service{db: db}
-	stats := s.Health()
+	stats := s.Health(context.Background())
 
 	assert.Equal(t, "down", stats["status"])
 	assert.Equal(t, assert.AnError.Error(), stats["error"])

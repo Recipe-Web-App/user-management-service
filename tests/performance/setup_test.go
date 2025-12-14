@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/app"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/config"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/server"
 )
@@ -15,7 +16,7 @@ var benchmarkHandler http.Handler
 
 func TestMain(m *testing.M) {
 	// Initialize config with necessary values for router setup
-	config.Instance = &config.Config{
+	cfg := &config.Config{
 		Cors: config.CorsConfig{
 			AllowedOrigins: []string{"*"},
 			AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -29,12 +30,19 @@ func TestMain(m *testing.M) {
 			Timeout: 60 * time.Second,
 		},
 	}
+	config.Instance = cfg
 
 	// Disable logging for benchmarks
 	slog.SetDefault(slog.New(slog.DiscardHandler))
 
-	// Initialize the router
-	benchmarkHandler = server.RegisterRoutes()
+	// Create container with config
+	container, _ := app.NewContainer(app.ContainerConfig{
+		Config: cfg,
+	})
+
+	// Initialize the router with container
+	srv := server.NewServerWithContainer(container)
+	benchmarkHandler = srv.Handler
 
 	code := m.Run()
 	os.Exit(code)

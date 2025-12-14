@@ -26,6 +26,7 @@ Go 1.24 microservice using Chi router for HTTP handling.
 **Entry point**: `cmd/api/main.go` - Initializes config, database, redis, logger, then starts HTTP server with graceful shutdown.
 
 **Package structure** (`internal/`):
+
 - `config/` - Viper-based config loading from `config/*.yaml` files
 - `server/` - HTTP server setup and route registration
 - `handler/` - HTTP request handlers (health, ready endpoints)
@@ -37,6 +38,7 @@ Go 1.24 microservice using Chi router for HTTP handling.
 **Configuration**: YAML files in `config/` directory, overridable via environment variables with `USERMGMT_` prefix.
 
 **Key patterns**:
+
 - Global singletons for Config, Database, Redis, Logger
 - Non-fatal initialization for external dependencies (service starts even if DB/Redis unavailable)
 - Health endpoint returns "UP"; Ready endpoint aggregates dependency health with graceful degradation

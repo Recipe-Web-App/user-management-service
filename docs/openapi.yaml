@@ -795,6 +795,21 @@ paths:
     get:
       tags:
         - health
+      summary: Liveness check
+      description: Returns a 200 OK response indicating the server is alive
+      security: []
+      responses:
+        "200":
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LivenessResponse"
+
+  /ready:
+    get:
+      tags:
+        - health
       summary: Readiness check
       description: |
         Returns a 200 OK response if the server is ready to serve requests.
@@ -814,21 +829,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReadinessResponse"
-
-  /live:
-    get:
-      tags:
-        - health
-      summary: Liveness check
-      description: Returns a 200 OK response indicating the server is alive
-      security: []
-      responses:
-        "200":
-          description: Service is alive
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LivenessResponse"
 
 components:
   securitySchemes:

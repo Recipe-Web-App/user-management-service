@@ -9,6 +9,7 @@ import (
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/database"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/redis"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/repository"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/service"
 )
 
 // Container holds all application dependencies.
@@ -16,6 +17,9 @@ type Container struct {
 	Config   *config.Config
 	Database repository.HealthChecker
 	Cache    repository.HealthChecker
+
+	// Services
+	HealthService service.HealthServicer
 }
 
 // ContainerConfig holds options for building the container.
@@ -55,6 +59,9 @@ func NewContainer(cfg ContainerConfig) (*Container, error) {
 			c.Cache = cache
 		}
 	}
+
+	// Initialize services
+	c.HealthService = service.NewHealthService(c.Database, c.Cache)
 
 	return c, nil
 }

@@ -20,41 +20,45 @@ type Service struct {
 
 var Instance *Service
 
-// Init initializes the global database instance.
-func Init() {
+// New creates a new database service with the given config.
+func New(cfg *config.PostgresConfig) (*Service, error) {
 	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable search_path=%s",
-		config.Instance.Postgres.Host,
-		config.Instance.Postgres.Port,
-		config.Instance.Postgres.User,
-		config.Instance.Postgres.Password,
-		config.Instance.Postgres.Database,
-		config.Instance.Postgres.Schema,
+		cfg.Host,
+		cfg.Port,
+		cfg.User,
+		cfg.Password,
+		cfg.Database,
+		cfg.Schema,
 	)
 
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
-		// This should theoretically not happen with pgx driver unless the driver name is wrong
-		// or DSN is drastically malformed. sql.Open doesn't usually connect.
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+
+	db.SetMaxOpenConns(cfg.DefaultMaxOpenConns)
+	db.SetMaxIdleConns(cfg.DefaultMaxIdleConns)
+	db.SetConnMaxLifetime(cfg.DefaultConnMaxLifetime)
+
+	return &Service{db: db}, nil
+}
+
+// Init initializes the global database instance.
+//
+// Deprecated: Use New() with dependency injection instead.
+func Init() {
+	svc, err := New(&config.Instance.Postgres)
+	if err != nil {
 		slog.Error("failed to open database, continuing without db", "error", err)
 		return
 	}
 
-	// Set some reasonable defaults for a connection pool
-	db.SetMaxOpenConns(config.Instance.Postgres.DefaultMaxOpenConns)
-	db.SetMaxIdleConns(config.Instance.Postgres.DefaultMaxIdleConns)
-	db.SetConnMaxLifetime(config.Instance.Postgres.DefaultConnMaxLifetime)
-
-	Instance = &Service{
-		db: db,
-	}
-
-	// We do NOT ping here. We want non-fatal startup.
-	// We'll let the readiness probe handle checking if it's actually up.
+	Instance = svc
 }
 
 // Health checks the health of the database connection.
 // Returns a map with status information.
-func (s *Service) Health() map[string]string {
+func (s *Service) Health(ctx context.Context) map[string]string {
 	stats := make(map[string]string)
 
 	if s == nil || s.db == nil {
@@ -64,10 +68,11 @@ func (s *Service) Health() map[string]string {
 		return stats
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	// Use provided context with a timeout fallback
+	checkCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 
-	err := s.db.PingContext(ctx)
+	err := s.db.PingContext(checkCtx)
 	if err != nil {
 		stats["status"] = "down"
 		stats["error"] = err.Error()

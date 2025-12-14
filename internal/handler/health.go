@@ -24,9 +24,10 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 func ReadyHandler(w http.ResponseWriter, r *http.Request) {
 	status := "READY"
 	statusCode := http.StatusOK
+	ctx := r.Context()
 
-	dbStats := database.Instance.Health()
-	redisStats := redis.Instance.Health()
+	dbStats := database.Instance.Health(ctx)
+	redisStats := redis.Instance.Health(ctx)
 
 	if dbStats["status"] != "up" || redisStats["status"] != "up" {
 		status = "DEGRADED"

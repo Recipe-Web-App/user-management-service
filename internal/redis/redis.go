@@ -22,38 +22,50 @@ type Service struct {
 
 var Instance *Service
 
+// New creates a new Redis service with the given config.
+func New(cfg *config.RedisConfig) (*Service, error) {
+	opts := &redis.Options{
+		Addr:         fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
+		Password:     cfg.Password,
+		DB:           cfg.Database,
+		DialTimeout:  cfg.DialTimeout,
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
+		PoolSize:     cfg.PoolSize,
+		MinIdleConns: cfg.MinIdleConns,
+	}
+
+	client := redis.NewClient(opts)
+
+	slog.Info("redis client initialized", "addr", opts.Addr)
+
+	return &Service{
+		client:     client,
+		prevStatus: "unknown",
+	}, nil
+}
+
 // Init initializes the global Redis instance.
+//
+// Deprecated: Use New() with dependency injection instead.
 func Init() {
 	if config.Instance == nil {
 		slog.Error("config not loaded, cannot initialize redis")
 		return
 	}
 
-	opts := &redis.Options{
-		Addr:         fmt.Sprintf("%s:%d", config.Instance.Redis.Host, config.Instance.Redis.Port),
-		Password:     config.Instance.Redis.Password,
-		DB:           config.Instance.Redis.Database,
-		DialTimeout:  config.Instance.Redis.DialTimeout,
-		ReadTimeout:  config.Instance.Redis.ReadTimeout,
-		WriteTimeout: config.Instance.Redis.WriteTimeout,
-		PoolSize:     config.Instance.Redis.PoolSize,
-		MinIdleConns: config.Instance.Redis.MinIdleConns,
+	svc, err := New(&config.Instance.Redis)
+	if err != nil {
+		slog.Error("failed to initialize redis", "error", err)
+		return
 	}
 
-	client := redis.NewClient(opts)
-
-	Instance = &Service{
-		client:     client,
-		prevStatus: "unknown",
-	}
-
-	// Non-fatal startup as per requirements
-	slog.Info("redis client initialized", "addr", opts.Addr)
+	Instance = svc
 }
 
 // Health checks the health of the Redis connection.
 // Returns a map with status information.
-func (s *Service) Health() map[string]string {
+func (s *Service) Health(ctx context.Context) map[string]string {
 	stats := make(map[string]string)
 
 	if s == nil || s.client == nil {
@@ -67,10 +79,11 @@ func (s *Service) Health() map[string]string {
 		return stats
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	// Use provided context with a timeout fallback
+	checkCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 
-	_, err := s.client.Ping(ctx).Result()
+	_, err := s.client.Ping(checkCtx).Result()
 	if err != nil {
 		stats["status"] = "down"
 		stats["error"] = err.Error()

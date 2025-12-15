@@ -28,7 +28,7 @@ func NewServerWithContainer(container *app.Container) *http.Server {
 	// Create handlers with dependencies
 	handlers := Handlers{
 		Health:       handler.NewHealthHandler(container.HealthService),
-		User:         handler.NewUserHandler(),
+		User:         handler.NewUserHandler(container.UserService),
 		Social:       handler.NewSocialHandler(),
 		Notification: handler.NewNotificationHandler(),
 		Admin:        handler.NewAdminHandler(),

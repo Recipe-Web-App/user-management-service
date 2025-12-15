@@ -32,7 +32,6 @@ repos:
     rev: v0.5.1
     hooks:
       - id: go-mod-tidy
-      - id: go-mod-tidy
       - id: go-unit-tests
         args: [-race, -short, -q]
 

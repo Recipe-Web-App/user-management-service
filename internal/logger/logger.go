@@ -22,12 +22,14 @@ func (h *FanoutHandler) Enabled(ctx context.Context, level slog.Level) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
 // Handle calls Handle on all underlying handlers.
 func (h *FanoutHandler) Handle(ctx context.Context, r slog.Record) error {
 	var firstErr error
+
 	for _, handler := range h.handlers {
 		if handler.Enabled(ctx, r.Level) {
 			if err := handler.Handle(ctx, r); err != nil && firstErr == nil {
@@ -35,6 +37,7 @@ func (h *FanoutHandler) Handle(ctx context.Context, r slog.Record) error {
 			}
 		}
 	}
+
 	return firstErr
 }
 
@@ -44,6 +47,7 @@ func (h *FanoutHandler) WithGroup(name string) slog.Handler {
 	for i, handler := range h.handlers {
 		handlers[i] = handler.WithGroup(name)
 	}
+
 	return NewFanoutHandler(handlers...)
 }
 
@@ -53,5 +57,6 @@ func (h *FanoutHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	for i, handler := range h.handlers {
 		handlers[i] = handler.WithAttrs(attrs)
 	}
+
 	return NewFanoutHandler(handlers...)
 }

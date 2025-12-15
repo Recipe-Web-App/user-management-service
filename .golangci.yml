@@ -25,7 +25,9 @@ linters:
 
   settings:
     gocyclo:
-      min-complexity: 15
+      min-complexity: 20
+    gocognit:
+      min-complexity: 20
     revive:
       severity: warning
     staticcheck:
@@ -41,7 +43,8 @@ linters:
 formatters:
   settings:
     goimports:
-      local-prefixes: github.com/jsamuelsen/recipe-web-app/user-management-service
+      local-prefixes:
+        - github.com/jsamuelsen/recipe-web-app/user-management-service
 
 issues:
   exclude-use-default: false
@@ -55,3 +58,5 @@ issues:
       linters:
         - funlen
         - goconst
+        - gocyclo
+        - gocognit

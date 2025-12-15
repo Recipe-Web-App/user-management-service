@@ -5,7 +5,11 @@ build:
 	@go build -o bin/server cmd/api/main.go
 
 run:
-	@go run cmd/api/main.go
+	@if [ -f .env.local ]; then \
+		echo "Loading .env.local..."; \
+		export $$(grep -v '^#' .env.local | xargs); \
+	fi; \
+	go run cmd/api/main.go
 
 clean:
 	@echo "Cleaning..."
@@ -14,23 +18,43 @@ clean:
 
 test:
 	@echo "Running all tests (excluding performance)..."
-	@go test ./... -v
+	@if [ -f .env.local ]; then \
+		echo "Loading .env.local..."; \
+		export $$(grep -v '^#' .env.local | xargs); \
+	fi; \
+	go test ./... -v
 
 test-unit:
 	@echo "Running unit tests..."
-	@go test ./internal/handler/... -v
+	@if [ -f .env.local ]; then \
+		echo "Loading .env.local..."; \
+		export $$(grep -v '^#' .env.local | xargs); \
+	fi; \
+	go test ./internal/handler/... -v
 
 test-component:
 	@echo "Running component tests..."
-	@go test ./tests/component/... -v
+	@if [ -f .env.local ]; then \
+		echo "Loading .env.local..."; \
+		export $$(grep -v '^#' .env.local | xargs); \
+	fi; \
+	go test ./tests/component/... -v
 
 test-dependency:
 	@echo "Running dependency tests..."
-	@go test ./tests/dependency/... -v
+	@if [ -f .env.local ]; then \
+		echo "Loading .env.local..."; \
+		export $$(grep -v '^#' .env.local | xargs); \
+	fi; \
+	go test ./tests/dependency/... -v
 
 test-performance:
 	@echo "Running performance tests..."
-	@go test -bench=. ./tests/performance/... -v
+	@if [ -f .env.local ]; then \
+		echo "Loading .env.local..."; \
+		export $$(grep -v '^#' .env.local | xargs); \
+	fi; \
+	go test -bench=. ./tests/performance/... -v
 
 test-all: test-unit test-component test-dependency test-performance
 

@@ -5,40 +5,39 @@ import (
 	"net/http"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/app"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/config"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/server"
 )
 
-var benchmarkHandler http.Handler
+var (
+	benchmarkHandler   http.Handler
+	benchmarkContainer *app.Container
+)
 
 func TestMain(m *testing.M) {
-	// Initialize config with necessary values for router setup
-	cfg := &config.Config{
-		Cors: config.CorsConfig{
-			AllowedOrigins: []string{"*"},
-			AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-			AllowedHeaders: []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-			MaxAge:         time.Duration(300) * time.Second,
-		},
-		Logging: config.LoggingConfig{
-			ConsoleEnabled: false,
-		},
-		Server: config.ServerConfig{
-			Timeout: 60 * time.Second,
-		},
+	// Change to project root to load config correctly (since config path is "./config")
+	err := os.Chdir("../../")
+	if err != nil {
+		panic(err)
 	}
-	config.Instance = cfg
+
+	// Load real configuration (reads from env vars set by Makefile)
+	cfg := config.Load()
 
 	// Disable logging for benchmarks
 	slog.SetDefault(slog.New(slog.DiscardHandler))
 
 	// Create container with config
-	container, _ := app.NewContainer(app.ContainerConfig{
+	container, err := app.NewContainer(app.ContainerConfig{
 		Config: cfg,
 	})
+	if err != nil {
+		panic(err)
+	}
+
+	benchmarkContainer = container
 
 	// Initialize the router with container
 	srv := server.NewServerWithContainer(container)

@@ -1,0 +1,272 @@
+package service_test
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/repository"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/service"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+)
+
+const mockErrorFmt = "mock error: %w"
+const testEmail = "email@example.com"
+const testUserFullName = "Target User"
+
+var (
+	errMockArgs           = errors.New("mock: missing args")
+	errMockInvalidUser    = errors.New("invalid type assertion for User")
+	errMockInvalidPrivacy = errors.New("invalid type assertion for PrivacyPreferences")
+)
+
+// MockUserRepository is a mock implementation of repository.UserRepository.
+type MockUserRepository struct {
+	mock.Mock
+}
+
+func (m *MockUserRepository) FindUserByID(ctx context.Context, userID uuid.UUID) (*dto.User, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		err := args.Error(1)
+		if err != nil {
+			return nil, fmt.Errorf(mockErrorFmt, err)
+		}
+
+		return nil, errMockArgs
+	}
+
+	if val, ok := args.Get(0).(*dto.User); ok {
+		return val, nil
+	}
+
+	return nil, errMockInvalidUser
+}
+
+func (m *MockUserRepository) FindPrivacyPreferencesByUserID(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*dto.PrivacyPreferences, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		err := args.Error(1)
+		if err != nil {
+			return nil, fmt.Errorf(mockErrorFmt, err) // wrapcheck
+		}
+
+		return nil, errMockArgs
+	}
+
+	if val, ok := args.Get(0).(*dto.PrivacyPreferences); ok {
+		return val, nil
+	}
+
+	return nil, errMockInvalidPrivacy
+}
+
+func (m *MockUserRepository) IsFollowing(ctx context.Context, followerID, followedID uuid.UUID) (bool, error) {
+	args := m.Called(ctx, followerID, followedID)
+	// wrapcheck: Error might be nil, but if it's not, we should technically wrap it or just ignore.
+	// However, for bool returns it's simpler.
+	err := args.Error(1)
+	if err != nil {
+		return args.Bool(0), fmt.Errorf(mockErrorFmt, err)
+	}
+
+	return args.Bool(0), nil
+}
+
+type userServiceTestCase struct {
+	name          string
+	requesterID   uuid.UUID
+	targetUser    *dto.User
+	targetPrivacy *dto.PrivacyPreferences
+	isFollowing   bool
+	expectedErr   error
+	validateResp  func(*testing.T, *dto.UserProfileResponse)
+}
+
+func TestUserServiceGetUserProfile(t *testing.T) {
+	t.Parallel()
+
+	targetID := uuid.New()
+	requesterID := uuid.New()
+	followerID := uuid.New()
+
+	baseUser := createBaseUser(targetID)
+
+	tests := getUserServiceTestCases(targetID, requesterID, followerID, baseUser)
+
+	runUserServiceTest(t, tests, targetID)
+}
+
+func getUserServiceTestCases(
+	targetID, requesterID, followerID uuid.UUID,
+	baseUser *dto.User,
+) []userServiceTestCase {
+	tests := getSuccessTestCases(targetID, requesterID, followerID, baseUser)
+	tests = append(tests, getErrorTestCases(requesterID, baseUser)...)
+
+	return tests
+}
+
+func getSuccessTestCases(
+	targetID, requesterID, followerID uuid.UUID,
+	baseUser *dto.User,
+) []userServiceTestCase {
+	return []userServiceTestCase{
+		{
+			name:        "Self Profile - Always Allow",
+			requesterID: targetID,
+			targetUser:  baseUser,
+			targetPrivacy: &dto.PrivacyPreferences{
+				ProfileVisibility: "private",
+				ShowEmail:         false,
+			},
+			validateResp: func(t *testing.T, r *dto.UserProfileResponse) {
+				t.Helper()
+				assert.Equal(t, testEmail, *r.Email)
+				assert.Equal(t, testUserFullName, *r.FullName)
+			},
+		},
+		{
+			name:        "Public Profile - Can View",
+			requesterID: requesterID,
+			targetUser:  baseUser,
+			targetPrivacy: &dto.PrivacyPreferences{
+				ProfileVisibility: "public",
+				ShowEmail:         false,
+				ShowFullName:      true,
+			},
+			validateResp: func(t *testing.T, r *dto.UserProfileResponse) {
+				t.Helper()
+				assert.Nil(t, r.Email)
+				assert.Equal(t, testUserFullName, *r.FullName)
+			},
+		},
+		{
+			name:        "Followers Only - Following - Allow",
+			requesterID: followerID,
+			targetUser:  baseUser,
+			targetPrivacy: &dto.PrivacyPreferences{
+				ProfileVisibility: "followers_only",
+				ShowEmail:         true,
+			},
+			isFollowing: true,
+			validateResp: func(t *testing.T, r *dto.UserProfileResponse) {
+				t.Helper()
+				assert.Equal(t, testEmail, *r.Email)
+			},
+		},
+	}
+}
+
+func getErrorTestCases(requesterID uuid.UUID, baseUser *dto.User) []userServiceTestCase {
+	return []userServiceTestCase{
+		{
+			name:        "Private Profile - Not Self - Deny",
+			requesterID: requesterID,
+			targetUser:  baseUser,
+			targetPrivacy: &dto.PrivacyPreferences{
+				ProfileVisibility: "private",
+			},
+			expectedErr: service.ErrProfilePrivate,
+		},
+		{
+			name:        "Followers Only - Not Following - Deny",
+			requesterID: requesterID,
+			targetUser:  baseUser,
+			targetPrivacy: &dto.PrivacyPreferences{
+				ProfileVisibility: "followers_only",
+			},
+			isFollowing: false,
+			expectedErr: service.ErrProfilePrivate,
+		},
+		{
+			name:        "User Not Found",
+			targetUser:  nil,
+			expectedErr: service.ErrUserNotFound,
+		},
+	}
+}
+
+func createBaseUser(targetID uuid.UUID) *dto.User {
+	return &dto.User{
+		UserID:    targetID.String(),
+		Username:  "targetuser",
+		Email:     func() *string { s := testEmail; return &s }(),
+		FullName:  func() *string { s := testUserFullName; return &s }(),
+		Bio:       func() *string { s := "Bio"; return &s }(),
+		IsActive:  true,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+}
+
+func runUserServiceTest(t *testing.T, tests []userServiceTestCase, targetID uuid.UUID) {
+	t.Helper()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockRepo := new(MockUserRepository)
+			svc := service.NewUserService(mockRepo)
+
+			ctx := context.Background()
+
+			setupMockExpectations(ctx, mockRepo, tt, targetID)
+
+			resp, err := svc.GetUserProfile(ctx, tt.requesterID, targetID)
+
+			verifyTestResult(t, tt, resp, err)
+		})
+	}
+}
+
+func setupMockExpectations(
+	ctx context.Context,
+	mockRepo *MockUserRepository,
+	tt userServiceTestCase,
+	targetID uuid.UUID,
+) {
+	// Setup expectations
+	if tt.targetUser == nil {
+		mockRepo.On("FindUserByID", ctx, targetID).Return(nil, repository.ErrUserNotFound)
+	} else {
+		mockRepo.On("FindUserByID", ctx, targetID).Return(tt.targetUser, nil)
+		mockRepo.On("FindPrivacyPreferencesByUserID", ctx, targetID).Return(tt.targetPrivacy, nil)
+
+		if tt.targetPrivacy.ProfileVisibility == "followers_only" && tt.requesterID != targetID {
+			mockRepo.On("IsFollowing", ctx, tt.requesterID, targetID).Return(tt.isFollowing, nil)
+		}
+	}
+}
+
+func verifyTestResult(
+	t *testing.T,
+	tt userServiceTestCase,
+	resp *dto.UserProfileResponse,
+	err error,
+) {
+	t.Helper()
+
+	if tt.expectedErr != nil {
+		require.Error(t, err)
+		require.ErrorIs(t, err, tt.expectedErr) // testifylint
+		assert.Nil(t, resp)
+	} else {
+		require.NoError(t, err)
+		assert.NotNil(t, resp)
+
+		if tt.validateResp != nil {
+			tt.validateResp(t, resp)
+		}
+	}
+}

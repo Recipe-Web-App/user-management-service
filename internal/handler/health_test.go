@@ -13,6 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const wrongStatusCode = "handler returned wrong status code"
+const unexpectedStatusMsg = "handler returned unexpected status"
+
 // mockHealthService implements service.HealthServicer for testing.
 type mockHealthService struct {
 	healthStatus    service.HealthStatus
@@ -41,12 +44,13 @@ func TestHealthHandler(t *testing.T) {
 	rr := httptest.NewRecorder()
 	h.Health(rr, req)
 
-	assert.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
+	assert.Equal(t, http.StatusOK, rr.Code, wrongStatusCode)
 
 	var actual service.HealthStatus
+
 	err = json.NewDecoder(rr.Body).Decode(&actual)
 	require.NoError(t, err)
-	assert.Equal(t, "UP", actual.Status, "handler returned unexpected status")
+	assert.Equal(t, "UP", actual.Status, unexpectedStatusMsg)
 }
 
 func TestReadyHandler(t *testing.T) {
@@ -67,17 +71,17 @@ func TestReadyHandler(t *testing.T) {
 	rr := httptest.NewRecorder()
 	h.Ready(rr, req)
 
-	assert.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
+	assert.Equal(t, http.StatusOK, rr.Code, wrongStatusCode)
 
 	var actual service.HealthStatus
 
 	err = json.NewDecoder(rr.Body).Decode(&actual)
 	require.NoError(t, err)
-	assert.Equal(t, "DEGRADED", actual.Status, "handler returned unexpected status")
+	assert.Equal(t, "DEGRADED", actual.Status, unexpectedStatusMsg)
 	assert.NotNil(t, actual.Database, "handler should return database stats")
 }
 
-func TestReadyHandler_AllUp(t *testing.T) {
+func TestReadyHandlerAllUp(t *testing.T) {
 	t.Parallel()
 
 	mockSvc := &mockHealthService{
@@ -95,10 +99,11 @@ func TestReadyHandler_AllUp(t *testing.T) {
 	rr := httptest.NewRecorder()
 	h.Ready(rr, req)
 
-	assert.Equal(t, http.StatusOK, rr.Code, "handler returned wrong status code")
+	assert.Equal(t, http.StatusOK, rr.Code, wrongStatusCode)
 
 	var actual service.HealthStatus
+
 	err = json.NewDecoder(rr.Body).Decode(&actual)
 	require.NoError(t, err)
-	assert.Equal(t, "READY", actual.Status, "handler returned unexpected status")
+	assert.Equal(t, "READY", actual.Status, unexpectedStatusMsg)
 }

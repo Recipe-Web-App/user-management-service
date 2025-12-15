@@ -18,6 +18,11 @@ type Service struct {
 	db *sql.DB
 }
 
+// GetDB returns the underlying sql.DB instance.
+func (s *Service) GetDB() *sql.DB {
+	return s.db
+}
+
 var Instance *Service
 
 // New creates a new database service with the given config.

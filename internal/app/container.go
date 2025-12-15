@@ -20,13 +20,15 @@ type Container struct {
 
 	// Services
 	HealthService service.HealthServicer
+	UserService   service.UserService
 }
 
 // ContainerConfig holds options for building the container.
 type ContainerConfig struct {
 	Config   *config.Config
-	Database repository.HealthChecker // Optional override for testing
-	Cache    repository.HealthChecker // Optional override for testing
+	Database repository.HealthChecker  // Optional override for testing
+	Cache    repository.HealthChecker  // Optional override for testing
+	UserRepo repository.UserRepository // Optional override for testing
 }
 
 // NewContainer creates a new dependency container.
@@ -62,6 +64,18 @@ func NewContainer(cfg ContainerConfig) (*Container, error) {
 
 	// Initialize services
 	c.HealthService = service.NewHealthService(c.Database, c.Cache)
+
+	// Initialize repositories and domain services
+	var userRepo repository.UserRepository
+	if cfg.UserRepo != nil {
+		userRepo = cfg.UserRepo
+	} else if dbService, ok := c.Database.(*database.Service); ok {
+		userRepo = repository.NewUserRepository(dbService.GetDB())
+	}
+
+	if userRepo != nil {
+		c.UserService = service.NewUserService(userRepo)
+	}
 
 	return c, nil
 }

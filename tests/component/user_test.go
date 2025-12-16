@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/app"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/config"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/repository"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/server"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/service"
 	"github.com/stretchr/testify/assert"
@@ -84,6 +86,28 @@ func (m *MockUserRepo) IsFollowing(ctx context.Context, followerID, followedID u
 	return args.Bool(0), nil
 }
 
+func (m *MockUserRepo) UpdateUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	update *dto.UserProfileUpdateRequest,
+) (*dto.User, error) {
+	args := m.Called(ctx, userID, update)
+	if args.Get(0) == nil {
+		err := args.Error(1)
+		if err != nil {
+			return nil, fmt.Errorf(mockErrorFmt, err)
+		}
+
+		return nil, errMockArgs
+	}
+
+	if val, ok := args.Get(0).(*dto.User); ok {
+		return val, nil
+	}
+
+	return nil, errMockInvalidUser
+}
+
 func TestUserProfileComponent(t *testing.T) {
 	t.Parallel()
 
@@ -152,4 +176,170 @@ func TestUserProfileComponent(t *testing.T) {
 	assert.Equal(t, "Component User", *resp.FullName)
 	assert.NotNil(t, resp.Email)
 	assert.Equal(t, "test@example.com", *resp.Email)
+}
+
+func TestUpdateUserProfileComponent_Success(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	svc := service.NewUserService(mockRepo)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+	now := time.Now()
+
+	existingUser := &dto.User{
+		UserID:    userID.String(),
+		Username:  "oldusername",
+		Email:     func() *string { s := "old@example.com"; return &s }(),
+		FullName:  func() *string { s := "Old Name"; return &s }(),
+		IsActive:  true,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	updatedUser := &dto.User{
+		UserID:    userID.String(),
+		Username:  "newusername",
+		Email:     func() *string { s := "old@example.com"; return &s }(),
+		FullName:  func() *string { s := "Old Name"; return &s }(),
+		IsActive:  true,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	mockRepo.On("FindUserByID", mock.Anything, userID).Return(existingUser, nil)
+	mockRepo.On("UpdateUser", mock.Anything, userID, mock.Anything).Return(updatedUser, nil)
+
+	reqBody := `{"username": "newusername"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/user-management/users/profile", strings.NewReader(reqBody))
+	req.Header.Set("X-User-Id", userID.String())
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var apiResp struct {
+		Success bool                    `json:"success"`
+		Data    dto.UserProfileResponse `json:"data"`
+	}
+
+	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
+	require.NoError(t, err)
+	require.True(t, apiResp.Success)
+	assert.Equal(t, "newusername", apiResp.Data.Username)
+}
+
+func TestUpdateUserProfileComponent_NotFound(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	svc := service.NewUserService(mockRepo)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+
+	mockRepo.On("FindUserByID", mock.Anything, userID).Return(nil, repository.ErrUserNotFound)
+
+	reqBody := `{"username": "newusername"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/user-management/users/profile", strings.NewReader(reqBody))
+	req.Header.Set("X-User-Id", userID.String())
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+}
+
+func TestUpdateUserProfileComponent_DuplicateUsername(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	svc := service.NewUserService(mockRepo)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+	now := time.Now()
+
+	existingUser := &dto.User{
+		UserID:    userID.String(),
+		Username:  "oldusername",
+		IsActive:  true,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	mockRepo.On("FindUserByID", mock.Anything, userID).Return(existingUser, nil)
+	mockRepo.On("UpdateUser", mock.Anything, userID, mock.Anything).Return(nil, repository.ErrDuplicateUsername)
+
+	reqBody := `{"username": "existinguser"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/user-management/users/profile", strings.NewReader(reqBody))
+	req.Header.Set("X-User-Id", userID.String())
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusConflict, rr.Code)
+}
+
+func TestUpdateUserProfileComponent_ValidationError(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	svc := service.NewUserService(mockRepo)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+
+	// Invalid username (too short)
+	reqBody := `{"username": "ab"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/user-management/users/profile", strings.NewReader(reqBody))
+	req.Header.Set("X-User-Id", userID.String())
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
 }

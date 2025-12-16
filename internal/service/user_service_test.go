@@ -19,6 +19,7 @@ import (
 const mockErrorFmt = "mock error: %w"
 const testEmail = "email@example.com"
 const testUserFullName = "Target User"
+const testNewUsername = "newusername"
 
 var (
 	errMockArgs           = errors.New("mock: missing args")
@@ -80,6 +81,28 @@ func (m *MockUserRepository) IsFollowing(ctx context.Context, followerID, follow
 	}
 
 	return args.Bool(0), nil
+}
+
+func (m *MockUserRepository) UpdateUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	update *dto.UserProfileUpdateRequest,
+) (*dto.User, error) {
+	args := m.Called(ctx, userID, update)
+	if args.Get(0) == nil {
+		err := args.Error(1)
+		if err != nil {
+			return nil, fmt.Errorf(mockErrorFmt, err)
+		}
+
+		return nil, errMockArgs
+	}
+
+	if val, ok := args.Get(0).(*dto.User); ok {
+		return val, nil
+	}
+
+	return nil, errMockInvalidUser
 }
 
 type userServiceTestCase struct {
@@ -268,5 +291,148 @@ func verifyTestResult(
 		if tt.validateResp != nil {
 			tt.validateResp(t, resp)
 		}
+	}
+}
+
+func TestUserServiceUpdateUserProfile(t *testing.T) { //nolint:funlen // table-driven test
+	t.Parallel()
+
+	userID := uuid.New()
+	now := time.Now()
+
+	baseUser := &dto.User{
+		UserID:    userID.String(),
+		Username:  "oldusername",
+		Email:     func() *string { s := "old@email.com"; return &s }(),
+		FullName:  func() *string { s := "Old Name"; return &s }(),
+		Bio:       func() *string { s := "Old bio"; return &s }(),
+		IsActive:  true,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	tests := []struct {
+		name         string
+		update       *dto.UserProfileUpdateRequest
+		setupMock    func(*MockUserRepository)
+		expectedErr  error
+		validateResp func(*testing.T, *dto.UserProfileResponse)
+	}{
+		{
+			name: "Success - Update Username",
+			update: &dto.UserProfileUpdateRequest{
+				Username: func() *string { s := testNewUsername; return &s }(),
+			},
+			setupMock: func(m *MockUserRepository) {
+				m.On("FindUserByID", mock.Anything, userID).Return(baseUser, nil)
+				updatedUser := *baseUser
+				updatedUser.Username = testNewUsername
+				m.On("UpdateUser", mock.Anything, userID, mock.Anything).Return(&updatedUser, nil)
+			},
+			validateResp: func(t *testing.T, r *dto.UserProfileResponse) {
+				t.Helper()
+				assert.Equal(t, testNewUsername, r.Username)
+			},
+		},
+		{
+			name: "Success - Update All Fields",
+			update: &dto.UserProfileUpdateRequest{
+				Username: func() *string { s := testNewUsername; return &s }(),
+				Email:    func() *string { s := "new@email.com"; return &s }(),
+				FullName: func() *string { s := "New Name"; return &s }(),
+				Bio:      func() *string { s := "New bio"; return &s }(),
+			},
+			setupMock: func(m *MockUserRepository) {
+				m.On("FindUserByID", mock.Anything, userID).Return(baseUser, nil)
+				updatedUser := &dto.User{
+					UserID:    userID.String(),
+					Username:  testNewUsername,
+					Email:     func() *string { s := "new@email.com"; return &s }(),
+					FullName:  func() *string { s := "New Name"; return &s }(),
+					Bio:       func() *string { s := "New bio"; return &s }(),
+					IsActive:  true,
+					CreatedAt: now,
+					UpdatedAt: now,
+				}
+				m.On("UpdateUser", mock.Anything, userID, mock.Anything).Return(updatedUser, nil)
+			},
+			validateResp: func(t *testing.T, r *dto.UserProfileResponse) {
+				t.Helper()
+				assert.Equal(t, testNewUsername, r.Username)
+				assert.Equal(t, "new@email.com", *r.Email)
+				assert.Equal(t, "New Name", *r.FullName)
+				assert.Equal(t, "New bio", *r.Bio)
+			},
+		},
+		{
+			name:   "Success - No Changes (empty request)",
+			update: &dto.UserProfileUpdateRequest{},
+			setupMock: func(m *MockUserRepository) {
+				m.On("FindUserByID", mock.Anything, userID).Return(baseUser, nil)
+				// UpdateUser should not be called
+			},
+			validateResp: func(t *testing.T, r *dto.UserProfileResponse) {
+				t.Helper()
+				assert.Equal(t, "oldusername", r.Username)
+			},
+		},
+		{
+			name: "User Not Found - From FindUserByID",
+			update: &dto.UserProfileUpdateRequest{
+				Username: func() *string { s := testNewUsername; return &s }(),
+			},
+			setupMock: func(m *MockUserRepository) {
+				m.On("FindUserByID", mock.Anything, userID).Return(nil, repository.ErrUserNotFound)
+			},
+			expectedErr: service.ErrUserNotFound,
+		},
+		{
+			name: "User Not Found - From UpdateUser",
+			update: &dto.UserProfileUpdateRequest{
+				Username: func() *string { s := testNewUsername; return &s }(),
+			},
+			setupMock: func(m *MockUserRepository) {
+				m.On("FindUserByID", mock.Anything, userID).Return(baseUser, nil)
+				m.On("UpdateUser", mock.Anything, userID, mock.Anything).Return(nil, repository.ErrUserNotFound)
+			},
+			expectedErr: service.ErrUserNotFound,
+		},
+		{
+			name: "Duplicate Username",
+			update: &dto.UserProfileUpdateRequest{
+				Username: func() *string { s := "existinguser"; return &s }(),
+			},
+			setupMock: func(m *MockUserRepository) {
+				m.On("FindUserByID", mock.Anything, userID).Return(baseUser, nil)
+				m.On("UpdateUser", mock.Anything, userID, mock.Anything).Return(nil, repository.ErrDuplicateUsername)
+			},
+			expectedErr: service.ErrDuplicateUsername,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockRepo := new(MockUserRepository)
+			svc := service.NewUserService(mockRepo)
+
+			tt.setupMock(mockRepo)
+
+			resp, err := svc.UpdateUserProfile(context.Background(), userID, tt.update)
+
+			if tt.expectedErr != nil {
+				require.Error(t, err)
+				require.ErrorIs(t, err, tt.expectedErr)
+				assert.Nil(t, resp)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+
+				if tt.validateResp != nil {
+					tt.validateResp(t, resp)
+				}
+			}
+		})
 	}
 }

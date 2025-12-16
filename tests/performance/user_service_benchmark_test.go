@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -86,6 +87,40 @@ func BenchmarkGetUserProfile(b *testing.B) {
 
 		if rr.Code != http.StatusOK {
 			b.Fatalf("unexpected status: %d", rr.Code)
+		}
+	}
+}
+
+func BenchmarkUpdateUserProfile(b *testing.B) {
+	if benchmarkContainer == nil || benchmarkContainer.Database == nil {
+		b.Fatal("benchmark container or database is nil")
+	}
+
+	dbSvc, ok := benchmarkContainer.Database.(*database.Service)
+	if !ok {
+		b.Fatal("failed to cast database service")
+	}
+
+	cfg := benchmarkContainer.Config.Postgres
+	b.Logf("DEBUG: DB Host=%s Port=%d User='%s' DBName=%s", cfg.Host, cfg.Port, cfg.User, cfg.Database)
+
+	userID := uuid.New()
+
+	seedBenchmarkUser(b, dbSvc.GetDB(), userID)
+
+	reqPath := "/api/v1/user-management/users/profile"
+	reqBody := `{"bio": "Updated bio for benchmark test"}`
+
+	for b.Loop() {
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodPut, reqPath, strings.NewReader(reqBody))
+		req.Header.Set("X-User-Id", userID.String())
+		req.Header.Set("Content-Type", "application/json")
+
+		rr := httptest.NewRecorder()
+		benchmarkHandler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			b.Fatalf("unexpected status: %d, body: %s", rr.Code, rr.Body.String())
 		}
 	}
 }

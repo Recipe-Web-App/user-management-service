@@ -19,13 +19,14 @@ var ErrValidation = errors.New("validation error")
 // validationMessages maps validation tags to their error message templates.
 // Messages with %s will have the parameter substituted.
 var validationMessages = map[string]string{
-	"required": "is required",
-	"email":    "must be a valid email address",
-	"url":      "must be a valid URL",
-	"uuid":     "must be a valid UUID",
-	"alphanum": "must contain only alphanumeric characters",
-	"alpha":    "must contain only alphabetic characters",
-	"numeric":  "must be numeric",
+	"required":         "is required",
+	"email":            "must be a valid email address",
+	"url":              "must be a valid URL",
+	"uuid":             "must be a valid UUID",
+	"alphanum":         "must contain only alphanumeric characters",
+	"alpha":            "must contain only alphabetic characters",
+	"numeric":          "must be numeric",
+	"username_pattern": "must contain only alphanumeric characters and underscores",
 }
 
 // parameterizedMessages maps validation tags to their parameterized message formats.
@@ -92,7 +93,22 @@ func New() *Validator {
 		return name
 	})
 
+	// Register custom username pattern validator (alphanumeric + underscore)
+	_ = v.RegisterValidation("username_pattern", validateUsernamePattern)
+
 	return &Validator{validate: v}
+}
+
+// validateUsernamePattern validates that a string contains only alphanumeric characters and underscores.
+func validateUsernamePattern(fl validator.FieldLevel) bool {
+	value := fl.Field().String()
+	for _, r := range value {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_') {
+			return false
+		}
+	}
+
+	return true
 }
 
 // Validate validates a struct and returns formatted validation errors.

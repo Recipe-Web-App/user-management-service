@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -48,6 +49,28 @@ func (m *MockUserService) GetUserProfile(
 	}
 
 	return nil, errStartType // Fix err113
+}
+
+func (m *MockUserService) UpdateUserProfile(
+	ctx context.Context,
+	userID uuid.UUID,
+	update *dto.UserProfileUpdateRequest,
+) (*dto.UserProfileResponse, error) {
+	args := m.Called(ctx, userID, update)
+	if args.Get(0) == nil {
+		err := args.Error(1)
+		if err != nil {
+			return nil, fmt.Errorf("mock error: %w", err)
+		}
+
+		return nil, errMockArgs
+	}
+
+	if val, ok := args.Get(0).(*dto.UserProfileResponse); ok {
+		return val, nil
+	}
+
+	return nil, errStartType
 }
 
 type userHandlerTestCase struct {
@@ -152,6 +175,170 @@ func runUserHandlerTest(t *testing.T, tests []userHandlerTestCase) {
 			req := httptest.NewRequest(http.MethodGet, "/users/"+tt.targetIDPath+"/profile", nil)
 			if tt.requesterIDHdr != "" {
 				req.Header.Set("X-User-Id", tt.requesterIDHdr)
+			}
+
+			rr := httptest.NewRecorder()
+			r.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+
+			if tt.validateBody != nil {
+				tt.validateBody(t, rr.Body.String())
+			}
+		})
+	}
+}
+
+type updateProfileTestCase struct {
+	name           string
+	requesterIDHdr string
+	requestBody    string
+	contentType    string
+	mockRun        func(*MockUserService)
+	expectedStatus int
+	validateBody   func(*testing.T, string)
+}
+
+func TestUserHandlerUpdateUserProfile(t *testing.T) { //nolint:funlen // table-driven test
+	t.Parallel()
+
+	userID := uuid.New()
+	now := time.Now()
+
+	tests := []updateProfileTestCase{
+		{
+			name:           "Success - Update Username",
+			requesterIDHdr: userID.String(),
+			requestBody:    `{"username": "newusername"}`,
+			contentType:    "application/json",
+			mockRun: func(m *MockUserService) {
+				m.On("UpdateUserProfile", mock.Anything, userID, mock.Anything).Return(&dto.UserProfileResponse{
+					UserID:    userID.String(),
+					Username:  "newusername",
+					IsActive:  true,
+					CreatedAt: now,
+					UpdatedAt: now,
+				}, nil)
+			},
+			expectedStatus: http.StatusOK,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "newusername")
+				assert.Contains(t, body, `"success":true`)
+			},
+		},
+		{
+			name:           "Unauthorized - Missing X-User-Id",
+			requesterIDHdr: "",
+			requestBody:    `{"username": "newusername"}`,
+			contentType:    "application/json",
+			expectedStatus: http.StatusUnauthorized,
+		},
+		{
+			name:           "Unauthorized - Invalid UUID in header",
+			requesterIDHdr: "not-a-uuid",
+			requestBody:    `{"username": "newusername"}`,
+			contentType:    "application/json",
+			expectedStatus: http.StatusUnauthorized,
+		},
+		{
+			name:           "Bad Request - Empty body",
+			requesterIDHdr: userID.String(),
+			requestBody:    "",
+			contentType:    "application/json",
+			expectedStatus: http.StatusBadRequest,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "EMPTY_BODY")
+			},
+		},
+		{
+			name:           "Bad Request - Invalid JSON",
+			requesterIDHdr: userID.String(),
+			requestBody:    `{"username": }`,
+			contentType:    "application/json",
+			expectedStatus: http.StatusBadRequest,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "INVALID_JSON")
+			},
+		},
+		{
+			name:           "Bad Request - Validation Error (username too short)",
+			requesterIDHdr: userID.String(),
+			requestBody:    `{"username": "ab"}`,
+			contentType:    "application/json",
+			expectedStatus: http.StatusBadRequest,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "VALIDATION_ERROR")
+				assert.Contains(t, body, "username")
+			},
+		},
+		{
+			name:           "Bad Request - Validation Error (invalid username chars)",
+			requesterIDHdr: userID.String(),
+			requestBody:    `{"username": "user@name"}`,
+			contentType:    "application/json",
+			expectedStatus: http.StatusBadRequest,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "VALIDATION_ERROR")
+			},
+		},
+		{
+			name:           "Not Found",
+			requesterIDHdr: userID.String(),
+			requestBody:    `{"username": "newusername"}`,
+			contentType:    "application/json",
+			mockRun: func(m *MockUserService) {
+				m.On("UpdateUserProfile", mock.Anything, userID, mock.Anything).Return(nil, service.ErrUserNotFound)
+			},
+			expectedStatus: http.StatusNotFound,
+		},
+		{
+			name:           "Conflict - Duplicate Username",
+			requesterIDHdr: userID.String(),
+			requestBody:    `{"username": "existinguser"}`,
+			contentType:    "application/json",
+			mockRun: func(m *MockUserService) {
+				m.On("UpdateUserProfile", mock.Anything, userID, mock.Anything).Return(nil, service.ErrDuplicateUsername)
+			},
+			expectedStatus: http.StatusConflict,
+		},
+		{
+			name:           "Internal Error",
+			requesterIDHdr: userID.String(),
+			requestBody:    `{"username": "newusername"}`,
+			contentType:    "application/json",
+			mockRun: func(m *MockUserService) {
+				m.On("UpdateUserProfile", mock.Anything, userID, mock.Anything).Return(nil, errDB)
+			},
+			expectedStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockSvc := new(MockUserService)
+			if tt.mockRun != nil {
+				tt.mockRun(mockSvc)
+			}
+
+			h := handler.NewUserHandler(mockSvc)
+
+			r := chi.NewRouter()
+			r.Put("/users/profile", h.UpdateUserProfile)
+
+			req := httptest.NewRequest(http.MethodPut, "/users/profile", strings.NewReader(tt.requestBody))
+			if tt.requesterIDHdr != "" {
+				req.Header.Set("X-User-Id", tt.requesterIDHdr)
+			}
+
+			if tt.contentType != "" {
+				req.Header.Set("Content-Type", tt.contentType)
 			}
 
 			rr := httptest.NewRecorder()

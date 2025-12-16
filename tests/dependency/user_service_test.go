@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -92,6 +93,34 @@ func (m *MockUserRepository) FindPrivacyPreferencesByUserID(
 func (m *MockUserRepository) IsFollowing(ctx context.Context, followerID, followedID uuid.UUID) (bool, error) {
 	args := m.Called(ctx, followerID, followedID)
 	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockUserRepository) UpdateUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	update *dto.UserProfileUpdateRequest,
+) (*dto.User, error) {
+	args := m.Called(ctx, userID, update)
+	if args.Get(0) == nil {
+		err := args.Error(1)
+		if err != nil {
+			return nil, fmt.Errorf("update user: %w", err)
+		}
+
+		return nil, errMockReturnedNilResult
+	}
+
+	user, ok := args.Get(0).(*dto.User)
+	if !ok {
+		return nil, errUnexpectedUserType
+	}
+
+	err := args.Error(1)
+	if err != nil {
+		return user, fmt.Errorf("update user: %w", err)
+	}
+
+	return user, nil
 }
 
 type testFixture struct {
@@ -194,5 +223,122 @@ func TestGetUserProfile(t *testing.T) {
 		fix.handler.ServeHTTP(rr, newProfileRequest(t, privateTargetID, fix.requesterID))
 
 		assert.Equal(t, http.StatusForbidden, rr.Code)
+	})
+}
+
+func newUpdateProfileRequest(t *testing.T, userID uuid.UUID, body string) *http.Request {
+	t.Helper()
+
+	reqPath := baseURL + "/profile"
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPut, reqPath, strings.NewReader(body))
+	require.NoError(t, err)
+	req.Header.Set(headerUserID, userID.String())
+	req.Header.Set("Content-Type", "application/json")
+
+	return req
+}
+
+func TestUpdateUserProfile(t *testing.T) { //nolint:funlen // table-driven test
+	t.Parallel()
+
+	t.Run("Success_UpdateUsername", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTest(t)
+		userID := fix.requesterID
+		now := time.Now()
+
+		existingUser := &dto.User{
+			UserID:    userID.String(),
+			Username:  "oldusername",
+			IsActive:  true,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+
+		updatedUser := &dto.User{
+			UserID:    userID.String(),
+			Username:  "newusername",
+			IsActive:  true,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+
+		fix.mockRepo.On("FindUserByID", mock.Anything, userID).Return(existingUser, nil).Once()
+		fix.mockRepo.On("UpdateUser", mock.Anything, userID, mock.Anything).Return(updatedUser, nil).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newUpdateProfileRequest(t, userID, `{"username": "newusername"}`))
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		var resp struct {
+			Success bool                    `json:"success"`
+			Data    dto.UserProfileResponse `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+		assert.True(t, resp.Success)
+		assert.Equal(t, "newusername", resp.Data.Username)
+	})
+
+	t.Run("NotFound_UserDoesNotExist", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTest(t)
+		userID := uuid.New()
+
+		fix.mockRepo.On("FindUserByID", mock.Anything, userID).Return(nil, repository.ErrUserNotFound).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newUpdateProfileRequest(t, userID, `{"username": "newusername"}`))
+
+		assert.Equal(t, http.StatusNotFound, rr.Code)
+	})
+
+	t.Run("Conflict_DuplicateUsername", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTest(t)
+		userID := fix.requesterID
+		now := time.Now()
+
+		existingUser := &dto.User{
+			UserID:    userID.String(),
+			Username:  "oldusername",
+			IsActive:  true,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+
+		fix.mockRepo.On("FindUserByID", mock.Anything, userID).Return(existingUser, nil).Once()
+		fix.mockRepo.On("UpdateUser", mock.Anything, userID, mock.Anything).
+			Return(nil, repository.ErrDuplicateUsername).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newUpdateProfileRequest(t, userID, `{"username": "existinguser"}`))
+
+		assert.Equal(t, http.StatusConflict, rr.Code)
+	})
+
+	t.Run("Unauthorized_MissingHeader", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTest(t)
+
+		reqBody := strings.NewReader(`{"username": "newusername"}`)
+		req, err := http.NewRequestWithContext(
+			context.Background(),
+			http.MethodPut,
+			baseURL+"/profile",
+			reqBody,
+		)
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		// No X-User-Id header
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusUnauthorized, rr.Code)
 	})
 }

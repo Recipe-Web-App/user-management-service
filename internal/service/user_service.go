@@ -13,6 +13,11 @@ import (
 // UserService defines business logic for user operations.
 type UserService interface {
 	GetUserProfile(ctx context.Context, requesterID, targetUserID uuid.UUID) (*dto.UserProfileResponse, error)
+	UpdateUserProfile(
+		ctx context.Context,
+		userID uuid.UUID,
+		update *dto.UserProfileUpdateRequest,
+	) (*dto.UserProfileResponse, error)
 }
 
 // ErrUserNotFound is returned when a user is not found.
@@ -20,6 +25,9 @@ var ErrUserNotFound = errors.New("user not found")
 
 // ErrProfilePrivate is returned when a profile is private and cannot be viewed.
 var ErrProfilePrivate = errors.New("profile is private")
+
+// ErrDuplicateUsername is returned when trying to use a username that already exists.
+var ErrDuplicateUsername = errors.New("username already exists")
 
 // UserServiceImpl implements UserService.
 type UserServiceImpl struct {
@@ -117,4 +125,62 @@ func (s *UserServiceImpl) buildProfileResponse(
 	}
 
 	return response
+}
+
+// UpdateUserProfile updates a user's profile and returns the updated profile.
+func (s *UserServiceImpl) UpdateUserProfile(
+	ctx context.Context,
+	userID uuid.UUID,
+	update *dto.UserProfileUpdateRequest,
+) (*dto.UserProfileResponse, error) {
+	// 1. Verify user exists before attempting update
+	existingUser, err := s.repo.FindUserByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, ErrUserNotFound
+		}
+
+		return nil, fmt.Errorf("failed to verify user exists: %w", err)
+	}
+
+	// 2. Check if there are any fields to update
+	if update.Username == nil && update.Email == nil && update.FullName == nil && update.Bio == nil {
+		// No changes requested, return current profile
+		return &dto.UserProfileResponse{
+			UserID:    existingUser.UserID,
+			Username:  existingUser.Username,
+			Email:     existingUser.Email,
+			FullName:  existingUser.FullName,
+			Bio:       existingUser.Bio,
+			IsActive:  existingUser.IsActive,
+			CreatedAt: existingUser.CreatedAt,
+			UpdatedAt: existingUser.UpdatedAt,
+		}, nil
+	}
+
+	// 3. Perform the update
+	updatedUser, err := s.repo.UpdateUser(ctx, userID, update)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, ErrUserNotFound
+		}
+
+		if errors.Is(err, repository.ErrDuplicateUsername) {
+			return nil, ErrDuplicateUsername
+		}
+
+		return nil, fmt.Errorf("failed to update user profile: %w", err)
+	}
+
+	// 4. Build response
+	return &dto.UserProfileResponse{
+		UserID:    updatedUser.UserID,
+		Username:  updatedUser.Username,
+		Email:     updatedUser.Email,
+		FullName:  updatedUser.FullName,
+		Bio:       updatedUser.Bio,
+		IsActive:  updatedUser.IsActive,
+		CreatedAt: updatedUser.CreatedAt,
+		UpdatedAt: updatedUser.UpdatedAt,
+	}, nil
 }

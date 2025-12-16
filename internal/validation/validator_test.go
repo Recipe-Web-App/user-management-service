@@ -151,3 +151,89 @@ func TestValidationErrors_ToMap(t *testing.T) {
 	assert.Equal(t, "is required", result["email"])
 	assert.Equal(t, "must be at least 2 characters", result["name"])
 }
+
+type usernamePatternTestStruct struct {
+	Username string `json:"username" validate:"username_pattern"`
+}
+
+func TestValidator_UsernamePattern(t *testing.T) { //nolint:funlen // table-driven test
+	t.Parallel()
+
+	v := New()
+
+	tests := []struct {
+		name      string
+		username  string
+		expectErr bool
+	}{
+		{
+			name:      "Valid - alphanumeric lowercase",
+			username:  "user123",
+			expectErr: false,
+		},
+		{
+			name:      "Valid - alphanumeric uppercase",
+			username:  "USER123",
+			expectErr: false,
+		},
+		{
+			name:      "Valid - with underscore",
+			username:  "user_name",
+			expectErr: false,
+		},
+		{
+			name:      "Valid - all underscores",
+			username:  "___",
+			expectErr: false,
+		},
+		{
+			name:      "Valid - mixed case with underscores",
+			username:  "User_Name_123",
+			expectErr: false,
+		},
+		{
+			name:      "Invalid - with @",
+			username:  "user@name",
+			expectErr: true,
+		},
+		{
+			name:      "Invalid - with space",
+			username:  "user name",
+			expectErr: true,
+		},
+		{
+			name:      "Invalid - with hyphen",
+			username:  "user-name",
+			expectErr: true,
+		},
+		{
+			name:      "Invalid - with dot",
+			username:  "user.name",
+			expectErr: true,
+		},
+		{
+			name:      "Invalid - with special chars",
+			username:  "user!@#$",
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := v.Validate(usernamePatternTestStruct{Username: tt.username})
+			if tt.expectErr {
+				require.Error(t, err)
+
+				var validationErrs ValidationErrors
+				require.ErrorAs(t, err, &validationErrs)
+				assert.Len(t, validationErrs, 1)
+				assert.Equal(t, "username", validationErrs[0].Field)
+				assert.Contains(t, validationErrs[0].Message, "alphanumeric")
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}

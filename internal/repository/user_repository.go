@@ -5,19 +5,25 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
 )
 
 // ErrUserNotFound is returned when a user is not found.
 var ErrUserNotFound = errors.New("user not found")
 
+// ErrDuplicateUsername is returned when a username already exists.
+var ErrDuplicateUsername = errors.New("username already exists")
+
 // UserRepository defines the interface for user data access.
 type UserRepository interface {
 	FindUserByID(ctx context.Context, userID uuid.UUID) (*dto.User, error)
 	FindPrivacyPreferencesByUserID(ctx context.Context, userID uuid.UUID) (*dto.PrivacyPreferences, error)
 	IsFollowing(ctx context.Context, followerID, followedID uuid.UUID) (bool, error)
+	UpdateUser(ctx context.Context, userID uuid.UUID, update *dto.UserProfileUpdateRequest) (*dto.User, error)
 }
 
 // SQLUserRepository implements UserRepository using a SQL database.
@@ -157,4 +163,112 @@ func (r *SQLUserRepository) IsFollowing(ctx context.Context, followerID, followe
 	}
 
 	return true, nil
+}
+
+// UpdateUser updates a user's profile and returns the updated user.
+func (r *SQLUserRepository) UpdateUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	update *dto.UserProfileUpdateRequest,
+) (*dto.User, error) {
+	setClauses, args, argIndex := buildUpdateClauses(update)
+	args = append(args, userID)
+
+	query := fmt.Sprintf(
+		`UPDATE recipe_manager.users
+		SET %s
+		WHERE user_id = $%d
+		RETURNING user_id, username, email, full_name, bio, is_active, created_at, updated_at`,
+		strings.Join(setClauses, ", "), argIndex)
+
+	user, err := r.executeUpdateQuery(ctx, query, args)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func buildUpdateClauses(update *dto.UserProfileUpdateRequest) ([]string, []any, int) {
+	setClauses := []string{"updated_at = NOW()"}
+	args := []any{}
+	argIndex := 1
+
+	if update.Username != nil {
+		setClauses = append(setClauses, fmt.Sprintf("username = $%d", argIndex))
+		args = append(args, *update.Username)
+		argIndex++
+	}
+
+	if update.Email != nil {
+		setClauses = append(setClauses, fmt.Sprintf("email = $%d", argIndex))
+		args = append(args, *update.Email)
+		argIndex++
+	}
+
+	if update.FullName != nil {
+		setClauses = append(setClauses, fmt.Sprintf("full_name = $%d", argIndex))
+		args = append(args, *update.FullName)
+		argIndex++
+	}
+
+	if update.Bio != nil {
+		setClauses = append(setClauses, fmt.Sprintf("bio = $%d", argIndex))
+		args = append(args, *update.Bio)
+		argIndex++
+	}
+
+	return setClauses, args, argIndex
+}
+
+func (r *SQLUserRepository) executeUpdateQuery(ctx context.Context, query string, args []any) (*dto.User, error) {
+	var (
+		user                 dto.User
+		email, fullName, bio sql.NullString
+	)
+
+	err := r.db.QueryRowContext(ctx, query, args...).Scan(
+		&user.UserID,
+		&user.Username,
+		&email,
+		&fullName,
+		&bio,
+		&user.IsActive,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if err != nil {
+		return nil, mapUpdateError(err)
+	}
+
+	assignNullableFields(&user, email, fullName, bio)
+
+	return &user, nil
+}
+
+func mapUpdateError(err error) error {
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrUserNotFound
+	}
+
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return ErrDuplicateUsername
+	}
+
+	return fmt.Errorf("failed to update user: %w", err)
+}
+
+func assignNullableFields(user *dto.User, email, fullName, bio sql.NullString) {
+	if email.Valid {
+		user.Email = &email.String
+	}
+
+	if fullName.Valid {
+		user.FullName = &fullName.String
+	}
+
+	if bio.Valid {
+		user.Bio = &bio.String
+	}
 }

@@ -6,7 +6,7 @@ package dto
 
 // UserProfileUpdateRequest represents a request to update user profile.
 type UserProfileUpdateRequest struct {
-	Username *string `json:"username,omitempty" validate:"omitempty,min=3,max=50,alphanum"`
+	Username *string `json:"username,omitempty" validate:"omitempty,min=3,max=50,username_pattern"`
 	Email    *string `json:"email,omitempty"    validate:"omitempty,email"`
 	FullName *string `json:"fullName,omitempty" validate:"omitempty,max=255"`
 	Bio      *string `json:"bio,omitempty"      validate:"omitempty,max=1000"`

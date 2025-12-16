@@ -108,14 +108,58 @@ func (m *MockUserRepo) UpdateUser(
 	return nil, errMockInvalidUser
 }
 
+// MockTokenStore for component tests.
+type MockTokenStore struct {
+	mock.Mock
+}
+
+func (m *MockTokenStore) StoreDeleteToken(
+	ctx context.Context,
+	userID uuid.UUID,
+	token string,
+	ttl time.Duration,
+) error {
+	args := m.Called(ctx, userID, token, ttl)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockErrorFmt, err)
+	}
+
+	return nil
+}
+
+func (m *MockTokenStore) GetDeleteToken(ctx context.Context, userID uuid.UUID) (string, error) {
+	args := m.Called(ctx, userID)
+
+	err := args.Error(1)
+	if err != nil {
+		return args.String(0), fmt.Errorf(mockErrorFmt, err)
+	}
+
+	return args.String(0), nil
+}
+
+func (m *MockTokenStore) DeleteDeleteToken(ctx context.Context, userID uuid.UUID) error {
+	args := m.Called(ctx, userID)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockErrorFmt, err)
+	}
+
+	return nil
+}
+
 func TestUserProfileComponent(t *testing.T) {
 	t.Parallel()
 
 	// Create Mock Repo
 	mockRepo := new(MockUserRepo)
+	mockTokenStore := new(MockTokenStore)
 
 	// Create Service using Mock Repo
-	svc := service.NewUserService(mockRepo)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
 
 	// Create Container
 	c := &app.Container{
@@ -182,7 +226,8 @@ func TestUpdateUserProfileComponent_Success(t *testing.T) {
 	t.Parallel()
 
 	mockRepo := new(MockUserRepo)
-	svc := service.NewUserService(mockRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
 
 	c := &app.Container{
 		UserService: svc,
@@ -245,7 +290,8 @@ func TestUpdateUserProfileComponent_NotFound(t *testing.T) {
 	t.Parallel()
 
 	mockRepo := new(MockUserRepo)
-	svc := service.NewUserService(mockRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
 
 	c := &app.Container{
 		UserService: svc,
@@ -276,7 +322,8 @@ func TestUpdateUserProfileComponent_DuplicateUsername(t *testing.T) {
 	t.Parallel()
 
 	mockRepo := new(MockUserRepo)
-	svc := service.NewUserService(mockRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
 
 	c := &app.Container{
 		UserService: svc,
@@ -317,7 +364,8 @@ func TestUpdateUserProfileComponent_ValidationError(t *testing.T) {
 	t.Parallel()
 
 	mockRepo := new(MockUserRepo)
-	svc := service.NewUserService(mockRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
 
 	c := &app.Container{
 		UserService: svc,
@@ -342,4 +390,142 @@ func TestUpdateUserProfileComponent_ValidationError(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
+}
+
+func TestRequestAccountDeletionComponent_Success(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+	now := time.Now()
+
+	user := &dto.User{
+		UserID:    userID.String(),
+		Username:  "testuser",
+		IsActive:  true,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	mockRepo.On("FindUserByID", mock.Anything, userID).Return(user, nil)
+	mockTokenStore.On("StoreDeleteToken", mock.Anything, userID, mock.Anything, service.DeleteTokenTTL).Return(nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/user-management/users/account/delete-request", nil)
+	req.Header.Set("X-User-Id", userID.String())
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var apiResp struct {
+		Success bool                                `json:"success"`
+		Data    dto.UserAccountDeleteRequestResponse `json:"data"`
+	}
+
+	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
+	require.NoError(t, err)
+	require.True(t, apiResp.Success)
+	assert.Equal(t, userID.String(), apiResp.Data.UserID)
+	assert.NotEmpty(t, apiResp.Data.ConfirmationToken)
+	assert.False(t, apiResp.Data.ExpiresAt.IsZero())
+}
+
+func TestRequestAccountDeletionComponent_Unauthorized(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	// Missing X-User-Id header
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/user-management/users/account/delete-request", nil)
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+}
+
+func TestRequestAccountDeletionComponent_NotFound(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+
+	mockRepo.On("FindUserByID", mock.Anything, userID).Return(nil, repository.ErrUserNotFound)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/user-management/users/account/delete-request", nil)
+	req.Header.Set("X-User-Id", userID.String())
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.Contains(t, rr.Body.String(), "USER_NOT_FOUND")
+}
+
+func TestRequestAccountDeletionComponent_ServiceUnavailable(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	// Use nil token store to simulate cache unavailable
+	svc := service.NewUserService(mockRepo, nil)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/user-management/users/account/delete-request", nil)
+	req.Header.Set("X-User-Id", userID.String())
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+	assert.Contains(t, rr.Body.String(), "SERVICE_UNAVAILABLE")
 }

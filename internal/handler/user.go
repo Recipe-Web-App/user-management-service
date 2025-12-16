@@ -105,12 +105,20 @@ func (h *UserHandler) UpdateUserProfile(w http.ResponseWriter, r *http.Request) 
 }
 
 // RequestAccountDeletion handles POST /users/account/delete-request.
-func (h *UserHandler) RequestAccountDeletion(w http.ResponseWriter, _ *http.Request) {
-	SuccessResponse(w, http.StatusOK, dto.UserAccountDeleteRequestResponse{
-		UserID:            uuid.New().String(),
-		ConfirmationToken: uuid.New().String(),
-		ExpiresAt:         time.Now().Add(24 * time.Hour), //nolint:mnd // placeholder expiry
-	})
+func (h *UserHandler) RequestAccountDeletion(w http.ResponseWriter, r *http.Request) {
+	requesterID, ok := h.extractAuthenticatedUserID(w, r)
+	if !ok {
+		return
+	}
+
+	response, err := h.userService.RequestAccountDeletion(r.Context(), requesterID)
+	if err != nil {
+		h.handleDeleteRequestError(w, err)
+
+		return
+	}
+
+	SuccessResponse(w, http.StatusOK, response)
 }
 
 // ConfirmAccountDeletion handles DELETE /users/account.
@@ -195,6 +203,17 @@ func (h *UserHandler) handleUpdateProfileError(w http.ResponseWriter, err error)
 		ErrorResponse(w, http.StatusNotFound, "USER_NOT_FOUND", "User not found")
 	case errors.Is(err, service.ErrDuplicateUsername):
 		ConflictResponse(w, "Username already taken")
+	default:
+		InternalErrorResponse(w)
+	}
+}
+
+func (h *UserHandler) handleDeleteRequestError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, service.ErrUserNotFound):
+		ErrorResponse(w, http.StatusNotFound, "USER_NOT_FOUND", "User not found")
+	case errors.Is(err, service.ErrCacheUnavailable):
+		ServiceUnavailableResponse(w, "Service temporarily unavailable")
 	default:
 		InternalErrorResponse(w)
 	}

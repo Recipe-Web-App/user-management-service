@@ -124,3 +124,69 @@ func BenchmarkUpdateUserProfile(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkRequestAccountDeletion(b *testing.B) {
+	if benchmarkContainer == nil || benchmarkContainer.Database == nil {
+		b.Fatal("benchmark container or database is nil")
+	}
+
+	dbSvc, ok := benchmarkContainer.Database.(*database.Service)
+	if !ok {
+		b.Fatal("failed to cast database service")
+	}
+
+	cfg := benchmarkContainer.Config.Postgres
+	b.Logf("DEBUG: DB Host=%s Port=%d User='%s' DBName=%s", cfg.Host, cfg.Port, cfg.User, cfg.Database)
+
+	userID := uuid.New()
+
+	seedBenchmarkUser(b, dbSvc.GetDB(), userID)
+
+	reqPath := "/api/v1/user-management/users/account/delete-request"
+
+	for b.Loop() {
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, reqPath, nil)
+		req.Header.Set("X-User-Id", userID.String())
+
+		rr := httptest.NewRecorder()
+		benchmarkHandler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			b.Fatalf("unexpected status: %d, body: %s", rr.Code, rr.Body.String())
+		}
+	}
+}
+
+func BenchmarkRequestAccountDeletionConcurrent(b *testing.B) {
+	if benchmarkContainer == nil || benchmarkContainer.Database == nil {
+		b.Fatal("benchmark container or database is nil")
+	}
+
+	dbSvc, ok := benchmarkContainer.Database.(*database.Service)
+	if !ok {
+		b.Fatal("failed to cast database service")
+	}
+
+	cfg := benchmarkContainer.Config.Postgres
+	b.Logf("DEBUG: DB Host=%s Port=%d User='%s' DBName=%s", cfg.Host, cfg.Port, cfg.User, cfg.Database)
+
+	userID := uuid.New()
+
+	seedBenchmarkUser(b, dbSvc.GetDB(), userID)
+
+	reqPath := "/api/v1/user-management/users/account/delete-request"
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, reqPath, nil)
+			req.Header.Set("X-User-Id", userID.String())
+
+			rr := httptest.NewRecorder()
+			benchmarkHandler.ServeHTTP(rr, req)
+
+			if rr.Code != http.StatusOK {
+				b.Fatalf("unexpected status: %d, body: %s", rr.Code, rr.Body.String())
+			}
+		}
+	})
+}

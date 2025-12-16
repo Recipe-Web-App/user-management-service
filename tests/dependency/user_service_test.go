@@ -7,16 +7,20 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/google/uuid"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/app"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/config"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/redis"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/repository"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/server"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -334,6 +338,199 @@ func TestUpdateUserProfile(t *testing.T) { //nolint:funlen // table-driven test
 		)
 		require.NoError(t, err)
 		req.Header.Set("Content-Type", "application/json")
+		// No X-User-Id header
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusUnauthorized, rr.Code)
+	})
+}
+
+// testFixtureWithRedis includes a real miniredis instance for token storage tests.
+type testFixtureWithRedis struct {
+	handler     http.Handler
+	mockRepo    *MockUserRepository
+	redisServer *miniredis.Miniredis
+	requesterID uuid.UUID
+}
+
+func setupTestWithRedis(t *testing.T) *testFixtureWithRedis {
+	t.Helper()
+
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+
+	port, _ := strconv.Atoi(mr.Port())
+
+	redisConfig := &config.RedisConfig{
+		Host:     mr.Host(),
+		Port:     port,
+		Database: 0,
+		Password: "",
+	}
+
+	redisService, err := redis.New(redisConfig)
+	require.NoError(t, err)
+
+	mockRepo := new(MockUserRepository)
+	cfg := &config.Config{}
+
+	container, err := app.NewContainer(app.ContainerConfig{
+		Config:     cfg,
+		UserRepo:   mockRepo,
+		TokenStore: redisService,
+	})
+	require.NoError(t, err)
+
+	srv := server.NewServerWithContainer(container)
+
+	return &testFixtureWithRedis{
+		handler:     srv.Handler,
+		mockRepo:    mockRepo,
+		redisServer: mr,
+		requesterID: uuid.New(),
+	}
+}
+
+func newDeleteRequestRequest(t *testing.T, userID uuid.UUID) *http.Request {
+	t.Helper()
+
+	reqPath := baseURL + "/account/delete-request"
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, reqPath, nil)
+	require.NoError(t, err)
+	req.Header.Set(headerUserID, userID.String())
+
+	return req
+}
+
+func TestRequestAccountDeletion(t *testing.T) { //nolint:funlen // table-driven test
+	t.Parallel()
+
+	t.Run("Success_WithRealRedis", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTestWithRedis(t)
+		defer fix.redisServer.Close()
+
+		userID := fix.requesterID
+		now := time.Now()
+
+		user := &dto.User{
+			UserID:    userID.String(),
+			Username:  "testuser",
+			IsActive:  true,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+
+		fix.mockRepo.On("FindUserByID", mock.Anything, userID).Return(user, nil).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newDeleteRequestRequest(t, userID))
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		var resp struct {
+			Success bool                                 `json:"success"`
+			Data    dto.UserAccountDeleteRequestResponse `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+		assert.True(t, resp.Success)
+		assert.Equal(t, userID.String(), resp.Data.UserID)
+		assert.NotEmpty(t, resp.Data.ConfirmationToken)
+		assert.False(t, resp.Data.ExpiresAt.IsZero())
+
+		// Verify token is stored in Redis
+		storedToken, err := fix.redisServer.Get("delete-request:" + userID.String())
+		require.NoError(t, err)
+		assert.Equal(t, resp.Data.ConfirmationToken, storedToken)
+
+		// Verify TTL is set (approximately 24 hours)
+		ttl := fix.redisServer.TTL("delete-request:" + userID.String())
+		assert.Positive(t, ttl)
+		assert.LessOrEqual(t, ttl, service.DeleteTokenTTL)
+	})
+
+	t.Run("TokenReplacement_NewRequestReplacesOldToken", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTestWithRedis(t)
+		defer fix.redisServer.Close()
+
+		userID := fix.requesterID
+		now := time.Now()
+
+		user := &dto.User{
+			UserID:    userID.String(),
+			Username:  "testuser",
+			IsActive:  true,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+
+		fix.mockRepo.On("FindUserByID", mock.Anything, userID).Return(user, nil)
+
+		// First request
+		rr1 := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr1, newDeleteRequestRequest(t, userID))
+		require.Equal(t, http.StatusOK, rr1.Code)
+
+		var resp1 struct {
+			Data dto.UserAccountDeleteRequestResponse `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(rr1.Body.Bytes(), &resp1))
+		firstToken := resp1.Data.ConfirmationToken
+
+		// Second request
+		rr2 := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr2, newDeleteRequestRequest(t, userID))
+		require.Equal(t, http.StatusOK, rr2.Code)
+
+		var resp2 struct {
+			Data dto.UserAccountDeleteRequestResponse `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(rr2.Body.Bytes(), &resp2))
+		secondToken := resp2.Data.ConfirmationToken
+
+		// Verify tokens are different
+		assert.NotEqual(t, firstToken, secondToken)
+
+		// Verify only the second token is stored
+		storedToken, err := fix.redisServer.Get("delete-request:" + userID.String())
+		require.NoError(t, err)
+		assert.Equal(t, secondToken, storedToken)
+	})
+
+	t.Run("NotFound_UserDoesNotExist", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTestWithRedis(t)
+		defer fix.redisServer.Close()
+
+		nonExistentID := uuid.New()
+
+		fix.mockRepo.On("FindUserByID", mock.Anything, nonExistentID).Return(nil, repository.ErrUserNotFound).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newDeleteRequestRequest(t, nonExistentID))
+
+		assert.Equal(t, http.StatusNotFound, rr.Code)
+	})
+
+	t.Run("Unauthorized_MissingHeader", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTestWithRedis(t)
+		defer fix.redisServer.Close()
+
+		req, err := http.NewRequestWithContext(
+			context.Background(),
+			http.MethodPost,
+			baseURL+"/account/delete-request",
+			nil,
+		)
+		require.NoError(t, err)
 		// No X-User-Id header
 
 		rr := httptest.NewRecorder()

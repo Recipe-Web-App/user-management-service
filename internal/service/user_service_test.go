@@ -25,6 +25,7 @@ var (
 	errMockArgs           = errors.New("mock: missing args")
 	errMockInvalidUser    = errors.New("invalid type assertion for User")
 	errMockInvalidPrivacy = errors.New("invalid type assertion for PrivacyPreferences")
+	errRedis              = errors.New("redis error")
 )
 
 // MockUserRepository is a mock implementation of repository.UserRepository.
@@ -103,6 +104,49 @@ func (m *MockUserRepository) UpdateUser(
 	}
 
 	return nil, errMockInvalidUser
+}
+
+// MockTokenStore is a mock implementation of repository.TokenStore.
+type MockTokenStore struct {
+	mock.Mock
+}
+
+func (m *MockTokenStore) StoreDeleteToken(
+	ctx context.Context,
+	userID uuid.UUID,
+	token string,
+	ttl time.Duration,
+) error {
+	args := m.Called(ctx, userID, token, ttl)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockErrorFmt, err)
+	}
+
+	return nil
+}
+
+func (m *MockTokenStore) GetDeleteToken(ctx context.Context, userID uuid.UUID) (string, error) {
+	args := m.Called(ctx, userID)
+
+	err := args.Error(1)
+	if err != nil {
+		return args.String(0), fmt.Errorf(mockErrorFmt, err)
+	}
+
+	return args.String(0), nil
+}
+
+func (m *MockTokenStore) DeleteDeleteToken(ctx context.Context, userID uuid.UUID) error {
+	args := m.Called(ctx, userID)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockErrorFmt, err)
+	}
+
+	return nil
 }
 
 type userServiceTestCase struct {
@@ -240,7 +284,8 @@ func runUserServiceTest(t *testing.T, tests []userServiceTestCase, targetID uuid
 			t.Parallel()
 
 			mockRepo := new(MockUserRepository)
-			svc := service.NewUserService(mockRepo)
+			mockTokenStore := new(MockTokenStore)
+			svc := service.NewUserService(mockRepo, mockTokenStore)
 
 			ctx := context.Background()
 
@@ -415,11 +460,113 @@ func TestUserServiceUpdateUserProfile(t *testing.T) { //nolint:funlen // table-d
 			t.Parallel()
 
 			mockRepo := new(MockUserRepository)
-			svc := service.NewUserService(mockRepo)
+			mockTokenStore := new(MockTokenStore)
+			svc := service.NewUserService(mockRepo, mockTokenStore)
 
 			tt.setupMock(mockRepo)
 
 			resp, err := svc.UpdateUserProfile(context.Background(), userID, tt.update)
+
+			if tt.expectedErr != nil {
+				require.Error(t, err)
+				require.ErrorIs(t, err, tt.expectedErr)
+				assert.Nil(t, resp)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+
+				if tt.validateResp != nil {
+					tt.validateResp(t, resp)
+				}
+			}
+		})
+	}
+}
+
+func TestUserServiceRequestAccountDeletion(t *testing.T) { //nolint:funlen // table-driven test
+	t.Parallel()
+
+	userID := uuid.New()
+	now := time.Now()
+
+	baseUser := &dto.User{
+		UserID:    userID.String(),
+		Username:  "testuser",
+		Email:     func() *string { s := testEmail; return &s }(),
+		FullName:  func() *string { s := testUserFullName; return &s }(),
+		Bio:       func() *string { s := "Bio"; return &s }(),
+		IsActive:  true,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	tests := []struct {
+		name          string
+		setupMock     func(*MockUserRepository, *MockTokenStore)
+		tokenStoreNil bool
+		expectedErr   error
+		validateResp  func(*testing.T, *dto.UserAccountDeleteRequestResponse)
+	}{
+		{
+			name: "Success",
+			setupMock: func(repo *MockUserRepository, ts *MockTokenStore) {
+				repo.On("FindUserByID", mock.Anything, userID).Return(baseUser, nil)
+				ts.On("StoreDeleteToken", mock.Anything, userID, mock.Anything, service.DeleteTokenTTL).Return(nil)
+			},
+			validateResp: func(t *testing.T, r *dto.UserAccountDeleteRequestResponse) {
+				t.Helper()
+				assert.Equal(t, userID.String(), r.UserID)
+				assert.NotEmpty(t, r.ConfirmationToken)
+				assert.False(t, r.ExpiresAt.IsZero())
+			},
+		},
+		{
+			name:          "Cache Unavailable - Token Store Nil",
+			tokenStoreNil: true,
+			expectedErr:   service.ErrCacheUnavailable,
+		},
+		{
+			name: "User Not Found",
+			setupMock: func(repo *MockUserRepository, ts *MockTokenStore) {
+				repo.On("FindUserByID", mock.Anything, userID).Return(nil, repository.ErrUserNotFound)
+			},
+			expectedErr: service.ErrUserNotFound,
+		},
+		{
+			name: "Cache Unavailable - Redis Error",
+			setupMock: func(repo *MockUserRepository, ts *MockTokenStore) {
+				repo.On("FindUserByID", mock.Anything, userID).Return(baseUser, nil)
+				ts.On("StoreDeleteToken", mock.Anything, userID, mock.Anything, service.DeleteTokenTTL).Return(errRedis)
+			},
+			expectedErr: service.ErrCacheUnavailable,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockRepo := new(MockUserRepository)
+
+			var tokenStore *MockTokenStore
+			if !tt.tokenStoreNil {
+				tokenStore = new(MockTokenStore)
+			}
+
+			var svc *service.UserServiceImpl
+			if tt.tokenStoreNil {
+				svc = service.NewUserService(mockRepo, nil)
+			} else {
+				svc = service.NewUserService(mockRepo, tokenStore)
+			}
+
+			if tt.setupMock != nil && tokenStore != nil {
+				tt.setupMock(mockRepo, tokenStore)
+			} else if tt.setupMock != nil {
+				tt.setupMock(mockRepo, nil)
+			}
+
+			resp, err := svc.RequestAccountDeletion(context.Background(), userID)
 
 			if tt.expectedErr != nil {
 				require.Error(t, err)

@@ -4,11 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/repository"
 )
+
+// DeleteTokenTTL is the duration for which delete confirmation tokens are valid.
+const DeleteTokenTTL = 24 * time.Hour
 
 // UserService defines business logic for user operations.
 type UserService interface {
@@ -18,6 +22,7 @@ type UserService interface {
 		userID uuid.UUID,
 		update *dto.UserProfileUpdateRequest,
 	) (*dto.UserProfileResponse, error)
+	RequestAccountDeletion(ctx context.Context, userID uuid.UUID) (*dto.UserAccountDeleteRequestResponse, error)
 }
 
 // ErrUserNotFound is returned when a user is not found.
@@ -29,14 +34,21 @@ var ErrProfilePrivate = errors.New("profile is private")
 // ErrDuplicateUsername is returned when trying to use a username that already exists.
 var ErrDuplicateUsername = errors.New("username already exists")
 
+// ErrCacheUnavailable is returned when the cache (Redis) is not available.
+var ErrCacheUnavailable = errors.New("cache unavailable")
+
 // UserServiceImpl implements UserService.
 type UserServiceImpl struct {
-	repo repository.UserRepository
+	repo       repository.UserRepository
+	tokenStore repository.TokenStore
 }
 
 // NewUserService creates a new UserService.
-func NewUserService(repo repository.UserRepository) *UserServiceImpl {
-	return &UserServiceImpl{repo: repo}
+func NewUserService(repo repository.UserRepository, tokenStore repository.TokenStore) *UserServiceImpl {
+	return &UserServiceImpl{
+		repo:       repo,
+		tokenStore: tokenStore,
+	}
 }
 
 // GetUserProfile retrieves a user profile respecting privacy settings.
@@ -182,5 +194,44 @@ func (s *UserServiceImpl) UpdateUserProfile(
 		IsActive:  updatedUser.IsActive,
 		CreatedAt: updatedUser.CreatedAt,
 		UpdatedAt: updatedUser.UpdatedAt,
+	}, nil
+}
+
+// RequestAccountDeletion creates a deletion request and returns a confirmation token.
+func (s *UserServiceImpl) RequestAccountDeletion(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*dto.UserAccountDeleteRequestResponse, error) {
+	// 1. Check if token store is available
+	if s.tokenStore == nil {
+		return nil, ErrCacheUnavailable
+	}
+
+	// 2. Verify user exists
+	_, err := s.repo.FindUserByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, ErrUserNotFound
+		}
+
+		return nil, fmt.Errorf("failed to verify user exists: %w", err)
+	}
+
+	// 3. Generate confirmation token
+	token := uuid.New().String()
+
+	// 4. Store token in cache with TTL (replaces any existing token)
+	err = s.tokenStore.StoreDeleteToken(ctx, userID, token, DeleteTokenTTL)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrCacheUnavailable, err)
+	}
+
+	// 5. Calculate expiration time
+	expiresAt := time.Now().Add(DeleteTokenTTL)
+
+	return &dto.UserAccountDeleteRequestResponse{
+		UserID:            userID.String(),
+		ConfirmationToken: token,
+		ExpiresAt:         expiresAt,
 	}, nil
 }

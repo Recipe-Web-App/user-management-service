@@ -25,10 +25,11 @@ type Container struct {
 
 // ContainerConfig holds options for building the container.
 type ContainerConfig struct {
-	Config   *config.Config
-	Database repository.HealthChecker  // Optional override for testing
-	Cache    repository.HealthChecker  // Optional override for testing
-	UserRepo repository.UserRepository // Optional override for testing
+	Config     *config.Config
+	Database   repository.HealthChecker  // Optional override for testing
+	Cache      repository.HealthChecker  // Optional override for testing
+	UserRepo   repository.UserRepository // Optional override for testing
+	TokenStore repository.TokenStore     // Optional override for testing
 }
 
 // NewContainer creates a new dependency container.
@@ -73,8 +74,16 @@ func NewContainer(cfg ContainerConfig) (*Container, error) {
 		userRepo = repository.NewUserRepository(dbService.GetDB())
 	}
 
+	// Get token store from config or cache
+	var tokenStore repository.TokenStore
+	if cfg.TokenStore != nil {
+		tokenStore = cfg.TokenStore
+	} else if redisService, ok := c.Cache.(*redis.Service); ok {
+		tokenStore = redisService
+	}
+
 	if userRepo != nil {
-		c.UserService = service.NewUserService(userRepo)
+		c.UserService = service.NewUserService(userRepo, tokenStore)
 	}
 
 	return c, nil

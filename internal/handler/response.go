@@ -91,3 +91,12 @@ func ForbiddenResponse(w http.ResponseWriter, message string) {
 func ConflictResponse(w http.ResponseWriter, message string) {
 	ErrorResponse(w, http.StatusConflict, "CONFLICT", message)
 }
+
+// ServiceUnavailableResponse writes a 503 service unavailable response.
+func ServiceUnavailableResponse(w http.ResponseWriter, message string) {
+	if message == "" {
+		message = "Service temporarily unavailable"
+	}
+
+	ErrorResponse(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", message)
+}

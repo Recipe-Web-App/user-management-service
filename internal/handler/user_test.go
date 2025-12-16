@@ -20,9 +20,10 @@ import (
 )
 
 var (
-	errDB        = errors.New("db error")
-	errMockArgs  = errors.New("mock: missing args")
-	errStartType = errors.New("invalid type assertion for UserProfileResponse")
+	errDB                = errors.New("db error")
+	errMockArgs          = errors.New("mock: missing args")
+	errStartType         = errors.New("invalid type assertion for UserProfileResponse")
+	errDeleteRequestType = errors.New("invalid type assertion for UserAccountDeleteRequestResponse")
 )
 
 // MockUserService is a mock implementation of service.UserService.
@@ -71,6 +72,27 @@ func (m *MockUserService) UpdateUserProfile(
 	}
 
 	return nil, errStartType
+}
+
+func (m *MockUserService) RequestAccountDeletion(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*dto.UserAccountDeleteRequestResponse, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		err := args.Error(1)
+		if err != nil {
+			return nil, fmt.Errorf("mock error: %w", err)
+		}
+
+		return nil, errMockArgs
+	}
+
+	if val, ok := args.Get(0).(*dto.UserAccountDeleteRequestResponse); ok {
+		return val, nil
+	}
+
+	return nil, errDeleteRequestType
 }
 
 type userHandlerTestCase struct {
@@ -339,6 +361,115 @@ func TestUserHandlerUpdateUserProfile(t *testing.T) { //nolint:funlen // table-d
 
 			if tt.contentType != "" {
 				req.Header.Set("Content-Type", tt.contentType)
+			}
+
+			rr := httptest.NewRecorder()
+			r.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+
+			if tt.validateBody != nil {
+				tt.validateBody(t, rr.Body.String())
+			}
+		})
+	}
+}
+
+type requestAccountDeletionTestCase struct {
+	name           string
+	requesterIDHdr string
+	mockRun        func(*MockUserService)
+	expectedStatus int
+	validateBody   func(*testing.T, string)
+}
+
+func TestUserHandlerRequestAccountDeletion(t *testing.T) { //nolint:funlen // table-driven test
+	t.Parallel()
+
+	userID := uuid.New()
+	now := time.Now()
+
+	tests := []requestAccountDeletionTestCase{
+		{
+			name:           "Success",
+			requesterIDHdr: userID.String(),
+			mockRun: func(m *MockUserService) {
+				m.On("RequestAccountDeletion", mock.Anything, userID).Return(&dto.UserAccountDeleteRequestResponse{
+					UserID:            userID.String(),
+					ConfirmationToken: uuid.New().String(),
+					ExpiresAt:         now.Add(24 * time.Hour),
+				}, nil)
+			},
+			expectedStatus: http.StatusOK,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, userID.String())
+				assert.Contains(t, body, `"success":true`)
+				assert.Contains(t, body, `"confirmationToken"`)
+				assert.Contains(t, body, `"expiresAt"`)
+			},
+		},
+		{
+			name:           "Unauthorized - Missing X-User-Id",
+			requesterIDHdr: "",
+			expectedStatus: http.StatusUnauthorized,
+		},
+		{
+			name:           "Unauthorized - Invalid UUID in header",
+			requesterIDHdr: "not-a-uuid",
+			expectedStatus: http.StatusUnauthorized,
+		},
+		{
+			name:           "Not Found - User does not exist",
+			requesterIDHdr: userID.String(),
+			mockRun: func(m *MockUserService) {
+				m.On("RequestAccountDeletion", mock.Anything, userID).Return(nil, service.ErrUserNotFound)
+			},
+			expectedStatus: http.StatusNotFound,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "USER_NOT_FOUND")
+			},
+		},
+		{
+			name:           "Service Unavailable - Cache unavailable",
+			requesterIDHdr: userID.String(),
+			mockRun: func(m *MockUserService) {
+				m.On("RequestAccountDeletion", mock.Anything, userID).Return(nil, service.ErrCacheUnavailable)
+			},
+			expectedStatus: http.StatusServiceUnavailable,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "SERVICE_UNAVAILABLE")
+			},
+		},
+		{
+			name:           "Internal Error",
+			requesterIDHdr: userID.String(),
+			mockRun: func(m *MockUserService) {
+				m.On("RequestAccountDeletion", mock.Anything, userID).Return(nil, errDB)
+			},
+			expectedStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockSvc := new(MockUserService)
+			if tt.mockRun != nil {
+				tt.mockRun(mockSvc)
+			}
+
+			h := handler.NewUserHandler(mockSvc)
+
+			r := chi.NewRouter()
+			r.Post("/users/account/delete-request", h.RequestAccountDeletion)
+
+			req := httptest.NewRequest(http.MethodPost, "/users/account/delete-request", nil)
+			if tt.requesterIDHdr != "" {
+				req.Header.Set("X-User-Id", tt.requesterIDHdr)
 			}
 
 			rr := httptest.NewRecorder()

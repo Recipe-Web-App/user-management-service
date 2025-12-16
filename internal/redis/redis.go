@@ -3,12 +3,14 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/config"
 	"github.com/redis/go-redis/v9"
 )
@@ -136,3 +138,68 @@ func (s *Service) logStateChange(currentStatus string) {
 		s.prevStatus = currentStatus
 	}
 }
+
+// deleteTokenKey returns the Redis key for storing a user's delete request token.
+func deleteTokenKey(userID uuid.UUID) string {
+	return "delete-request:" + userID.String()
+}
+
+// StoreDeleteToken stores a delete confirmation token for a user with the specified TTL.
+// If a token already exists for the user, it will be replaced.
+func (s *Service) StoreDeleteToken(ctx context.Context, userID uuid.UUID, token string, ttl time.Duration) error {
+	if s == nil || s.client == nil {
+		return ErrRedisUnavailable
+	}
+
+	key := deleteTokenKey(userID)
+
+	err := s.client.Set(ctx, key, token, ttl).Err()
+	if err != nil {
+		return fmt.Errorf("failed to store delete token: %w", err)
+	}
+
+	return nil
+}
+
+// GetDeleteToken retrieves a delete confirmation token for a user.
+// Returns ErrTokenNotFound if no token exists.
+func (s *Service) GetDeleteToken(ctx context.Context, userID uuid.UUID) (string, error) {
+	if s == nil || s.client == nil {
+		return "", ErrRedisUnavailable
+	}
+
+	key := deleteTokenKey(userID)
+
+	token, err := s.client.Get(ctx, key).Result()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return "", ErrTokenNotFound
+		}
+
+		return "", fmt.Errorf("failed to get delete token: %w", err)
+	}
+
+	return token, nil
+}
+
+// DeleteDeleteToken removes a delete confirmation token for a user.
+func (s *Service) DeleteDeleteToken(ctx context.Context, userID uuid.UUID) error {
+	if s == nil || s.client == nil {
+		return ErrRedisUnavailable
+	}
+
+	key := deleteTokenKey(userID)
+
+	err := s.client.Del(ctx, key).Err()
+	if err != nil {
+		return fmt.Errorf("failed to delete token: %w", err)
+	}
+
+	return nil
+}
+
+// ErrRedisUnavailable is returned when Redis is not available.
+var ErrRedisUnavailable = errors.New("redis is unavailable")
+
+// ErrTokenNotFound is returned when a token does not exist.
+var ErrTokenNotFound = errors.New("token not found")

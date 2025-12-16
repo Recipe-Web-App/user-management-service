@@ -76,7 +76,10 @@ app.add_middleware(PerformanceMiddleware, enable_metrics=True)
 app.add_middleware(SecurityHeadersMiddleware)
 
 # Configure CORS
-allowed_origins = settings.allowed_origin_hosts.split(",")
+# Strip whitespace and handle accidental Python list syntax (e.g., "['http://...']")
+allowed_origins = [
+    origin.strip().strip("[]'\"") for origin in settings.allowed_origin_hosts.split(",")
+]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,

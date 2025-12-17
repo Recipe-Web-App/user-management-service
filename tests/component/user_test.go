@@ -432,7 +432,7 @@ func TestRequestAccountDeletionComponent_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 
 	var apiResp struct {
-		Success bool                                `json:"success"`
+		Success bool                                 `json:"success"`
 		Data    dto.UserAccountDeleteRequestResponse `json:"data"`
 	}
 

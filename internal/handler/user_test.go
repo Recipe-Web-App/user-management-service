@@ -25,6 +25,7 @@ var (
 	errStartType           = errors.New("invalid type assertion for UserProfileResponse")
 	errDeleteRequestType   = errors.New("invalid type assertion for UserAccountDeleteRequestResponse")
 	errConfirmDeletionType = errors.New("invalid type assertion for UserConfirmAccountDeleteResponse")
+	errSearchResponseType  = errors.New("invalid type assertion for UserSearchResponse")
 )
 
 // MockUserService is a mock implementation of service.UserService.
@@ -116,6 +117,29 @@ func (m *MockUserService) ConfirmAccountDeletion(
 	}
 
 	return nil, errConfirmDeletionType
+}
+
+func (m *MockUserService) SearchUsers(
+	ctx context.Context,
+	query string,
+	limit, offset int,
+	countOnly bool,
+) (*dto.UserSearchResponse, error) {
+	args := m.Called(ctx, query, limit, offset, countOnly)
+	if args.Get(0) == nil {
+		err := args.Error(1)
+		if err != nil {
+			return nil, fmt.Errorf("mock error: %w", err)
+		}
+
+		return nil, errMockArgs
+	}
+
+	if val, ok := args.Get(0).(*dto.UserSearchResponse); ok {
+		return val, nil
+	}
+
+	return nil, errSearchResponseType
 }
 
 type userHandlerTestCase struct {
@@ -655,6 +679,220 @@ func TestUserHandlerConfirmAccountDeletion(t *testing.T) { //nolint:funlen // ta
 
 			if tt.contentType != "" {
 				req.Header.Set("Content-Type", tt.contentType)
+			}
+
+			rr := httptest.NewRecorder()
+			r.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+
+			if tt.validateBody != nil {
+				tt.validateBody(t, rr.Body.String())
+			}
+		})
+	}
+}
+
+type searchUsersTestCase struct {
+	name           string
+	requesterIDHdr string
+	queryParams    string
+	mockRun        func(*MockUserService)
+	expectedStatus int
+	validateBody   func(*testing.T, string)
+}
+
+func TestUserHandlerSearchUsers(t *testing.T) { //nolint:funlen // table-driven test
+	t.Parallel()
+
+	userID := uuid.New()
+	now := time.Now()
+	fullName := "Test User"
+
+	tests := []searchUsersTestCase{
+		{
+			name:           "Success - Returns search results",
+			requesterIDHdr: userID.String(),
+			queryParams:    "?query=test&limit=10&offset=0",
+			mockRun: func(m *MockUserService) {
+				m.On("SearchUsers", mock.Anything, "test", 10, 0, false).Return(&dto.UserSearchResponse{
+					Results: []dto.UserSearchResult{
+						{
+							UserID:    uuid.New().String(),
+							Username:  "testuser",
+							FullName:  &fullName,
+							IsActive:  true,
+							CreatedAt: now,
+							UpdatedAt: now,
+						},
+					},
+					TotalCount: 1,
+					Limit:      10,
+					Offset:     0,
+				}, nil)
+			},
+			expectedStatus: http.StatusOK,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, `"success":true`)
+				assert.Contains(t, body, "testuser")
+				assert.Contains(t, body, `"totalCount":1`)
+			},
+		},
+		{
+			name:           "Success - count_only returns only count",
+			requesterIDHdr: userID.String(),
+			queryParams:    "?query=test&count_only=true",
+			mockRun: func(m *MockUserService) {
+				m.On("SearchUsers", mock.Anything, "test", 20, 0, true).Return(&dto.UserSearchResponse{
+					Results:    []dto.UserSearchResult{},
+					TotalCount: 5,
+					Limit:      20,
+					Offset:     0,
+				}, nil)
+			},
+			expectedStatus: http.StatusOK,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, `"success":true`)
+				assert.Contains(t, body, `"totalCount":5`)
+				assert.Contains(t, body, `"results":[]`)
+			},
+		},
+		{
+			name:           "Success - Empty query returns all users",
+			requesterIDHdr: userID.String(),
+			queryParams:    "",
+			mockRun: func(m *MockUserService) {
+				m.On("SearchUsers", mock.Anything, "", 20, 0, false).Return(&dto.UserSearchResponse{
+					Results:    []dto.UserSearchResult{},
+					TotalCount: 0,
+					Limit:      20,
+					Offset:     0,
+				}, nil)
+			},
+			expectedStatus: http.StatusOK,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, `"success":true`)
+				assert.Contains(t, body, `"totalCount":0`)
+			},
+		},
+		{
+			name:           "Success - No results found (empty array)",
+			requesterIDHdr: userID.String(),
+			queryParams:    "?query=nonexistent",
+			mockRun: func(m *MockUserService) {
+				m.On("SearchUsers", mock.Anything, "nonexistent", 20, 0, false).Return(&dto.UserSearchResponse{
+					Results:    []dto.UserSearchResult{},
+					TotalCount: 0,
+					Limit:      20,
+					Offset:     0,
+				}, nil)
+			},
+			expectedStatus: http.StatusOK,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, `"success":true`)
+				assert.Contains(t, body, `"results":[]`)
+				assert.Contains(t, body, `"totalCount":0`)
+			},
+		},
+		{
+			name:           "Unauthorized - Missing X-User-Id",
+			requesterIDHdr: "",
+			queryParams:    "?query=test",
+			expectedStatus: http.StatusUnauthorized,
+		},
+		{
+			name:           "Unauthorized - Invalid UUID in header",
+			requesterIDHdr: "not-a-uuid",
+			queryParams:    "?query=test",
+			expectedStatus: http.StatusUnauthorized,
+		},
+		{
+			name:           "Bad Request - Invalid limit (zero)",
+			requesterIDHdr: userID.String(),
+			queryParams:    "?query=test&limit=0",
+			expectedStatus: http.StatusBadRequest,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "VALIDATION_ERROR")
+				assert.Contains(t, body, "limit")
+			},
+		},
+		{
+			name:           "Bad Request - Invalid limit (over max)",
+			requesterIDHdr: userID.String(),
+			queryParams:    "?query=test&limit=101",
+			expectedStatus: http.StatusBadRequest,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "VALIDATION_ERROR")
+				assert.Contains(t, body, "limit")
+			},
+		},
+		{
+			name:           "Bad Request - Invalid limit (not a number)",
+			requesterIDHdr: userID.String(),
+			queryParams:    "?query=test&limit=abc",
+			expectedStatus: http.StatusBadRequest,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "VALIDATION_ERROR")
+				assert.Contains(t, body, "limit")
+			},
+		},
+		{
+			name:           "Bad Request - Negative offset",
+			requesterIDHdr: userID.String(),
+			queryParams:    "?query=test&offset=-1",
+			expectedStatus: http.StatusBadRequest,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "VALIDATION_ERROR")
+				assert.Contains(t, body, "offset")
+			},
+		},
+		{
+			name:           "Bad Request - Invalid count_only",
+			requesterIDHdr: userID.String(),
+			queryParams:    "?query=test&count_only=notabool",
+			expectedStatus: http.StatusBadRequest,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "VALIDATION_ERROR")
+				assert.Contains(t, body, "count_only")
+			},
+		},
+		{
+			name:           "Internal Error - Database failure",
+			requesterIDHdr: userID.String(),
+			queryParams:    "?query=test",
+			mockRun: func(m *MockUserService) {
+				m.On("SearchUsers", mock.Anything, "test", 20, 0, false).Return(nil, errDB)
+			},
+			expectedStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockSvc := new(MockUserService)
+			if tt.mockRun != nil {
+				tt.mockRun(mockSvc)
+			}
+
+			h := handler.NewUserHandler(mockSvc)
+
+			r := chi.NewRouter()
+			r.Get("/users/search", h.SearchUsers)
+
+			req := httptest.NewRequest(http.MethodGet, "/users/search"+tt.queryParams, nil)
+			if tt.requesterIDHdr != "" {
+				req.Header.Set("X-User-Id", tt.requesterIDHdr)
 			}
 
 			rr := httptest.NewRecorder()

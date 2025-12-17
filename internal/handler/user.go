@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -16,6 +17,22 @@ import (
 const (
 	placeholderFullName = "John Doe"
 	placeholderUsername = "johndoe"
+)
+
+// Pagination constants.
+const (
+	defaultLimit = 20
+	maxLimit     = 100
+	minLimit     = 1
+)
+
+// Search parameter validation errors.
+var (
+	ErrInvalidLimit     = errors.New("limit must be a valid integer")
+	ErrLimitOutOfRange  = errors.New("limit must be between 1 and 100")
+	ErrInvalidOffset    = errors.New("offset must be a valid integer")
+	ErrNegativeOffset   = errors.New("offset must be non-negative")
+	ErrInvalidCountOnly = errors.New("count_only must be a valid boolean")
 )
 
 // UserHandler handles user-related HTTP endpoints.
@@ -148,25 +165,30 @@ func (h *UserHandler) ConfirmAccountDeletion(w http.ResponseWriter, r *http.Requ
 }
 
 // SearchUsers handles GET /users/search.
-func (h *UserHandler) SearchUsers(w http.ResponseWriter, _ *http.Request) {
-	now := time.Now()
-	fullName := placeholderFullName
+func (h *UserHandler) SearchUsers(w http.ResponseWriter, r *http.Request) {
+	// 1. Require authentication
+	_, ok := h.extractAuthenticatedUserID(w, r)
+	if !ok {
+		return
+	}
 
-	SuccessResponse(w, http.StatusOK, dto.UserSearchResponse{
-		Results: []dto.UserSearchResult{
-			{
-				UserID:    uuid.New().String(),
-				Username:  placeholderUsername,
-				FullName:  &fullName,
-				IsActive:  true,
-				CreatedAt: now,
-				UpdatedAt: now,
-			},
-		},
-		TotalCount: 1,
-		Limit:      20, //nolint:mnd // placeholder pagination
-		Offset:     0,
-	})
+	// 2. Parse query parameters
+	params, err := h.parseSearchParams(r)
+	if err != nil {
+		ErrorResponse(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
+
+		return
+	}
+
+	// 3. Call service
+	response, err := h.userService.SearchUsers(r.Context(), params.query, params.limit, params.offset, params.countOnly)
+	if err != nil {
+		h.handleSearchError(w, err)
+
+		return
+	}
+
+	SuccessResponse(w, http.StatusOK, response)
 }
 
 // GetUserByID handles GET /users/{user_id}.
@@ -182,6 +204,68 @@ func (h *UserHandler) GetUserByID(w http.ResponseWriter, _ *http.Request) {
 		CreatedAt: now,
 		UpdatedAt: now,
 	})
+}
+
+type searchParams struct {
+	query     string
+	limit     int
+	offset    int
+	countOnly bool
+}
+
+func (h *UserHandler) parseSearchParams(r *http.Request) (*searchParams, error) {
+	params := &searchParams{
+		query:     r.URL.Query().Get("query"),
+		limit:     defaultLimit,
+		offset:    0,
+		countOnly: false,
+	}
+
+	// Parse limit
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil {
+			return nil, ErrInvalidLimit
+		}
+
+		if limit < minLimit || limit > maxLimit {
+			return nil, ErrLimitOutOfRange
+		}
+
+		params.limit = limit
+	}
+
+	// Parse offset
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		offset, err := strconv.Atoi(offsetStr)
+		if err != nil {
+			return nil, ErrInvalidOffset
+		}
+
+		if offset < 0 {
+			return nil, ErrNegativeOffset
+		}
+
+		params.offset = offset
+	}
+
+	// Parse count_only
+	if countOnlyStr := r.URL.Query().Get("count_only"); countOnlyStr != "" {
+		countOnly, err := strconv.ParseBool(countOnlyStr)
+		if err != nil {
+			return nil, ErrInvalidCountOnly
+		}
+
+		params.countOnly = countOnly
+	}
+
+	return params, nil
+}
+
+func (h *UserHandler) handleSearchError(w http.ResponseWriter, _ error) {
+	// For now, any error from the service is an internal error
+	// We can add more specific error handling as needed
+	InternalErrorResponse(w)
 }
 
 func (h *UserHandler) extractAuthenticatedUserID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {

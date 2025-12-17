@@ -122,11 +122,29 @@ func (h *UserHandler) RequestAccountDeletion(w http.ResponseWriter, r *http.Requ
 }
 
 // ConfirmAccountDeletion handles DELETE /users/account.
-func (h *UserHandler) ConfirmAccountDeletion(w http.ResponseWriter, _ *http.Request) {
-	SuccessResponse(w, http.StatusOK, dto.UserConfirmAccountDeleteResponse{
-		UserID:        uuid.New().String(),
-		DeactivatedAt: time.Now(),
-	})
+func (h *UserHandler) ConfirmAccountDeletion(w http.ResponseWriter, r *http.Request) {
+	requesterID, ok := h.extractAuthenticatedUserID(w, r)
+	if !ok {
+		return
+	}
+
+	var req dto.UserAccountDeleteRequest
+
+	bindErr := h.binder.BindAndValidate(r, &req)
+	if bindErr != nil {
+		h.handleBindError(w, bindErr)
+
+		return
+	}
+
+	response, err := h.userService.ConfirmAccountDeletion(r.Context(), requesterID, req.ConfirmationToken)
+	if err != nil {
+		h.handleConfirmDeletionError(w, err)
+
+		return
+	}
+
+	SuccessResponse(w, http.StatusOK, response)
 }
 
 // SearchUsers handles GET /users/search.
@@ -210,6 +228,19 @@ func (h *UserHandler) handleUpdateProfileError(w http.ResponseWriter, err error)
 
 func (h *UserHandler) handleDeleteRequestError(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, service.ErrUserNotFound):
+		ErrorResponse(w, http.StatusNotFound, "USER_NOT_FOUND", "User not found")
+	case errors.Is(err, service.ErrCacheUnavailable):
+		ServiceUnavailableResponse(w, "Service temporarily unavailable")
+	default:
+		InternalErrorResponse(w)
+	}
+}
+
+func (h *UserHandler) handleConfirmDeletionError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, service.ErrInvalidToken):
+		ErrorResponse(w, http.StatusBadRequest, "INVALID_TOKEN", "Invalid or expired confirmation token")
 	case errors.Is(err, service.ErrUserNotFound):
 		ErrorResponse(w, http.StatusNotFound, "USER_NOT_FOUND", "User not found")
 	case errors.Is(err, service.ErrCacheUnavailable):

@@ -20,10 +20,11 @@ import (
 )
 
 var (
-	errDB                = errors.New("db error")
-	errMockArgs          = errors.New("mock: missing args")
-	errStartType         = errors.New("invalid type assertion for UserProfileResponse")
-	errDeleteRequestType = errors.New("invalid type assertion for UserAccountDeleteRequestResponse")
+	errDB                  = errors.New("db error")
+	errMockArgs            = errors.New("mock: missing args")
+	errStartType           = errors.New("invalid type assertion for UserProfileResponse")
+	errDeleteRequestType   = errors.New("invalid type assertion for UserAccountDeleteRequestResponse")
+	errConfirmDeletionType = errors.New("invalid type assertion for UserConfirmAccountDeleteResponse")
 )
 
 // MockUserService is a mock implementation of service.UserService.
@@ -93,6 +94,28 @@ func (m *MockUserService) RequestAccountDeletion(
 	}
 
 	return nil, errDeleteRequestType
+}
+
+func (m *MockUserService) ConfirmAccountDeletion(
+	ctx context.Context,
+	userID uuid.UUID,
+	token string,
+) (*dto.UserConfirmAccountDeleteResponse, error) {
+	args := m.Called(ctx, userID, token)
+	if args.Get(0) == nil {
+		err := args.Error(1)
+		if err != nil {
+			return nil, fmt.Errorf("mock error: %w", err)
+		}
+
+		return nil, errMockArgs
+	}
+
+	if val, ok := args.Get(0).(*dto.UserConfirmAccountDeleteResponse); ok {
+		return val, nil
+	}
+
+	return nil, errConfirmDeletionType
 }
 
 type userHandlerTestCase struct {
@@ -470,6 +493,168 @@ func TestUserHandlerRequestAccountDeletion(t *testing.T) { //nolint:funlen // ta
 			req := httptest.NewRequest(http.MethodPost, "/users/account/delete-request", nil)
 			if tt.requesterIDHdr != "" {
 				req.Header.Set("X-User-Id", tt.requesterIDHdr)
+			}
+
+			rr := httptest.NewRecorder()
+			r.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+
+			if tt.validateBody != nil {
+				tt.validateBody(t, rr.Body.String())
+			}
+		})
+	}
+}
+
+type confirmAccountDeletionTestCase struct {
+	name           string
+	requesterIDHdr string
+	requestBody    string
+	contentType    string
+	mockRun        func(*MockUserService)
+	expectedStatus int
+	validateBody   func(*testing.T, string)
+}
+
+func TestUserHandlerConfirmAccountDeletion(t *testing.T) { //nolint:funlen // table-driven test
+	t.Parallel()
+
+	userID := uuid.New()
+	token := uuid.New().String()
+	now := time.Now()
+
+	tests := []confirmAccountDeletionTestCase{
+		{
+			name:           "Success",
+			requesterIDHdr: userID.String(),
+			requestBody:    fmt.Sprintf(`{"confirmationToken": "%s"}`, token),
+			contentType:    "application/json",
+			mockRun: func(m *MockUserService) {
+				m.On("ConfirmAccountDeletion", mock.Anything, userID, token).Return(&dto.UserConfirmAccountDeleteResponse{
+					UserID:        userID.String(),
+					DeactivatedAt: now,
+				}, nil)
+			},
+			expectedStatus: http.StatusOK,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, userID.String())
+				assert.Contains(t, body, `"success":true`)
+				assert.Contains(t, body, `"deactivatedAt"`)
+			},
+		},
+		{
+			name:           "Unauthorized - Missing X-User-Id",
+			requesterIDHdr: "",
+			requestBody:    fmt.Sprintf(`{"confirmationToken": "%s"}`, token),
+			contentType:    "application/json",
+			expectedStatus: http.StatusUnauthorized,
+		},
+		{
+			name:           "Unauthorized - Invalid UUID in header",
+			requesterIDHdr: "not-a-uuid",
+			requestBody:    fmt.Sprintf(`{"confirmationToken": "%s"}`, token),
+			contentType:    "application/json",
+			expectedStatus: http.StatusUnauthorized,
+		},
+		{
+			name:           "Bad Request - Empty body",
+			requesterIDHdr: userID.String(),
+			requestBody:    "",
+			contentType:    "application/json",
+			expectedStatus: http.StatusBadRequest,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "EMPTY_BODY")
+			},
+		},
+		{
+			name:           "Bad Request - Missing token",
+			requesterIDHdr: userID.String(),
+			requestBody:    `{}`,
+			contentType:    "application/json",
+			expectedStatus: http.StatusBadRequest,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "VALIDATION_ERROR")
+			},
+		},
+		{
+			name:           "Bad Request - Invalid token",
+			requesterIDHdr: userID.String(),
+			requestBody:    `{"confirmationToken": "wrong-token"}`,
+			contentType:    "application/json",
+			mockRun: func(m *MockUserService) {
+				m.On("ConfirmAccountDeletion", mock.Anything, userID, "wrong-token").Return(nil, service.ErrInvalidToken)
+			},
+			expectedStatus: http.StatusBadRequest,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "INVALID_TOKEN")
+			},
+		},
+		{
+			name:           "Not Found - User does not exist",
+			requesterIDHdr: userID.String(),
+			requestBody:    fmt.Sprintf(`{"confirmationToken": "%s"}`, token),
+			contentType:    "application/json",
+			mockRun: func(m *MockUserService) {
+				m.On("ConfirmAccountDeletion", mock.Anything, userID, token).Return(nil, service.ErrUserNotFound)
+			},
+			expectedStatus: http.StatusNotFound,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "USER_NOT_FOUND")
+			},
+		},
+		{
+			name:           "Service Unavailable - Cache unavailable",
+			requesterIDHdr: userID.String(),
+			requestBody:    fmt.Sprintf(`{"confirmationToken": "%s"}`, token),
+			contentType:    "application/json",
+			mockRun: func(m *MockUserService) {
+				m.On("ConfirmAccountDeletion", mock.Anything, userID, token).Return(nil, service.ErrCacheUnavailable)
+			},
+			expectedStatus: http.StatusServiceUnavailable,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "SERVICE_UNAVAILABLE")
+			},
+		},
+		{
+			name:           "Internal Error",
+			requesterIDHdr: userID.String(),
+			requestBody:    fmt.Sprintf(`{"confirmationToken": "%s"}`, token),
+			contentType:    "application/json",
+			mockRun: func(m *MockUserService) {
+				m.On("ConfirmAccountDeletion", mock.Anything, userID, token).Return(nil, errDB)
+			},
+			expectedStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests { //nolint:dupl // table-driven test runner
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockSvc := new(MockUserService)
+			if tt.mockRun != nil {
+				tt.mockRun(mockSvc)
+			}
+
+			h := handler.NewUserHandler(mockSvc)
+
+			r := chi.NewRouter()
+			r.Delete("/users/account", h.ConfirmAccountDeletion)
+
+			req := httptest.NewRequest(http.MethodDelete, "/users/account", strings.NewReader(tt.requestBody))
+			if tt.requesterIDHdr != "" {
+				req.Header.Set("X-User-Id", tt.requesterIDHdr)
+			}
+
+			if tt.contentType != "" {
+				req.Header.Set("Content-Type", tt.contentType)
 			}
 
 			rr := httptest.NewRecorder()

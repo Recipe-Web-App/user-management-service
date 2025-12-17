@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/redis"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/repository"
 )
 
@@ -23,6 +24,11 @@ type UserService interface {
 		update *dto.UserProfileUpdateRequest,
 	) (*dto.UserProfileResponse, error)
 	RequestAccountDeletion(ctx context.Context, userID uuid.UUID) (*dto.UserAccountDeleteRequestResponse, error)
+	ConfirmAccountDeletion(
+		ctx context.Context,
+		userID uuid.UUID,
+		token string,
+	) (*dto.UserConfirmAccountDeleteResponse, error)
 }
 
 // ErrUserNotFound is returned when a user is not found.
@@ -36,6 +42,9 @@ var ErrDuplicateUsername = errors.New("username already exists")
 
 // ErrCacheUnavailable is returned when the cache (Redis) is not available.
 var ErrCacheUnavailable = errors.New("cache unavailable")
+
+// ErrInvalidToken is returned when a confirmation token is invalid or expired.
+var ErrInvalidToken = errors.New("invalid or expired token")
 
 // UserServiceImpl implements UserService.
 type UserServiceImpl struct {
@@ -156,7 +165,9 @@ func (s *UserServiceImpl) UpdateUserProfile(
 	}
 
 	// 2. Check if there are any fields to update
-	if update.Username == nil && update.Email == nil && update.FullName == nil && update.Bio == nil {
+	noFieldsToUpdate := update.Username == nil && update.Email == nil &&
+		update.FullName == nil && update.Bio == nil && update.IsActive == nil
+	if noFieldsToUpdate {
 		// No changes requested, return current profile
 		return &dto.UserProfileResponse{
 			UserID:    existingUser.UserID,
@@ -233,5 +244,55 @@ func (s *UserServiceImpl) RequestAccountDeletion(
 		UserID:            userID.String(),
 		ConfirmationToken: token,
 		ExpiresAt:         expiresAt,
+	}, nil
+}
+
+// ConfirmAccountDeletion validates the token and deactivates the user account.
+func (s *UserServiceImpl) ConfirmAccountDeletion(
+	ctx context.Context,
+	userID uuid.UUID,
+	token string,
+) (*dto.UserConfirmAccountDeleteResponse, error) {
+	// 1. Check if token store is available
+	if s.tokenStore == nil {
+		return nil, ErrCacheUnavailable
+	}
+
+	// 2. Retrieve stored token from cache
+	storedToken, err := s.tokenStore.GetDeleteToken(ctx, userID)
+	if err != nil {
+		if errors.Is(err, redis.ErrTokenNotFound) {
+			return nil, ErrInvalidToken
+		}
+
+		return nil, fmt.Errorf("%w: %w", ErrCacheUnavailable, err)
+	}
+
+	// 3. Validate token matches
+	if storedToken != token {
+		return nil, ErrInvalidToken
+	}
+
+	// 4. Deactivate user (set is_active = false)
+	isActive := false
+
+	_, err = s.repo.UpdateUser(ctx, userID, &dto.UserProfileUpdateRequest{
+		IsActive: &isActive,
+	})
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, ErrUserNotFound
+		}
+
+		return nil, fmt.Errorf("failed to deactivate user: %w", err)
+	}
+
+	// 5. Delete token from cache (best-effort cleanup)
+	_ = s.tokenStore.DeleteDeleteToken(ctx, userID)
+
+	// 6. Return response
+	return &dto.UserConfirmAccountDeleteResponse{
+		UserID:        userID.String(),
+		DeactivatedAt: time.Now(),
 	}, nil
 }

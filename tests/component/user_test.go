@@ -529,3 +529,151 @@ func TestRequestAccountDeletionComponent_ServiceUnavailable(t *testing.T) {
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
 	assert.Contains(t, rr.Body.String(), "SERVICE_UNAVAILABLE")
 }
+
+func TestConfirmAccountDeletionComponent_Success(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+	token := uuid.New().String()
+	now := time.Now()
+
+	deactivatedUser := &dto.User{
+		UserID:    userID.String(),
+		Username:  "testuser",
+		IsActive:  false,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	mockTokenStore.On("GetDeleteToken", mock.Anything, userID).Return(token, nil)
+	mockRepo.On("UpdateUser", mock.Anything, userID, mock.Anything).Return(deactivatedUser, nil)
+	mockTokenStore.On("DeleteDeleteToken", mock.Anything, userID).Return(nil)
+
+	reqBody := fmt.Sprintf(`{"confirmationToken": "%s"}`, token)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/user-management/users/account", strings.NewReader(reqBody))
+	req.Header.Set("X-User-Id", userID.String())
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var apiResp struct {
+		Success bool                                 `json:"success"`
+		Data    dto.UserConfirmAccountDeleteResponse `json:"data"`
+	}
+
+	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
+	require.NoError(t, err)
+	require.True(t, apiResp.Success)
+	assert.Equal(t, userID.String(), apiResp.Data.UserID)
+	assert.False(t, apiResp.Data.DeactivatedAt.IsZero())
+}
+
+func TestConfirmAccountDeletionComponent_InvalidToken(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+	storedToken := uuid.New().String()
+
+	mockTokenStore.On("GetDeleteToken", mock.Anything, userID).Return(storedToken, nil)
+
+	reqBody := `{"confirmationToken": "wrong-token"}`
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/user-management/users/account", strings.NewReader(reqBody))
+	req.Header.Set("X-User-Id", userID.String())
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "INVALID_TOKEN")
+}
+
+func TestConfirmAccountDeletionComponent_Unauthorized(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	reqBody := `{"confirmationToken": "some-token"}`
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/user-management/users/account", strings.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	// Missing X-User-Id header
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+}
+
+func TestConfirmAccountDeletionComponent_ServiceUnavailable(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	// Use nil token store to simulate cache unavailable
+	svc := service.NewUserService(mockRepo, nil)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+
+	reqBody := `{"confirmationToken": "some-token"}`
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/user-management/users/account", strings.NewReader(reqBody))
+	req.Header.Set("X-User-Id", userID.String())
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+	assert.Contains(t, rr.Body.String(), "SERVICE_UNAVAILABLE")
+}

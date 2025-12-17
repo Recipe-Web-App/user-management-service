@@ -10,6 +10,7 @@ type UserProfileUpdateRequest struct {
 	Email    *string `json:"email,omitempty"    validate:"omitempty,email"`
 	FullName *string `json:"fullName,omitempty" validate:"omitempty,max=255"`
 	Bio      *string `json:"bio,omitempty"      validate:"omitempty,max=1000"`
+	IsActive *bool   `json:"-"`                 // Internal use only, not exposed in API
 }
 
 // UserAccountDeleteRequest represents a request to confirm account deletion.

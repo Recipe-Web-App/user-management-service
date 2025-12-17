@@ -539,3 +539,185 @@ func TestRequestAccountDeletion(t *testing.T) { //nolint:funlen // table-driven 
 		assert.Equal(t, http.StatusUnauthorized, rr.Code)
 	})
 }
+
+func newConfirmDeletionRequest(t *testing.T, userID uuid.UUID, body string) *http.Request {
+	t.Helper()
+
+	reqPath := baseURL + "/account"
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodDelete, reqPath, strings.NewReader(body))
+	require.NoError(t, err)
+	req.Header.Set(headerUserID, userID.String())
+	req.Header.Set("Content-Type", "application/json")
+
+	return req
+}
+
+func TestConfirmAccountDeletion(t *testing.T) { //nolint:funlen // table-driven test
+	t.Parallel()
+
+	t.Run("Success_WithRealRedis", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTestWithRedis(t)
+		defer fix.redisServer.Close()
+
+		userID := fix.requesterID
+		now := time.Now()
+
+		deactivatedUser := &dto.User{
+			UserID:    userID.String(),
+			Username:  "testuser",
+			IsActive:  false,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+
+		// Pre-store a token in Redis
+		token := uuid.New().String()
+		err := fix.redisServer.Set("delete-request:"+userID.String(), token)
+		require.NoError(t, err)
+
+		fix.mockRepo.On("UpdateUser", mock.Anything, userID, mock.Anything).Return(deactivatedUser, nil).Once()
+
+		reqBody := fmt.Sprintf(`{"confirmationToken": "%s"}`, token)
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newConfirmDeletionRequest(t, userID, reqBody))
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		var resp struct {
+			Success bool                                 `json:"success"`
+			Data    dto.UserConfirmAccountDeleteResponse `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+		assert.True(t, resp.Success)
+		assert.Equal(t, userID.String(), resp.Data.UserID)
+		assert.False(t, resp.Data.DeactivatedAt.IsZero())
+
+		// Verify token is deleted from Redis
+		exists := fix.redisServer.Exists("delete-request:" + userID.String())
+		assert.False(t, exists)
+	})
+
+	t.Run("InvalidToken_WrongToken", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTestWithRedis(t)
+		defer fix.redisServer.Close()
+
+		userID := fix.requesterID
+
+		// Pre-store a token in Redis
+		correctToken := uuid.New().String()
+		err := fix.redisServer.Set("delete-request:"+userID.String(), correctToken)
+		require.NoError(t, err)
+
+		// Send wrong token
+		reqBody := `{"confirmationToken": "wrong-token"}`
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newConfirmDeletionRequest(t, userID, reqBody))
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), "INVALID_TOKEN")
+	})
+
+	t.Run("InvalidToken_TokenExpired", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTestWithRedis(t)
+		defer fix.redisServer.Close()
+
+		userID := fix.requesterID
+
+		// No token stored in Redis (simulating expired/not requested)
+
+		reqBody := `{"confirmationToken": "some-token"}`
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newConfirmDeletionRequest(t, userID, reqBody))
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), "INVALID_TOKEN")
+	})
+
+	t.Run("FullFlow_RequestThenConfirm", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTestWithRedis(t)
+		defer fix.redisServer.Close()
+
+		userID := fix.requesterID
+		now := time.Now()
+
+		user := &dto.User{
+			UserID:    userID.String(),
+			Username:  "testuser",
+			IsActive:  true,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+		deactivatedUser := &dto.User{
+			UserID:    userID.String(),
+			Username:  "testuser",
+			IsActive:  false,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+
+		fix.mockRepo.On("FindUserByID", mock.Anything, userID).Return(user, nil).Once()
+		fix.mockRepo.On("UpdateUser", mock.Anything, userID, mock.Anything).Return(deactivatedUser, nil).Once()
+
+		// Step 1: Request deletion
+		rr1 := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr1, newDeleteRequestRequest(t, userID))
+		require.Equal(t, http.StatusOK, rr1.Code)
+
+		var requestResp struct {
+			Data dto.UserAccountDeleteRequestResponse `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(rr1.Body.Bytes(), &requestResp))
+		token := requestResp.Data.ConfirmationToken
+
+		// Step 2: Confirm deletion with the received token
+		reqBody := fmt.Sprintf(`{"confirmationToken": "%s"}`, token)
+		rr2 := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr2, newConfirmDeletionRequest(t, userID, reqBody))
+
+		require.Equal(t, http.StatusOK, rr2.Code)
+
+		var confirmResp struct {
+			Success bool                                 `json:"success"`
+			Data    dto.UserConfirmAccountDeleteResponse `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(rr2.Body.Bytes(), &confirmResp))
+		assert.True(t, confirmResp.Success)
+		assert.Equal(t, userID.String(), confirmResp.Data.UserID)
+		assert.False(t, confirmResp.Data.DeactivatedAt.IsZero())
+
+		// Verify token is deleted
+		exists := fix.redisServer.Exists("delete-request:" + userID.String())
+		assert.False(t, exists)
+	})
+
+	t.Run("Unauthorized_MissingHeader", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTestWithRedis(t)
+		defer fix.redisServer.Close()
+
+		reqBody := strings.NewReader(`{"confirmationToken": "some-token"}`)
+		req, err := http.NewRequestWithContext(
+			context.Background(),
+			http.MethodDelete,
+			baseURL+"/account",
+			reqBody,
+		)
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		// No X-User-Id header
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusUnauthorized, rr.Code)
+	})
+}

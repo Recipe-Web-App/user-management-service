@@ -218,6 +218,12 @@ func buildUpdateClauses(update *dto.UserProfileUpdateRequest) ([]string, []any, 
 		argIndex++
 	}
 
+	if update.IsActive != nil {
+		setClauses = append(setClauses, fmt.Sprintf("is_active = $%d", argIndex))
+		args = append(args, *update.IsActive)
+		argIndex++
+	}
+
 	return setClauses, args, argIndex
 }
 

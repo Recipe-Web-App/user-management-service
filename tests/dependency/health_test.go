@@ -46,6 +46,6 @@ func TestReadyEndpoint(t *testing.T) {
 
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	require.NoError(t, err)
-	// Since no DB is configured for dependency tests, it should be DEGRADED
-	assert.Equal(t, "DEGRADED", response["status"])
+	// Dependency tests expect dependencies (Redis) to be available
+	assert.Equal(t, "READY", response["status"])
 }

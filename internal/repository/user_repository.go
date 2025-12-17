@@ -24,6 +24,7 @@ type UserRepository interface {
 	FindPrivacyPreferencesByUserID(ctx context.Context, userID uuid.UUID) (*dto.PrivacyPreferences, error)
 	IsFollowing(ctx context.Context, followerID, followedID uuid.UUID) (bool, error)
 	UpdateUser(ctx context.Context, userID uuid.UUID, update *dto.UserProfileUpdateRequest) (*dto.User, error)
+	SearchUsers(ctx context.Context, query string, limit, offset int) ([]dto.UserSearchResult, int, error)
 }
 
 // SQLUserRepository implements UserRepository using a SQL database.
@@ -277,4 +278,106 @@ func assignNullableFields(user *dto.User, email, fullName, bio sql.NullString) {
 	if bio.Valid {
 		user.Bio = &bio.String
 	}
+}
+
+// SearchUsers searches for active users by username or full name with pagination.
+func (r *SQLUserRepository) SearchUsers(
+	ctx context.Context,
+	query string,
+	limit, offset int,
+) ([]dto.UserSearchResult, int, error) {
+	// Build search pattern for ILIKE
+	searchPattern := "%" + query + "%"
+
+	// Get total count first
+	totalCount, err := r.countSearchResults(ctx, searchPattern)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Get paginated results
+	results, err := r.fetchSearchResults(ctx, searchPattern, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return results, totalCount, nil
+}
+
+func (r *SQLUserRepository) countSearchResults(ctx context.Context, searchPattern string) (int, error) {
+	countQuery := `
+		SELECT COUNT(*)
+		FROM recipe_manager.users
+		WHERE is_active = true
+		  AND (username ILIKE $1 OR full_name ILIKE $1)
+	`
+
+	var count int
+
+	err := r.db.QueryRowContext(ctx, countQuery, searchPattern).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count search results: %w", err)
+	}
+
+	return count, nil
+}
+
+func (r *SQLUserRepository) fetchSearchResults(
+	ctx context.Context,
+	searchPattern string,
+	limit, offset int,
+) ([]dto.UserSearchResult, error) {
+	resultsQuery := `
+		SELECT user_id, username, full_name, is_active, created_at, updated_at
+		FROM recipe_manager.users
+		WHERE is_active = true
+		  AND (username ILIKE $1 OR full_name ILIKE $1)
+		ORDER BY username ASC
+		LIMIT $2 OFFSET $3
+	`
+
+	rows, err := r.db.QueryContext(ctx, resultsQuery, searchPattern, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search users: %w", err)
+	}
+
+	defer func() { _ = rows.Close() }()
+
+	return scanSearchResults(rows)
+}
+
+func scanSearchResults(rows *sql.Rows) ([]dto.UserSearchResult, error) {
+	var results []dto.UserSearchResult
+
+	for rows.Next() {
+		var (
+			result   dto.UserSearchResult
+			fullName sql.NullString
+		)
+
+		err := rows.Scan(
+			&result.UserID,
+			&result.Username,
+			&fullName,
+			&result.IsActive,
+			&result.CreatedAt,
+			&result.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan search result: %w", err)
+		}
+
+		if fullName.Valid {
+			result.FullName = &fullName.String
+		}
+
+		results = append(results, result)
+	}
+
+	err := rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("error iterating search results: %w", err)
+	}
+
+	return results, nil
 }

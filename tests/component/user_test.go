@@ -108,6 +108,23 @@ func (m *MockUserRepo) UpdateUser(
 	return nil, errMockInvalidUser
 }
 
+func (m *MockUserRepo) SearchUsers(
+	ctx context.Context,
+	query string,
+	limit, offset int,
+) ([]dto.UserSearchResult, int, error) {
+	args := m.Called(ctx, query, limit, offset)
+
+	err := args.Error(2)
+	if err != nil {
+		return nil, 0, fmt.Errorf(mockErrorFmt, err)
+	}
+
+	results, _ := args.Get(0).([]dto.UserSearchResult)
+
+	return results, args.Int(1), nil
+}
+
 // MockTokenStore for component tests.
 type MockTokenStore struct {
 	mock.Mock
@@ -676,4 +693,182 @@ func TestConfirmAccountDeletionComponent_ServiceUnavailable(t *testing.T) {
 
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
 	assert.Contains(t, rr.Body.String(), "SERVICE_UNAVAILABLE")
+}
+
+// ============================================================================
+// SearchUsers Component Tests
+// ============================================================================
+
+func TestSearchUsersComponent_Success(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+	now := time.Now()
+	fullName := "Test User"
+
+	searchResults := []dto.UserSearchResult{
+		{
+			UserID:    uuid.New().String(),
+			Username:  "testuser1",
+			FullName:  &fullName,
+			IsActive:  true,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+	}
+
+	mockRepo.On("SearchUsers", mock.Anything, "test", 20, 0).Return(searchResults, 1, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/search?query=test", nil)
+	req.Header.Set("X-User-Id", userID.String())
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var apiResp dto.Response
+
+	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
+	require.NoError(t, err)
+	assert.True(t, apiResp.Success)
+
+	// Verify response structure
+	assert.Contains(t, rr.Body.String(), "testuser1")
+	assert.Contains(t, rr.Body.String(), `"totalCount":1`)
+}
+
+func TestSearchUsersComponent_CountOnly(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+
+	// When count_only is true, service still calls repo but returns empty results
+	mockRepo.On("SearchUsers", mock.Anything, "test", 20, 0).Return([]dto.UserSearchResult{}, 5, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/search?query=test&count_only=true", nil)
+	req.Header.Set("X-User-Id", userID.String())
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), `"totalCount":5`)
+	assert.Contains(t, rr.Body.String(), `"results":[]`)
+}
+
+func TestSearchUsersComponent_WithPagination(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+
+	mockRepo.On("SearchUsers", mock.Anything, "test", 10, 5).Return([]dto.UserSearchResult{}, 15, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/search?query=test&limit=10&offset=5", nil)
+	req.Header.Set("X-User-Id", userID.String())
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), `"totalCount":15`)
+	assert.Contains(t, rr.Body.String(), `"limit":10`)
+	assert.Contains(t, rr.Body.String(), `"offset":5`)
+}
+
+func TestSearchUsersComponent_Unauthorized(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	// Missing X-User-Id header
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/search?query=test", nil)
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+}
+
+func TestSearchUsersComponent_InvalidLimit(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/search?query=test&limit=0", nil)
+	req.Header.Set("X-User-Id", userID.String())
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
 }

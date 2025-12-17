@@ -108,6 +108,23 @@ func (m *MockUserRepository) UpdateUser(
 	return nil, errMockInvalidUser
 }
 
+func (m *MockUserRepository) SearchUsers(
+	ctx context.Context,
+	query string,
+	limit, offset int,
+) ([]dto.UserSearchResult, int, error) {
+	args := m.Called(ctx, query, limit, offset)
+
+	err := args.Error(2)
+	if err != nil {
+		return nil, 0, fmt.Errorf(mockErrorFmt, err)
+	}
+
+	results, _ := args.Get(0).([]dto.UserSearchResult)
+
+	return results, args.Int(1), nil
+}
+
 // MockTokenStore is a mock implementation of repository.TokenStore.
 type MockTokenStore struct {
 	mock.Mock

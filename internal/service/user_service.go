@@ -29,6 +29,12 @@ type UserService interface {
 		userID uuid.UUID,
 		token string,
 	) (*dto.UserConfirmAccountDeleteResponse, error)
+	SearchUsers(
+		ctx context.Context,
+		query string,
+		limit, offset int,
+		countOnly bool,
+	) (*dto.UserSearchResponse, error)
 }
 
 // ErrUserNotFound is returned when a user is not found.
@@ -294,5 +300,41 @@ func (s *UserServiceImpl) ConfirmAccountDeletion(
 	return &dto.UserConfirmAccountDeleteResponse{
 		UserID:        userID.String(),
 		DeactivatedAt: time.Now(),
+	}, nil
+}
+
+// SearchUsers searches for users by username or full name with pagination.
+func (s *UserServiceImpl) SearchUsers(
+	ctx context.Context,
+	query string,
+	limit, offset int,
+	countOnly bool,
+) (*dto.UserSearchResponse, error) {
+	// Get results from repository
+	results, totalCount, err := s.repo.SearchUsers(ctx, query, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search users: %w", err)
+	}
+
+	// If countOnly, return only the count with empty results
+	if countOnly {
+		return &dto.UserSearchResponse{
+			Results:    []dto.UserSearchResult{},
+			TotalCount: totalCount,
+			Limit:      limit,
+			Offset:     offset,
+		}, nil
+	}
+
+	// Ensure results is not nil (return empty slice instead)
+	if results == nil {
+		results = []dto.UserSearchResult{}
+	}
+
+	return &dto.UserSearchResponse{
+		Results:    results,
+		TotalCount: totalCount,
+		Limit:      limit,
+		Offset:     offset,
 	}, nil
 }

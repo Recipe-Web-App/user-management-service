@@ -127,6 +127,23 @@ func (m *MockUserRepository) UpdateUser(
 	return user, nil
 }
 
+func (m *MockUserRepository) SearchUsers(
+	ctx context.Context,
+	query string,
+	limit, offset int,
+) ([]dto.UserSearchResult, int, error) {
+	args := m.Called(ctx, query, limit, offset)
+
+	err := args.Error(2)
+	if err != nil {
+		return nil, 0, fmt.Errorf("search users: %w", err)
+	}
+
+	results, _ := args.Get(0).([]dto.UserSearchResult)
+
+	return results, args.Int(1), nil
+}
+
 type testFixture struct {
 	handler     http.Handler
 	mockRepo    *MockUserRepository
@@ -719,5 +736,191 @@ func TestConfirmAccountDeletion(t *testing.T) { //nolint:funlen // table-driven 
 		fix.handler.ServeHTTP(rr, req)
 
 		assert.Equal(t, http.StatusUnauthorized, rr.Code)
+	})
+}
+
+func newSearchRequest(t *testing.T, requesterID uuid.UUID, queryParams string) *http.Request {
+	t.Helper()
+
+	req, err := http.NewRequestWithContext(
+		context.Background(),
+		http.MethodGet,
+		baseURL+"/search"+queryParams,
+		nil,
+	)
+	require.NoError(t, err)
+	req.Header.Set(headerUserID, requesterID.String())
+
+	return req
+}
+
+//nolint:funlen // Table-driven test with multiple well-organized subtests
+func TestSearchUsers(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Success_ReturnsSearchResults", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTest(t)
+		now := time.Now()
+		fullName := "Test User"
+
+		searchResults := []dto.UserSearchResult{
+			{
+				UserID:    uuid.New().String(),
+				Username:  "testuser1",
+				FullName:  &fullName,
+				IsActive:  true,
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+		}
+
+		fix.mockRepo.On("SearchUsers", mock.Anything, "test", 20, 0).Return(searchResults, 1, nil)
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newSearchRequest(t, fix.requesterID, "?query=test"))
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		var resp struct {
+			Success bool                   `json:"success"`
+			Data    dto.UserSearchResponse `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+
+		assert.True(t, resp.Success)
+		assert.Equal(t, 1, resp.Data.TotalCount)
+		assert.Len(t, resp.Data.Results, 1)
+		assert.Equal(t, "testuser1", resp.Data.Results[0].Username)
+	})
+
+	t.Run("Success_CountOnly", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTest(t)
+
+		fix.mockRepo.On("SearchUsers", mock.Anything, "test", 20, 0).Return([]dto.UserSearchResult{}, 10, nil)
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newSearchRequest(t, fix.requesterID, "?query=test&count_only=true"))
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		var resp struct {
+			Success bool                   `json:"success"`
+			Data    dto.UserSearchResponse `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+
+		assert.True(t, resp.Success)
+		assert.Equal(t, 10, resp.Data.TotalCount)
+		assert.Empty(t, resp.Data.Results)
+	})
+
+	t.Run("Success_WithPagination", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTest(t)
+
+		fix.mockRepo.On("SearchUsers", mock.Anything, "user", 10, 5).Return([]dto.UserSearchResult{}, 25, nil)
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newSearchRequest(t, fix.requesterID, "?query=user&limit=10&offset=5"))
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		var resp struct {
+			Success bool                   `json:"success"`
+			Data    dto.UserSearchResponse `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+
+		assert.True(t, resp.Success)
+		assert.Equal(t, 25, resp.Data.TotalCount)
+		assert.Equal(t, 10, resp.Data.Limit)
+		assert.Equal(t, 5, resp.Data.Offset)
+	})
+
+	t.Run("Success_EmptyQuery", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTest(t)
+
+		fix.mockRepo.On("SearchUsers", mock.Anything, "", 20, 0).Return([]dto.UserSearchResult{}, 0, nil)
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newSearchRequest(t, fix.requesterID, ""))
+
+		require.Equal(t, http.StatusOK, rr.Code)
+	})
+
+	t.Run("BadRequest_InvalidLimit", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTest(t)
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newSearchRequest(t, fix.requesterID, "?query=test&limit=0"))
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
+	})
+
+	t.Run("BadRequest_LimitOverMax", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTest(t)
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newSearchRequest(t, fix.requesterID, "?query=test&limit=101"))
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
+	})
+
+	t.Run("BadRequest_NegativeOffset", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTest(t)
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newSearchRequest(t, fix.requesterID, "?query=test&offset=-1"))
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
+	})
+
+	t.Run("Unauthorized_MissingHeader", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTest(t)
+
+		req, err := http.NewRequestWithContext(
+			context.Background(),
+			http.MethodGet,
+			baseURL+"/search?query=test",
+			nil,
+		)
+		require.NoError(t, err)
+		// No X-User-Id header
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusUnauthorized, rr.Code)
+	})
+
+	t.Run("InternalError_DatabaseFailure", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTest(t)
+
+		fix.mockRepo.On("SearchUsers", mock.Anything, "test", 20, 0).Return(nil, 0, repository.ErrUserNotFound)
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newSearchRequest(t, fix.requesterID, "?query=test"))
+
+		assert.Equal(t, http.StatusInternalServerError, rr.Code)
 	})
 }

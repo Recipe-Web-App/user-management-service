@@ -872,3 +872,237 @@ func TestSearchUsersComponent_InvalidLimit(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
 }
+
+// ============================================================================
+// GetUserByID Component Tests
+// ============================================================================
+
+func TestGetUserByIDComponent_Success(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+	now := time.Now()
+
+	user := &dto.User{
+		UserID:    userID.String(),
+		Username:  "publicuser",
+		FullName:  func() *string { s := "Public User"; return &s }(),
+		IsActive:  true,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	privacy := &dto.PrivacyPreferences{
+		ProfileVisibility: "public",
+		ShowFullName:      true,
+	}
+
+	mockRepo.On("FindUserByID", mock.Anything, userID).Return(user, nil)
+	mockRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, userID).Return(privacy, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/"+userID.String(), nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var apiResp struct {
+		Success bool                 `json:"success"`
+		Data    dto.UserSearchResult `json:"data"`
+	}
+
+	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
+	require.NoError(t, err)
+	require.True(t, apiResp.Success)
+	assert.Equal(t, userID.String(), apiResp.Data.UserID)
+	assert.Equal(t, "publicuser", apiResp.Data.Username)
+}
+
+func TestGetUserByIDComponent_NotFound_UserDoesNotExist(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	nonExistentID := uuid.New()
+
+	mockRepo.On("FindUserByID", mock.Anything, nonExistentID).Return(nil, repository.ErrUserNotFound)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/"+nonExistentID.String(), nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.Contains(t, rr.Body.String(), "USER_NOT_FOUND")
+}
+
+func TestGetUserByIDComponent_NotFound_PrivateProfile(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+	now := time.Now()
+
+	user := &dto.User{
+		UserID:    userID.String(),
+		Username:  "privateuser",
+		IsActive:  true,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	privacy := &dto.PrivacyPreferences{
+		ProfileVisibility: "private",
+	}
+
+	mockRepo.On("FindUserByID", mock.Anything, userID).Return(user, nil)
+	mockRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, userID).Return(privacy, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/"+userID.String(), nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	// Private profile returns 404, not 403
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.Contains(t, rr.Body.String(), "USER_NOT_FOUND")
+}
+
+func TestGetUserByIDComponent_NotFound_FollowersOnlyProfile(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+	now := time.Now()
+
+	user := &dto.User{
+		UserID:    userID.String(),
+		Username:  "followersuser",
+		IsActive:  true,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	privacy := &dto.PrivacyPreferences{
+		ProfileVisibility: "followers_only",
+	}
+
+	mockRepo.On("FindUserByID", mock.Anything, userID).Return(user, nil)
+	mockRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, userID).Return(privacy, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/"+userID.String(), nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	// followers_only also returns 404 for anonymous access
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+}
+
+func TestGetUserByIDComponent_NotFound_InactiveUser(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+	now := time.Now()
+
+	user := &dto.User{
+		UserID:    userID.String(),
+		Username:  "inactiveuser",
+		IsActive:  false, // Inactive user
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	mockRepo.On("FindUserByID", mock.Anything, userID).Return(user, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/"+userID.String(), nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+}
+
+func TestGetUserByIDComponent_ValidationError_InvalidUUID(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockUserRepo)
+	mockTokenStore := new(MockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore)
+
+	c := &app.Container{
+		UserService: svc,
+		Config:      config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/not-a-uuid", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+	assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
+}

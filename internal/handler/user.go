@@ -4,19 +4,12 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/service"
-)
-
-// Placeholder constants for stub responses.
-const (
-	placeholderFullName = "John Doe"
-	placeholderUsername = "johndoe"
 )
 
 // Pagination constants.
@@ -192,18 +185,26 @@ func (h *UserHandler) SearchUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetUserByID handles GET /users/{user_id}.
-func (h *UserHandler) GetUserByID(w http.ResponseWriter, _ *http.Request) {
-	now := time.Now()
-	fullName := placeholderFullName
+func (h *UserHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
+	// 1. Extract UserID from path
+	userIDStr := chi.URLParam(r, "user_id")
 
-	SuccessResponse(w, http.StatusOK, dto.UserSearchResult{
-		UserID:    uuid.New().String(),
-		Username:  placeholderUsername,
-		FullName:  &fullName,
-		IsActive:  true,
-		CreatedAt: now,
-		UpdatedAt: now,
-	})
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		ErrorResponse(w, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "Invalid user ID format")
+
+		return
+	}
+
+	// 2. Call Service
+	result, err := h.userService.GetUserByID(r.Context(), userID)
+	if err != nil {
+		h.handleGetUserByIDError(w, err)
+
+		return
+	}
+
+	SuccessResponse(w, http.StatusOK, result)
 }
 
 type searchParams struct {
@@ -266,6 +267,15 @@ func (h *UserHandler) handleSearchError(w http.ResponseWriter, _ error) {
 	// For now, any error from the service is an internal error
 	// We can add more specific error handling as needed
 	InternalErrorResponse(w)
+}
+
+func (h *UserHandler) handleGetUserByIDError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, service.ErrUserNotFound):
+		ErrorResponse(w, http.StatusNotFound, "USER_NOT_FOUND", "User not found")
+	default:
+		InternalErrorResponse(w)
+	}
 }
 
 func (h *UserHandler) extractAuthenticatedUserID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {

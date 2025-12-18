@@ -924,3 +924,124 @@ func TestSearchUsers(t *testing.T) {
 		assert.Equal(t, http.StatusInternalServerError, rr.Code)
 	})
 }
+
+func newGetUserByIDRequest(t *testing.T, userID uuid.UUID) *http.Request {
+	t.Helper()
+
+	reqPath := fmt.Sprintf("%s/%s", baseURL, userID)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
+	require.NoError(t, err)
+	// No X-User-Id header needed - anonymous access
+
+	return req
+}
+
+func TestGetUserByID(t *testing.T) { //nolint:funlen // table-driven test
+	t.Parallel()
+
+	t.Run("Success_PublicProfile", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTest(t)
+		targetUserID := uuid.New()
+		now := time.Now()
+
+		user := &dto.User{
+			UserID:    targetUserID.String(),
+			Username:  "publicuser",
+			FullName:  func() *string { s := "Public User"; return &s }(),
+			IsActive:  true,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+		publicPrivacy := &dto.PrivacyPreferences{
+			ProfileVisibility: "public",
+			ShowFullName:      true,
+		}
+
+		fix.mockRepo.On("FindUserByID", mock.Anything, targetUserID).Return(user, nil).Once()
+		fix.mockRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetUserID).Return(publicPrivacy, nil).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newGetUserByIDRequest(t, targetUserID))
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		var resp struct {
+			Success bool                 `json:"success"`
+			Data    dto.UserSearchResult `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+		assert.True(t, resp.Success)
+		assert.Equal(t, user.Username, resp.Data.Username)
+	})
+
+	t.Run("NotFound_UserDoesNotExist", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTest(t)
+		nonExistentID := uuid.New()
+
+		fix.mockRepo.On("FindUserByID", mock.Anything, nonExistentID).Return(nil, repository.ErrUserNotFound).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newGetUserByIDRequest(t, nonExistentID))
+
+		assert.Equal(t, http.StatusNotFound, rr.Code)
+	})
+
+	t.Run("NotFound_PrivateProfile", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTest(t)
+		privateUserID := uuid.New()
+		now := time.Now()
+
+		user := &dto.User{
+			UserID:    privateUserID.String(),
+			Username:  "privateuser",
+			IsActive:  true,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+		privatePrivacy := &dto.PrivacyPreferences{
+			ProfileVisibility: "private",
+		}
+
+		fix.mockRepo.On("FindUserByID", mock.Anything, privateUserID).Return(user, nil).Once()
+		fix.mockRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, privateUserID).Return(privatePrivacy, nil).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newGetUserByIDRequest(t, privateUserID))
+
+		assert.Equal(t, http.StatusNotFound, rr.Code)
+	})
+
+	t.Run("NotFound_FollowersOnlyProfile", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupTest(t)
+		followersOnlyUserID := uuid.New()
+		now := time.Now()
+
+		user := &dto.User{
+			UserID:    followersOnlyUserID.String(),
+			Username:  "followersuser",
+			IsActive:  true,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+		followersOnlyPrivacy := &dto.PrivacyPreferences{
+			ProfileVisibility: "followers_only",
+		}
+
+		fix.mockRepo.On("FindUserByID", mock.Anything, followersOnlyUserID).Return(user, nil).Once()
+		fix.mockRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, followersOnlyUserID).
+			Return(followersOnlyPrivacy, nil).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newGetUserByIDRequest(t, followersOnlyUserID))
+
+		assert.Equal(t, http.StatusNotFound, rr.Code)
+	})
+}

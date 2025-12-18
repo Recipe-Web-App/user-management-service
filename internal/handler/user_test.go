@@ -26,6 +26,7 @@ var (
 	errDeleteRequestType   = errors.New("invalid type assertion for UserAccountDeleteRequestResponse")
 	errConfirmDeletionType = errors.New("invalid type assertion for UserConfirmAccountDeleteResponse")
 	errSearchResponseType  = errors.New("invalid type assertion for UserSearchResponse")
+	errSearchResultType    = errors.New("invalid type assertion for UserSearchResult")
 )
 
 // MockUserService is a mock implementation of service.UserService.
@@ -140,6 +141,27 @@ func (m *MockUserService) SearchUsers(
 	}
 
 	return nil, errSearchResponseType
+}
+
+func (m *MockUserService) GetUserByID(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*dto.UserSearchResult, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		err := args.Error(1)
+		if err != nil {
+			return nil, fmt.Errorf("mock error: %w", err)
+		}
+
+		return nil, errMockArgs
+	}
+
+	if val, ok := args.Get(0).(*dto.UserSearchResult); ok {
+		return val, nil
+	}
+
+	return nil, errSearchResultType
 }
 
 type userHandlerTestCase struct {
@@ -894,6 +916,117 @@ func TestUserHandlerSearchUsers(t *testing.T) { //nolint:funlen // table-driven 
 			if tt.requesterIDHdr != "" {
 				req.Header.Set("X-User-Id", tt.requesterIDHdr)
 			}
+
+			rr := httptest.NewRecorder()
+			r.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+
+			if tt.validateBody != nil {
+				tt.validateBody(t, rr.Body.String())
+			}
+		})
+	}
+}
+
+type getUserByIDTestCase struct {
+	name           string
+	targetIDPath   string
+	mockRun        func(*MockUserService)
+	expectedStatus int
+	validateBody   func(*testing.T, string)
+}
+
+func TestUserHandlerGetUserByID(t *testing.T) { //nolint:funlen // table-driven test
+	t.Parallel()
+
+	targetID := uuid.New()
+	now := time.Now()
+	fullName := "Test User"
+
+	baseResult := &dto.UserSearchResult{
+		UserID:    targetID.String(),
+		Username:  "testuser",
+		FullName:  &fullName,
+		IsActive:  true,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	tests := []getUserByIDTestCase{
+		{
+			name:         "Success - Public profile",
+			targetIDPath: targetID.String(),
+			mockRun: func(m *MockUserService) {
+				m.On("GetUserByID", mock.Anything, targetID).Return(baseResult, nil)
+			},
+			expectedStatus: http.StatusOK,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, targetID.String())
+				assert.Contains(t, body, "testuser")
+				assert.Contains(t, body, `"success":true`)
+			},
+		},
+		{
+			name:         "Not Found - User does not exist",
+			targetIDPath: targetID.String(),
+			mockRun: func(m *MockUserService) {
+				m.On("GetUserByID", mock.Anything, targetID).Return(nil, service.ErrUserNotFound)
+			},
+			expectedStatus: http.StatusNotFound,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "USER_NOT_FOUND")
+			},
+		},
+		{
+			name:         "Not Found - Private profile returns 404",
+			targetIDPath: uuid.New().String(),
+			mockRun: func(m *MockUserService) {
+				m.On("GetUserByID", mock.Anything, mock.Anything).Return(nil, service.ErrUserNotFound)
+			},
+			expectedStatus: http.StatusNotFound,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "USER_NOT_FOUND")
+			},
+		},
+		{
+			name:           "Validation Error - Invalid UUID format",
+			targetIDPath:   "invalid-uuid",
+			mockRun:        func(_ *MockUserService) {},
+			expectedStatus: http.StatusUnprocessableEntity,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "VALIDATION_ERROR")
+			},
+		},
+		{
+			name:         "Internal Error - Database failure",
+			targetIDPath: targetID.String(),
+			mockRun: func(m *MockUserService) {
+				m.On("GetUserByID", mock.Anything, targetID).Return(nil, errDB)
+			},
+			expectedStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockSvc := new(MockUserService)
+			if tt.mockRun != nil {
+				tt.mockRun(mockSvc)
+			}
+
+			h := handler.NewUserHandler(mockSvc)
+
+			r := chi.NewRouter()
+			r.Get("/users/{user_id}", h.GetUserByID)
+
+			req := httptest.NewRequest(http.MethodGet, "/users/"+tt.targetIDPath, nil)
 
 			rr := httptest.NewRecorder()
 			r.ServeHTTP(rr, req)

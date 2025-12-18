@@ -265,3 +265,68 @@ func BenchmarkSearchUsersConcurrent(b *testing.B) {
 		}
 	})
 }
+
+func BenchmarkGetUserByID(b *testing.B) {
+	if benchmarkContainer == nil || benchmarkContainer.Database == nil {
+		b.Fatal("benchmark container or database is nil")
+	}
+
+	dbSvc, ok := benchmarkContainer.Database.(*database.Service)
+	if !ok {
+		b.Fatal("failed to cast database service")
+	}
+
+	cfg := benchmarkContainer.Config.Postgres
+	b.Logf("DEBUG: DB Host=%s Port=%d User='%s' DBName=%s", cfg.Host, cfg.Port, cfg.User, cfg.Database)
+
+	targetUserID := uuid.New()
+
+	seedBenchmarkUser(b, dbSvc.GetDB(), targetUserID)
+
+	reqPath := fmt.Sprintf("/api/v1/user-management/users/%s", targetUserID)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
+	// No X-User-Id header - anonymous access
+
+	for b.Loop() {
+		rr := httptest.NewRecorder()
+		benchmarkHandler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			b.Fatalf("unexpected status: %d, body: %s", rr.Code, rr.Body.String())
+		}
+	}
+}
+
+func BenchmarkGetUserByIDConcurrent(b *testing.B) {
+	if benchmarkContainer == nil || benchmarkContainer.Database == nil {
+		b.Fatal("benchmark container or database is nil")
+	}
+
+	dbSvc, ok := benchmarkContainer.Database.(*database.Service)
+	if !ok {
+		b.Fatal("failed to cast database service")
+	}
+
+	cfg := benchmarkContainer.Config.Postgres
+	b.Logf("DEBUG: DB Host=%s Port=%d User='%s' DBName=%s", cfg.Host, cfg.Port, cfg.User, cfg.Database)
+
+	targetUserID := uuid.New()
+
+	seedBenchmarkUser(b, dbSvc.GetDB(), targetUserID)
+
+	reqPath := fmt.Sprintf("/api/v1/user-management/users/%s", targetUserID)
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
+			// No X-User-Id header - anonymous access
+
+			rr := httptest.NewRecorder()
+			benchmarkHandler.ServeHTTP(rr, req)
+
+			if rr.Code != http.StatusOK {
+				b.Fatalf("unexpected status: %d, body: %s", rr.Code, rr.Body.String())
+			}
+		}
+	})
+}

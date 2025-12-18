@@ -35,6 +35,7 @@ type UserService interface {
 		limit, offset int,
 		countOnly bool,
 	) (*dto.UserSearchResponse, error)
+	GetUserByID(ctx context.Context, userID uuid.UUID) (*dto.UserSearchResult, error)
 }
 
 // ErrUserNotFound is returned when a user is not found.
@@ -99,6 +100,46 @@ func (s *UserServiceImpl) GetUserProfile(
 
 	// 4. Construct Response
 	return s.buildProfileResponse(user, privacy, requesterID == targetUserID), nil
+}
+
+// GetUserByID retrieves a public user profile by ID.
+// Private and followers_only profiles are not accessible (returns ErrUserNotFound).
+func (s *UserServiceImpl) GetUserByID(ctx context.Context, userID uuid.UUID) (*dto.UserSearchResult, error) {
+	// 1. Fetch user
+	user, err := s.repo.FindUserByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, ErrUserNotFound
+		}
+
+		return nil, fmt.Errorf("failed to fetch user: %w", err)
+	}
+
+	// 2. Check if user is active
+	if !user.IsActive {
+		return nil, ErrUserNotFound
+	}
+
+	// 3. Fetch privacy preferences
+	privacy, err := s.repo.FindPrivacyPreferencesByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch privacy preferences: %w", err)
+	}
+
+	// 4. Apply privacy rule - only public profiles are accessible
+	if privacy.ProfileVisibility != "public" {
+		return nil, ErrUserNotFound
+	}
+
+	// 5. Build response (UserSearchResult schema - limited fields)
+	return &dto.UserSearchResult{
+		UserID:    user.UserID,
+		Username:  user.Username,
+		FullName:  user.FullName,
+		IsActive:  user.IsActive,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+	}, nil
 }
 
 func (s *UserServiceImpl) canViewProfile(

@@ -70,28 +70,47 @@ func (h *SocialHandler) GetFollowing(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetFollowers handles GET /users/{user_id}/followers.
-// Stub implementation - to be implemented.
-func (h *SocialHandler) GetFollowers(w http.ResponseWriter, _ *http.Request) {
-	now := time.Now()
-	limit := 20
-	offset := 0
-	fullName := "Bob Wilson"
+func (h *SocialHandler) GetFollowers(w http.ResponseWriter, r *http.Request) {
+	// 1. Extract and validate requester ID from header
+	requesterID, ok := h.extractAuthenticatedUserID(w, r)
+	if !ok {
+		return
+	}
 
-	SuccessResponse(w, http.StatusOK, dto.GetFollowedUsersResponse{
-		TotalCount: 1,
-		FollowedUsers: []dto.User{
-			{
-				UserID:    uuid.New().String(),
-				Username:  "bobwilson",
-				FullName:  &fullName,
-				IsActive:  true,
-				CreatedAt: now,
-				UpdatedAt: now,
-			},
-		},
-		Limit:  &limit,
-		Offset: &offset,
-	})
+	// 2. Extract and validate target user ID from path
+	userIDStr := chi.URLParam(r, "user_id")
+
+	targetUserID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		ErrorResponse(w, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "Invalid user ID format")
+
+		return
+	}
+
+	// 3. Parse query parameters
+	params, err := h.parseFollowingParams(r)
+	if err != nil {
+		ErrorResponse(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
+
+		return
+	}
+
+	// 4. Call service
+	response, err := h.socialService.GetFollowers(
+		r.Context(),
+		requesterID,
+		targetUserID,
+		params.limit,
+		params.offset,
+		params.countOnly,
+	)
+	if err != nil {
+		h.handleGetFollowersError(w, err)
+
+		return
+	}
+
+	SuccessResponse(w, http.StatusOK, response)
 }
 
 // FollowUser handles POST /users/{user_id}/follow/{target_user_id}.
@@ -215,6 +234,17 @@ func (h *SocialHandler) handleGetFollowingError(w http.ResponseWriter, err error
 		ErrorResponse(w, http.StatusNotFound, "USER_NOT_FOUND", "User not found")
 	case errors.Is(err, service.ErrAccessDenied):
 		ForbiddenResponse(w, "Access to this user's following list is restricted")
+	default:
+		InternalErrorResponse(w)
+	}
+}
+
+func (h *SocialHandler) handleGetFollowersError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, service.ErrUserNotFound):
+		ErrorResponse(w, http.StatusNotFound, "USER_NOT_FOUND", "User not found")
+	case errors.Is(err, service.ErrAccessDenied):
+		ForbiddenResponse(w, "Access to this user's followers list is restricted")
 	default:
 		InternalErrorResponse(w)
 	}

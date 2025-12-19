@@ -258,3 +258,179 @@ func BenchmarkGetFollowingLargePagination(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkGetFollowers(b *testing.B) {
+	if benchmarkContainer == nil || benchmarkContainer.Database == nil {
+		b.Fatal("benchmark container or database is nil")
+	}
+
+	dbSvc, ok := benchmarkContainer.Database.(*database.Service)
+	if !ok {
+		b.Fatal("failed to cast database service")
+	}
+
+	cfg := benchmarkContainer.Config.Postgres
+	b.Logf("DEBUG: DB Host=%s Port=%d User='%s' DBName=%s", cfg.Host, cfg.Port, cfg.User, cfg.Database)
+
+	// Create target user whose followers list we'll fetch
+	targetUserID := uuid.New()
+	seedBenchmarkUserForSocial(b, dbSvc.GetDB(), targetUserID, "followers_target_"+targetUserID.String()[:8])
+
+	// Create users who follow the target
+	for i := range 10 {
+		followerID := uuid.New()
+		seedBenchmarkUserForSocial(b, dbSvc.GetDB(), followerID, fmt.Sprintf("follower_%d_%s", i, followerID.String()[:8]))
+		seedFollowRelationship(b, dbSvc.GetDB(), followerID, targetUserID)
+	}
+
+	// Create requester user
+	requesterID := uuid.New()
+	seedBenchmarkUserForSocial(b, dbSvc.GetDB(), requesterID, "requester_followers_"+requesterID.String()[:8])
+
+	reqPath := fmt.Sprintf("/api/v1/user-management/users/%s/followers", targetUserID)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
+	req.Header.Set("X-User-Id", requesterID.String())
+
+	for b.Loop() {
+		rr := httptest.NewRecorder()
+		benchmarkHandler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			b.Fatalf("unexpected status: %d, body: %s", rr.Code, rr.Body.String())
+		}
+	}
+}
+
+func BenchmarkGetFollowersConcurrent(b *testing.B) {
+	if benchmarkContainer == nil || benchmarkContainer.Database == nil {
+		b.Fatal("benchmark container or database is nil")
+	}
+
+	dbSvc, ok := benchmarkContainer.Database.(*database.Service)
+	if !ok {
+		b.Fatal("failed to cast database service")
+	}
+
+	cfg := benchmarkContainer.Config.Postgres
+	b.Logf("DEBUG: DB Host=%s Port=%d User='%s' DBName=%s", cfg.Host, cfg.Port, cfg.User, cfg.Database)
+
+	// Create target user whose followers list we'll fetch
+	targetUserID := uuid.New()
+	targetUsername := "followers_target_conc_" + targetUserID.String()[:8]
+	seedBenchmarkUserForSocial(b, dbSvc.GetDB(), targetUserID, targetUsername)
+
+	// Create users who follow the target
+	for i := range 10 {
+		followerID := uuid.New()
+		followerName := fmt.Sprintf("follower_conc_%d_%s", i, followerID.String()[:8])
+		seedBenchmarkUserForSocial(b, dbSvc.GetDB(), followerID, followerName)
+		seedFollowRelationship(b, dbSvc.GetDB(), followerID, targetUserID)
+	}
+
+	// Create requester user
+	requesterID := uuid.New()
+	requesterName := "requester_followers_conc_" + requesterID.String()[:8]
+	seedBenchmarkUserForSocial(b, dbSvc.GetDB(), requesterID, requesterName)
+
+	reqPath := fmt.Sprintf("/api/v1/user-management/users/%s/followers", targetUserID)
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
+			req.Header.Set("X-User-Id", requesterID.String())
+
+			rr := httptest.NewRecorder()
+			benchmarkHandler.ServeHTTP(rr, req)
+
+			if rr.Code != http.StatusOK {
+				b.Fatalf("unexpected status: %d, body: %s", rr.Code, rr.Body.String())
+			}
+		}
+	})
+}
+
+func BenchmarkGetFollowersCountOnly(b *testing.B) {
+	if benchmarkContainer == nil || benchmarkContainer.Database == nil {
+		b.Fatal("benchmark container or database is nil")
+	}
+
+	dbSvc, ok := benchmarkContainer.Database.(*database.Service)
+	if !ok {
+		b.Fatal("failed to cast database service")
+	}
+
+	cfg := benchmarkContainer.Config.Postgres
+	b.Logf("DEBUG: DB Host=%s Port=%d User='%s' DBName=%s", cfg.Host, cfg.Port, cfg.User, cfg.Database)
+
+	// Create target user
+	targetUserID := uuid.New()
+	seedBenchmarkUserForSocial(b, dbSvc.GetDB(), targetUserID, "followers_count_"+targetUserID.String()[:8])
+
+	// Create users who follow the target
+	for i := range 20 {
+		followerID := uuid.New()
+		followerName := fmt.Sprintf("follower_count_%d_%s", i, followerID.String()[:8])
+		seedBenchmarkUserForSocial(b, dbSvc.GetDB(), followerID, followerName)
+		seedFollowRelationship(b, dbSvc.GetDB(), followerID, targetUserID)
+	}
+
+	// Create requester user
+	requesterID := uuid.New()
+	seedBenchmarkUserForSocial(b, dbSvc.GetDB(), requesterID, "requester_followers_count_"+requesterID.String()[:8])
+
+	reqPath := fmt.Sprintf("/api/v1/user-management/users/%s/followers?count_only=true", targetUserID)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
+	req.Header.Set("X-User-Id", requesterID.String())
+
+	for b.Loop() {
+		rr := httptest.NewRecorder()
+		benchmarkHandler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			b.Fatalf("unexpected status: %d, body: %s", rr.Code, rr.Body.String())
+		}
+	}
+}
+
+func BenchmarkGetFollowersLargePagination(b *testing.B) {
+	if benchmarkContainer == nil || benchmarkContainer.Database == nil {
+		b.Fatal("benchmark container or database is nil")
+	}
+
+	dbSvc, ok := benchmarkContainer.Database.(*database.Service)
+	if !ok {
+		b.Fatal("failed to cast database service")
+	}
+
+	cfg := benchmarkContainer.Config.Postgres
+	b.Logf("DEBUG: DB Host=%s Port=%d User='%s' DBName=%s", cfg.Host, cfg.Port, cfg.User, cfg.Database)
+
+	// Create target user
+	targetUserID := uuid.New()
+	seedBenchmarkUserForSocial(b, dbSvc.GetDB(), targetUserID, "followers_large_"+targetUserID.String()[:8])
+
+	// Create more users who follow the target (testing larger result sets)
+	for i := range 50 {
+		followerID := uuid.New()
+		followerName := fmt.Sprintf("follower_large_%d_%s", i, followerID.String()[:8])
+		seedBenchmarkUserForSocial(b, dbSvc.GetDB(), followerID, followerName)
+		seedFollowRelationship(b, dbSvc.GetDB(), followerID, targetUserID)
+	}
+
+	// Create requester user
+	requesterID := uuid.New()
+	seedBenchmarkUserForSocial(b, dbSvc.GetDB(), requesterID, "requester_followers_large_"+requesterID.String()[:8])
+
+	reqPath := fmt.Sprintf("/api/v1/user-management/users/%s/followers?limit=100", targetUserID)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
+	req.Header.Set("X-User-Id", requesterID.String())
+
+	for b.Loop() {
+		rr := httptest.NewRecorder()
+		benchmarkHandler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			b.Fatalf("unexpected status: %d, body: %s", rr.Code, rr.Body.String())
+		}
+	}
+}

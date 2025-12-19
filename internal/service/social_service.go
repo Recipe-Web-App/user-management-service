@@ -18,6 +18,12 @@ type SocialService interface {
 		limit, offset int,
 		countOnly bool,
 	) (*dto.GetFollowedUsersResponse, error)
+	GetFollowers(
+		ctx context.Context,
+		requesterID, targetUserID uuid.UUID,
+		limit, offset int,
+		countOnly bool,
+	) (*dto.GetFollowedUsersResponse, error)
 }
 
 // ErrAccessDenied is returned when access to a resource is denied due to privacy settings.
@@ -83,6 +89,48 @@ func (s *SocialServiceImpl) GetFollowing(
 	users, totalCount, err := s.socialRepo.GetFollowing(ctx, targetUserID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get following list: %w", err)
+	}
+
+	// 5. Build response
+	return s.buildFollowingResponse(users, totalCount, limit, offset, countOnly), nil
+}
+
+// GetFollowers retrieves the list of users who follow the target user.
+func (s *SocialServiceImpl) GetFollowers(
+	ctx context.Context,
+	requesterID, targetUserID uuid.UUID,
+	limit, offset int,
+	countOnly bool,
+) (*dto.GetFollowedUsersResponse, error) {
+	// 1. Verify target user exists
+	user, err := s.userRepo.FindUserByID(ctx, targetUserID)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, ErrUserNotFound
+		}
+
+		return nil, fmt.Errorf("failed to fetch user: %w", err)
+	}
+
+	// 2. Check if user is active
+	if !user.IsActive {
+		return nil, ErrUserNotFound
+	}
+
+	// 3. Check privacy settings (same rules as following list)
+	canAccess, err := s.canAccessFollowingList(ctx, requesterID, targetUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	if !canAccess {
+		return nil, ErrAccessDenied
+	}
+
+	// 4. Get followers list from repository
+	users, totalCount, err := s.socialRepo.GetFollowers(ctx, targetUserID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get followers list: %w", err)
 	}
 
 	// 5. Build response

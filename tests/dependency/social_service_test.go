@@ -59,6 +59,30 @@ func (m *MockSocialRepository) GetFollowing(
 	return users, args.Int(1), nil
 }
 
+func (m *MockSocialRepository) GetFollowers(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit, offset int,
+) ([]dto.User, int, error) {
+	args := m.Called(ctx, userID, limit, offset)
+
+	err := args.Error(2)
+	if err != nil {
+		return nil, 0, fmt.Errorf("get followers: %w", err)
+	}
+
+	if args.Get(0) == nil {
+		return nil, args.Int(1), nil
+	}
+
+	users, ok := args.Get(0).([]dto.User)
+	if !ok {
+		return nil, 0, errUnexpectedUsersSliceType
+	}
+
+	return users, args.Int(1), nil
+}
+
 type socialTestFixture struct {
 	handler        http.Handler
 	mockUserRepo   *MockUserRepository
@@ -430,6 +454,338 @@ func TestGetFollowing(t *testing.T) {
 
 		rr := httptest.NewRecorder()
 		fix.handler.ServeHTTP(rr, newGetFollowingRequest(t, targetUserID, fix.requesterID, ""))
+
+		assert.Equal(t, http.StatusInternalServerError, rr.Code)
+		assert.Contains(t, rr.Body.String(), "INTERNAL_ERROR")
+	})
+}
+
+func newGetFollowersRequest(t *testing.T, targetUserID, requesterID uuid.UUID, queryParams string) *http.Request {
+	t.Helper()
+
+	reqPath := fmt.Sprintf("%s/%s/followers", socialBaseURL, targetUserID)
+	if queryParams != "" {
+		reqPath += "?" + queryParams
+	}
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
+	require.NoError(t, err)
+	req.Header.Set(headerUserID, requesterID.String())
+
+	return req
+}
+
+//nolint:funlen,maintidx,dupl // table-driven test with many test cases
+func TestGetFollowers(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Success_PublicProfile", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupSocialTest(t)
+		targetUserID := uuid.New()
+		targetUser := createTestUserForSocial(targetUserID)
+		publicPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "public"}
+		now := time.Now()
+
+		followers := []dto.User{
+			{
+				UserID:    uuid.New().String(),
+				Username:  "follower1",
+				IsActive:  true,
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+			{
+				UserID:    uuid.New().String(),
+				Username:  "follower2",
+				IsActive:  true,
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+		}
+
+		fix.mockUserRepo.On("FindUserByID", mock.Anything, targetUserID).Return(targetUser, nil).Once()
+		fix.mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetUserID).Return(publicPrivacy, nil).Once()
+		fix.mockSocialRepo.On("GetFollowers", mock.Anything, targetUserID, 20, 0).Return(followers, 2, nil).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newGetFollowersRequest(t, targetUserID, fix.requesterID, ""))
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		var resp struct {
+			Success bool                         `json:"success"`
+			Data    dto.GetFollowedUsersResponse `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+		assert.True(t, resp.Success)
+		assert.Equal(t, 2, resp.Data.TotalCount)
+		assert.Len(t, resp.Data.FollowedUsers, 2)
+	})
+
+	t.Run("Success_OwnProfile_PrivateSettings", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupSocialTest(t)
+		userID := fix.requesterID
+		user := createTestUserForSocial(userID)
+		now := time.Now()
+
+		followers := []dto.User{
+			{
+				UserID:    uuid.New().String(),
+				Username:  "follower",
+				IsActive:  true,
+				CreatedAt: now,
+				UpdatedAt: now,
+			},
+		}
+
+		fix.mockUserRepo.On("FindUserByID", mock.Anything, userID).Return(user, nil).Once()
+		fix.mockSocialRepo.On("GetFollowers", mock.Anything, userID, 20, 0).Return(followers, 1, nil).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newGetFollowersRequest(t, userID, fix.requesterID, ""))
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		var resp struct {
+			Success bool                         `json:"success"`
+			Data    dto.GetFollowedUsersResponse `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+		assert.True(t, resp.Success)
+		assert.Equal(t, 1, resp.Data.TotalCount)
+	})
+
+	t.Run("Success_FollowersOnly_WhenFollowing", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupSocialTest(t)
+		targetUserID := uuid.New()
+		targetUser := createTestUserForSocial(targetUserID)
+		followersOnlyPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "followers_only"}
+
+		fix.mockUserRepo.On("FindUserByID", mock.Anything, targetUserID).Return(targetUser, nil).Once()
+		fix.mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetUserID).
+			Return(followersOnlyPrivacy, nil).Once()
+		fix.mockUserRepo.On("IsFollowing", mock.Anything, fix.requesterID, targetUserID).Return(true, nil).Once()
+		fix.mockSocialRepo.On("GetFollowers", mock.Anything, targetUserID, 20, 0).Return([]dto.User{}, 0, nil).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newGetFollowersRequest(t, targetUserID, fix.requesterID, ""))
+
+		require.Equal(t, http.StatusOK, rr.Code)
+	})
+
+	t.Run("Success_CountOnly", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupSocialTest(t)
+		targetUserID := uuid.New()
+		targetUser := createTestUserForSocial(targetUserID)
+		publicPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "public"}
+
+		fix.mockUserRepo.On("FindUserByID", mock.Anything, targetUserID).Return(targetUser, nil).Once()
+		fix.mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetUserID).Return(publicPrivacy, nil).Once()
+		fix.mockSocialRepo.On("GetFollowers", mock.Anything, targetUserID, 20, 0).Return(nil, 42, nil).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newGetFollowersRequest(t, targetUserID, fix.requesterID, "count_only=true"))
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		var resp struct {
+			Success bool                         `json:"success"`
+			Data    dto.GetFollowedUsersResponse `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+		assert.True(t, resp.Success)
+		assert.Equal(t, 42, resp.Data.TotalCount)
+		assert.Nil(t, resp.Data.Limit)
+		assert.Nil(t, resp.Data.Offset)
+	})
+
+	t.Run("Success_WithPagination", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupSocialTest(t)
+		targetUserID := uuid.New()
+		targetUser := createTestUserForSocial(targetUserID)
+		publicPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "public"}
+
+		fix.mockUserRepo.On("FindUserByID", mock.Anything, targetUserID).Return(targetUser, nil).Once()
+		fix.mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetUserID).Return(publicPrivacy, nil).Once()
+		fix.mockSocialRepo.On("GetFollowers", mock.Anything, targetUserID, 50, 10).Return([]dto.User{}, 100, nil).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newGetFollowersRequest(t, targetUserID, fix.requesterID, "limit=50&offset=10"))
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		var resp struct {
+			Success bool                         `json:"success"`
+			Data    dto.GetFollowedUsersResponse `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+		assert.True(t, resp.Success)
+		assert.Equal(t, 100, resp.Data.TotalCount)
+		require.NotNil(t, resp.Data.Limit)
+		assert.Equal(t, 50, *resp.Data.Limit)
+		require.NotNil(t, resp.Data.Offset)
+		assert.Equal(t, 10, *resp.Data.Offset)
+	})
+
+	t.Run("Forbidden_PrivateProfile", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupSocialTest(t)
+		targetUserID := uuid.New()
+		targetUser := createTestUserForSocial(targetUserID)
+		privatePrivacy := &dto.PrivacyPreferences{ProfileVisibility: "private"}
+
+		fix.mockUserRepo.On("FindUserByID", mock.Anything, targetUserID).Return(targetUser, nil).Once()
+		fix.mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetUserID).Return(privatePrivacy, nil).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newGetFollowersRequest(t, targetUserID, fix.requesterID, ""))
+
+		assert.Equal(t, http.StatusForbidden, rr.Code)
+		assert.Contains(t, rr.Body.String(), "FORBIDDEN")
+	})
+
+	t.Run("Forbidden_FollowersOnly_NotFollowing", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupSocialTest(t)
+		targetUserID := uuid.New()
+		targetUser := createTestUserForSocial(targetUserID)
+		followersOnlyPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "followers_only"}
+
+		fix.mockUserRepo.On("FindUserByID", mock.Anything, targetUserID).Return(targetUser, nil).Once()
+		fix.mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetUserID).
+			Return(followersOnlyPrivacy, nil).Once()
+		fix.mockUserRepo.On("IsFollowing", mock.Anything, fix.requesterID, targetUserID).Return(false, nil).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newGetFollowersRequest(t, targetUserID, fix.requesterID, ""))
+
+		assert.Equal(t, http.StatusForbidden, rr.Code)
+		assert.Contains(t, rr.Body.String(), "FORBIDDEN")
+	})
+
+	t.Run("NotFound_UserDoesNotExist", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupSocialTest(t)
+		nonExistentID := uuid.New()
+
+		fix.mockUserRepo.On("FindUserByID", mock.Anything, nonExistentID).Return(nil, repository.ErrUserNotFound).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newGetFollowersRequest(t, nonExistentID, fix.requesterID, ""))
+
+		assert.Equal(t, http.StatusNotFound, rr.Code)
+		assert.Contains(t, rr.Body.String(), "USER_NOT_FOUND")
+	})
+
+	t.Run("NotFound_InactiveUser", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupSocialTest(t)
+		inactiveUserID := uuid.New()
+		inactiveUser := &dto.User{
+			UserID:   inactiveUserID.String(),
+			Username: "inactive",
+			IsActive: false,
+		}
+
+		fix.mockUserRepo.On("FindUserByID", mock.Anything, inactiveUserID).Return(inactiveUser, nil).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newGetFollowersRequest(t, inactiveUserID, fix.requesterID, ""))
+
+		assert.Equal(t, http.StatusNotFound, rr.Code)
+		assert.Contains(t, rr.Body.String(), "USER_NOT_FOUND")
+	})
+
+	t.Run("Unauthorized_MissingHeader", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupSocialTest(t)
+		targetUserID := uuid.New()
+
+		reqPath := fmt.Sprintf("%s/%s/followers", socialBaseURL, targetUserID)
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
+		require.NoError(t, err)
+		// No X-User-Id header
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusUnauthorized, rr.Code)
+		assert.Contains(t, rr.Body.String(), "UNAUTHORIZED")
+	})
+
+	t.Run("ValidationError_InvalidUUID", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupSocialTest(t)
+
+		reqPath := socialBaseURL + "/invalid-uuid/followers"
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
+		require.NoError(t, err)
+		req.Header.Set(headerUserID, fix.requesterID.String())
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+		assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
+	})
+
+	t.Run("ValidationError_InvalidLimit", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupSocialTest(t)
+		targetUserID := uuid.New()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newGetFollowersRequest(t, targetUserID, fix.requesterID, "limit=abc"))
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
+	})
+
+	t.Run("ValidationError_LimitOutOfRange", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupSocialTest(t)
+		targetUserID := uuid.New()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newGetFollowersRequest(t, targetUserID, fix.requesterID, "limit=101"))
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
+	})
+
+	t.Run("InternalError_RepositoryFailure", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupSocialTest(t)
+		targetUserID := uuid.New()
+		targetUser := createTestUserForSocial(targetUserID)
+		publicPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "public"}
+
+		fix.mockUserRepo.On("FindUserByID", mock.Anything, targetUserID).Return(targetUser, nil).Once()
+		fix.mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetUserID).Return(publicPrivacy, nil).Once()
+		fix.mockSocialRepo.On("GetFollowers", mock.Anything, targetUserID, 20, 0).
+			Return(nil, 0, errDatabaseFailure).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newGetFollowersRequest(t, targetUserID, fix.requesterID, ""))
 
 		assert.Equal(t, http.StatusInternalServerError, rr.Code)
 		assert.Contains(t, rr.Body.String(), "INTERNAL_ERROR")

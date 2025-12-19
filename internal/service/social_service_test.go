@@ -145,6 +145,23 @@ func (m *MockSocialRepo) GetFollowing(
 	return users, args.Int(1), nil
 }
 
+func (m *MockSocialRepo) GetFollowers(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit, offset int,
+) ([]dto.User, int, error) {
+	args := m.Called(ctx, userID, limit, offset)
+
+	err := args.Error(2)
+	if err != nil {
+		return nil, 0, fmt.Errorf(mockSocialErrorFmt, err)
+	}
+
+	users, _ := args.Get(0).([]dto.User)
+
+	return users, args.Int(1), nil
+}
+
 func createTestUser(userID uuid.UUID, isActive bool) *dto.User {
 	now := time.Now()
 	fullName := "Test User"

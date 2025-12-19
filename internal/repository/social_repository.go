@@ -12,6 +12,7 @@ import (
 // SocialRepository defines the interface for social data access.
 type SocialRepository interface {
 	GetFollowing(ctx context.Context, userID uuid.UUID, limit, offset int) ([]dto.User, int, error)
+	GetFollowers(ctx context.Context, userID uuid.UUID, limit, offset int) ([]dto.User, int, error)
 }
 
 // SQLSocialRepository implements SocialRepository using a SQL database.
@@ -130,4 +131,66 @@ func scanUsers(rows *sql.Rows) ([]dto.User, error) {
 	}
 
 	return users, nil
+}
+
+// GetFollowers retrieves the list of users who follow the specified user with pagination.
+func (r *SQLSocialRepository) GetFollowers(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit, offset int,
+) ([]dto.User, int, error) {
+	// Get total count first
+	totalCount, err := r.countFollowers(ctx, userID)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Get paginated results
+	users, err := r.fetchFollowers(ctx, userID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return users, totalCount, nil
+}
+
+func (r *SQLSocialRepository) countFollowers(ctx context.Context, userID uuid.UUID) (int, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM recipe_manager.user_follows
+		WHERE followee_id = $1
+	`
+
+	var count int
+
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count followers: %w", err)
+	}
+
+	return count, nil
+}
+
+func (r *SQLSocialRepository) fetchFollowers(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit, offset int,
+) ([]dto.User, error) {
+	query := `
+		SELECT u.user_id, u.username, u.email, u.full_name, u.bio, u.is_active, u.created_at, u.updated_at
+		FROM recipe_manager.user_follows uf
+		JOIN recipe_manager.users u ON uf.follower_id = u.user_id
+		WHERE uf.followee_id = $1
+		ORDER BY uf.followed_at DESC
+		LIMIT $2 OFFSET $3
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, userID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch followers: %w", err)
+	}
+
+	defer func() { _ = rows.Close() }()
+
+	return scanUsers(rows)
 }

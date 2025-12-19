@@ -149,7 +149,7 @@ func (r *SQLUserRepository) FindPrivacyPreferencesByUserID(
 func (r *SQLUserRepository) IsFollowing(ctx context.Context, followerID, followedID uuid.UUID) (bool, error) {
 	query := `
 		SELECT 1 FROM recipe_manager.user_follows
-		WHERE follower_id = $1 AND followed_id = $2
+		WHERE follower_id = $1 AND followee_id = $2
 	`
 
 	var exists int

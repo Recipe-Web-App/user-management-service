@@ -21,15 +21,17 @@ type Container struct {
 	// Services
 	HealthService service.HealthServicer
 	UserService   service.UserService
+	SocialService service.SocialService
 }
 
 // ContainerConfig holds options for building the container.
 type ContainerConfig struct {
 	Config     *config.Config
-	Database   repository.HealthChecker  // Optional override for testing
-	Cache      repository.HealthChecker  // Optional override for testing
-	UserRepo   repository.UserRepository // Optional override for testing
-	TokenStore repository.TokenStore     // Optional override for testing
+	Database   repository.HealthChecker    // Optional override for testing
+	Cache      repository.HealthChecker    // Optional override for testing
+	UserRepo   repository.UserRepository   // Optional override for testing
+	SocialRepo repository.SocialRepository // Optional override for testing
+	TokenStore repository.TokenStore       // Optional override for testing
 }
 
 // NewContainer creates a new dependency container.
@@ -84,6 +86,18 @@ func NewContainer(cfg ContainerConfig) (*Container, error) {
 
 	if userRepo != nil {
 		c.UserService = service.NewUserService(userRepo, tokenStore)
+	}
+
+	// Initialize social repository and service
+	var socialRepo repository.SocialRepository
+	if cfg.SocialRepo != nil {
+		socialRepo = cfg.SocialRepo
+	} else if dbService, ok := c.Database.(*database.Service); ok {
+		socialRepo = repository.NewSocialRepository(dbService.GetDB())
+	}
+
+	if userRepo != nil && socialRepo != nil {
+		c.SocialService = service.NewSocialService(userRepo, socialRepo)
 	}
 
 	return c, nil

@@ -29,7 +29,7 @@ func NewServerWithContainer(container *app.Container) *http.Server {
 	handlers := Handlers{
 		Health:       handler.NewHealthHandler(container.HealthService),
 		User:         handler.NewUserHandler(container.UserService),
-		Social:       handler.NewSocialHandler(),
+		Social:       handler.NewSocialHandler(container.SocialService),
 		Notification: handler.NewNotificationHandler(),
 		Admin:        handler.NewAdminHandler(),
 		Metrics:      handler.NewMetricsHandler(),

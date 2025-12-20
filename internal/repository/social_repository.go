@@ -3,9 +3,13 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
+
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
 )
 
@@ -13,6 +17,7 @@ import (
 type SocialRepository interface {
 	GetFollowing(ctx context.Context, userID uuid.UUID, limit, offset int) ([]dto.User, int, error)
 	GetFollowers(ctx context.Context, userID uuid.UUID, limit, offset int) ([]dto.User, int, error)
+	FollowUser(ctx context.Context, followerID, followeeID uuid.UUID) error
 }
 
 // SQLSocialRepository implements SocialRepository using a SQL database.
@@ -193,4 +198,30 @@ func (r *SQLSocialRepository) fetchFollowers(
 	defer func() { _ = rows.Close() }()
 
 	return scanUsers(rows)
+}
+
+// FollowUser creates a follow relationship between follower and followee.
+// Uses ON CONFLICT DO NOTHING for idempotency - duplicate follows are silently ignored.
+// Also handles the case where a database trigger raises an error for existing follows.
+func (r *SQLSocialRepository) FollowUser(ctx context.Context, followerID, followeeID uuid.UUID) error {
+	query := `
+		INSERT INTO recipe_manager.user_follows (follower_id, followee_id, followed_at)
+		VALUES ($1, $2, NOW())
+		ON CONFLICT (follower_id, followee_id) DO NOTHING
+	`
+
+	_, err := r.db.ExecContext(ctx, query, followerID, followeeID)
+	if err != nil {
+		// Handle PostgreSQL trigger that raises "already following" error
+		// This is an idempotent operation - treat existing follows as success
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "P0001" &&
+			strings.Contains(strings.ToLower(pgErr.Message), "already following") {
+			return nil
+		}
+
+		return fmt.Errorf("failed to create follow relationship: %w", err)
+	}
+
+	return nil
 }

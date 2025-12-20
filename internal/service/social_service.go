@@ -28,6 +28,10 @@ type SocialService interface {
 		ctx context.Context,
 		followerID, targetUserID uuid.UUID,
 	) (*dto.FollowResponse, error)
+	UnfollowUser(
+		ctx context.Context,
+		followerID, targetUserID uuid.UUID,
+	) (*dto.FollowResponse, error)
 }
 
 // ErrAccessDenied is returned when access to a resource is denied due to privacy settings.
@@ -38,6 +42,9 @@ var ErrCannotFollowSelf = errors.New("cannot follow yourself")
 
 // ErrFollowNotAllowed is returned when target user has disabled follows.
 var ErrFollowNotAllowed = errors.New("user does not allow follows")
+
+// ErrCannotUnfollowSelf is returned when a user tries to unfollow themselves.
+var ErrCannotUnfollowSelf = errors.New("cannot unfollow yourself")
 
 // Profile visibility constants.
 const (
@@ -191,6 +198,43 @@ func (s *SocialServiceImpl) FollowUser(
 	return &dto.FollowResponse{
 		Message:     "Successfully followed user",
 		IsFollowing: true,
+	}, nil
+}
+
+// UnfollowUser removes a follow relationship from follower to target user.
+func (s *SocialServiceImpl) UnfollowUser(
+	ctx context.Context,
+	followerID, targetUserID uuid.UUID,
+) (*dto.FollowResponse, error) {
+	// 1. Check self-unfollow
+	if followerID == targetUserID {
+		return nil, ErrCannotUnfollowSelf
+	}
+
+	// 2. Verify target user exists and is active
+	targetUser, err := s.userRepo.FindUserByID(ctx, targetUserID)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, ErrUserNotFound
+		}
+
+		return nil, fmt.Errorf("failed to fetch target user: %w", err)
+	}
+
+	if !targetUser.IsActive {
+		return nil, ErrUserNotFound
+	}
+
+	// 3. Delete follow relationship (idempotent - success even if not following)
+	err = s.socialRepo.UnfollowUser(ctx, followerID, targetUserID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unfollow user: %w", err)
+	}
+
+	// 4. Return success response
+	return &dto.FollowResponse{
+		Message:     "Successfully unfollowed user",
+		IsFollowing: false,
 	}, nil
 }
 

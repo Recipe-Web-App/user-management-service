@@ -571,3 +571,138 @@ func BenchmarkFollowUserIdempotent(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkUnfollowUser(b *testing.B) {
+	if benchmarkContainer == nil || benchmarkContainer.Database == nil {
+		b.Fatal("benchmark container or database is nil")
+	}
+
+	dbSvc, ok := benchmarkContainer.Database.(*database.Service)
+	if !ok {
+		b.Fatal("failed to cast database service")
+	}
+
+	cfg := benchmarkContainer.Config.Postgres
+	b.Logf("DEBUG: DB Host=%s Port=%d User='%s' DBName=%s", cfg.Host, cfg.Port, cfg.User, cfg.Database)
+
+	// Create follower user
+	followerID := uuid.New()
+	seedBenchmarkUserForSocial(b, dbSvc.GetDB(), followerID, "unfollow_follower_"+followerID.String()[:8])
+
+	// Create many target users to unfollow (one per iteration)
+	targetUserIDs := make([]uuid.UUID, b.N)
+	for i := range b.N {
+		targetID := uuid.New()
+		targetUserIDs[i] = targetID
+		targetName := fmt.Sprintf("unfollow_target_%d_%s", i, targetID.String()[:8])
+		seedBenchmarkUserForSocial(b, dbSvc.GetDB(), targetID, targetName)
+		// Create initial follow relationship to unfollow
+		seedFollowRelationship(b, dbSvc.GetDB(), followerID, targetID)
+	}
+
+	b.ResetTimer()
+
+	for i := range b.N {
+		reqPath := fmt.Sprintf("/api/v1/user-management/users/%s/follow/%s", followerID, targetUserIDs[i])
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodDelete, reqPath, nil)
+		req.Header.Set("X-User-Id", followerID.String())
+
+		rr := httptest.NewRecorder()
+		benchmarkHandler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			b.Fatalf("unexpected status: %d, body: %s", rr.Code, rr.Body.String())
+		}
+	}
+}
+
+func BenchmarkUnfollowUserConcurrent(b *testing.B) {
+	if benchmarkContainer == nil || benchmarkContainer.Database == nil {
+		b.Fatal("benchmark container or database is nil")
+	}
+
+	dbSvc, ok := benchmarkContainer.Database.(*database.Service)
+	if !ok {
+		b.Fatal("failed to cast database service")
+	}
+
+	cfg := benchmarkContainer.Config.Postgres
+	b.Logf("DEBUG: DB Host=%s Port=%d User='%s' DBName=%s", cfg.Host, cfg.Port, cfg.User, cfg.Database)
+
+	// Create target user that many followers will unfollow
+	targetUserID := uuid.New()
+	seedBenchmarkUserForSocial(b, dbSvc.GetDB(), targetUserID, "unfollow_target_conc_"+targetUserID.String()[:8])
+
+	// Create many follower users with existing follow relationships
+	followerIDs := make([]uuid.UUID, 100)
+
+	for i := range 100 {
+		followerID := uuid.New()
+		followerIDs[i] = followerID
+		followerName := fmt.Sprintf("unfollow_follower_conc_%d_%s", i, followerID.String()[:8])
+		seedBenchmarkUserForSocial(b, dbSvc.GetDB(), followerID, followerName)
+		seedFollowRelationship(b, dbSvc.GetDB(), followerID, targetUserID)
+	}
+
+	followerIdx := 0
+
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			// Cycle through followers
+			idx := followerIdx % len(followerIDs)
+			followerIdx++
+			followerID := followerIDs[idx]
+
+			reqPath := fmt.Sprintf("/api/v1/user-management/users/%s/follow/%s", followerID, targetUserID)
+			req, _ := http.NewRequestWithContext(context.Background(), http.MethodDelete, reqPath, nil)
+			req.Header.Set("X-User-Id", followerID.String())
+
+			rr := httptest.NewRecorder()
+			benchmarkHandler.ServeHTTP(rr, req)
+
+			// 200 OK is expected (idempotent)
+			if rr.Code != http.StatusOK {
+				b.Fatalf("unexpected status: %d, body: %s", rr.Code, rr.Body.String())
+			}
+		}
+	})
+}
+
+func BenchmarkUnfollowUserIdempotent(b *testing.B) {
+	if benchmarkContainer == nil || benchmarkContainer.Database == nil {
+		b.Fatal("benchmark container or database is nil")
+	}
+
+	dbSvc, ok := benchmarkContainer.Database.(*database.Service)
+	if !ok {
+		b.Fatal("failed to cast database service")
+	}
+
+	cfg := benchmarkContainer.Config.Postgres
+	b.Logf("DEBUG: DB Host=%s Port=%d User='%s' DBName=%s", cfg.Host, cfg.Port, cfg.User, cfg.Database)
+
+	// Create follower and target users
+	followerID := uuid.New()
+	seedBenchmarkUserForSocial(b, dbSvc.GetDB(), followerID, "unfollow_idem_follower_"+followerID.String()[:8])
+
+	targetUserID := uuid.New()
+	seedBenchmarkUserForSocial(b, dbSvc.GetDB(), targetUserID, "unfollow_idem_target_"+targetUserID.String()[:8])
+
+	// No initial follow relationship - testing idempotent behavior when not following
+
+	reqPath := fmt.Sprintf("/api/v1/user-management/users/%s/follow/%s", followerID, targetUserID)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodDelete, reqPath, nil)
+	req.Header.Set("X-User-Id", followerID.String())
+
+	for b.Loop() {
+		rr := httptest.NewRecorder()
+		benchmarkHandler.ServeHTTP(rr, req)
+
+		// Should still return 200 OK (idempotent - unfollow when not following)
+		if rr.Code != http.StatusOK {
+			b.Fatalf("unexpected status: %d, body: %s", rr.Code, rr.Body.String())
+		}
+	}
+}

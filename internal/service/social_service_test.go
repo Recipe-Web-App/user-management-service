@@ -176,6 +176,20 @@ func (m *MockSocialRepo) FollowUser(
 	return nil
 }
 
+func (m *MockSocialRepo) UnfollowUser(
+	ctx context.Context,
+	followerID, followeeID uuid.UUID,
+) error {
+	args := m.Called(ctx, followerID, followeeID)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockSocialErrorFmt, err)
+	}
+
+	return nil
+}
+
 func createTestUser(userID uuid.UUID, isActive bool) *dto.User {
 	now := time.Now()
 	fullName := "Test User"
@@ -725,6 +739,158 @@ func TestSocialServiceFollowUser(t *testing.T) {
 		require.Error(t, err)
 		assert.Nil(t, resp)
 		assert.Contains(t, err.Error(), "failed to follow user")
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertExpectations(t)
+	})
+}
+
+//nolint:funlen // test with many test cases
+func TestSocialServiceUnfollowUser(t *testing.T) {
+	t.Parallel()
+
+	requesterID := uuid.New()
+	targetID := uuid.New()
+
+	t.Run("Success - unfollow user", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockSocialRepo.On("UnfollowUser", mock.Anything, requesterID, targetID).Return(nil).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.UnfollowUser(context.Background(), requesterID, targetID)
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.False(t, resp.IsFollowing)
+		assert.Equal(t, "Successfully unfollowed user", resp.Message)
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertExpectations(t)
+	})
+
+	t.Run("Success - idempotent unfollow (not following)", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		// UnfollowUser still succeeds due to DELETE being naturally idempotent
+		mockSocialRepo.On("UnfollowUser", mock.Anything, requesterID, targetID).Return(nil).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.UnfollowUser(context.Background(), requesterID, targetID)
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.False(t, resp.IsFollowing)
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertExpectations(t)
+	})
+
+	t.Run("Error - cannot unfollow self", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.UnfollowUser(context.Background(), requesterID, requesterID)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		require.ErrorIs(t, err, service.ErrCannotUnfollowSelf)
+
+		// No repository calls should be made
+		mockUserRepo.AssertNotCalled(t, "FindUserByID", mock.Anything, mock.Anything)
+		mockSocialRepo.AssertNotCalled(t, "UnfollowUser", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error - target user not found", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(nil, repository.ErrUserNotFound).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.UnfollowUser(context.Background(), requesterID, targetID)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		require.ErrorIs(t, err, service.ErrUserNotFound)
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertNotCalled(t, "UnfollowUser", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error - target user inactive", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		inactiveUser := createTestUser(targetID, false)
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(inactiveUser, nil).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.UnfollowUser(context.Background(), requesterID, targetID)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		require.ErrorIs(t, err, service.ErrUserNotFound)
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertNotCalled(t, "UnfollowUser", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error - repository error on FindUserByID", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(nil, errRepoSocial).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.UnfollowUser(context.Background(), requesterID, targetID)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.Contains(t, err.Error(), "failed to fetch target user")
+
+		mockUserRepo.AssertExpectations(t)
+	})
+
+	t.Run("Error - repository error on UnfollowUser", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockSocialRepo.On("UnfollowUser", mock.Anything, requesterID, targetID).Return(errRepoSocial).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.UnfollowUser(context.Background(), requesterID, targetID)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.Contains(t, err.Error(), "failed to unfollow user")
 
 		mockUserRepo.AssertExpectations(t)
 		mockSocialRepo.AssertExpectations(t)

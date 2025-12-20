@@ -162,6 +162,20 @@ func (m *MockSocialRepo) GetFollowers(
 	return users, args.Int(1), nil
 }
 
+func (m *MockSocialRepo) FollowUser(
+	ctx context.Context,
+	followerID, followeeID uuid.UUID,
+) error {
+	args := m.Called(ctx, followerID, followeeID)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockSocialErrorFmt, err)
+	}
+
+	return nil
+}
+
 func createTestUser(userID uuid.UUID, isActive bool) *dto.User {
 	now := time.Now()
 	fullName := "Test User"
@@ -512,5 +526,207 @@ func TestSocialServiceGetFollowing(t *testing.T) {
 		assert.Contains(t, err.Error(), "failed to check following status")
 
 		mockUserRepo.AssertExpectations(t)
+	})
+}
+
+//nolint:funlen // test with many test cases
+func TestSocialServiceFollowUser(t *testing.T) {
+	t.Parallel()
+
+	requesterID := uuid.New()
+	targetID := uuid.New()
+
+	t.Run("Success - follow user with public profile", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+		publicPrivacy := &dto.PrivacyPreferences{AllowFollows: true}
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(publicPrivacy, nil).Once()
+		mockSocialRepo.On("FollowUser", mock.Anything, requesterID, targetID).Return(nil).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.FollowUser(context.Background(), requesterID, targetID)
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.True(t, resp.IsFollowing)
+		assert.Equal(t, "Successfully followed user", resp.Message)
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertExpectations(t)
+	})
+
+	t.Run("Success - idempotent follow (already following)", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+		publicPrivacy := &dto.PrivacyPreferences{AllowFollows: true}
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(publicPrivacy, nil).Once()
+		// FollowUser still succeeds due to ON CONFLICT DO NOTHING
+		mockSocialRepo.On("FollowUser", mock.Anything, requesterID, targetID).Return(nil).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.FollowUser(context.Background(), requesterID, targetID)
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.True(t, resp.IsFollowing)
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertExpectations(t)
+	})
+
+	t.Run("Error - cannot follow self", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.FollowUser(context.Background(), requesterID, requesterID)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		require.ErrorIs(t, err, service.ErrCannotFollowSelf)
+
+		// No repository calls should be made
+		mockUserRepo.AssertNotCalled(t, "FindUserByID", mock.Anything, mock.Anything)
+		mockSocialRepo.AssertNotCalled(t, "FollowUser", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error - target user not found", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(nil, repository.ErrUserNotFound).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.FollowUser(context.Background(), requesterID, targetID)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		require.ErrorIs(t, err, service.ErrUserNotFound)
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertNotCalled(t, "FollowUser", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error - target user inactive", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		inactiveUser := createTestUser(targetID, false)
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(inactiveUser, nil).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.FollowUser(context.Background(), requesterID, targetID)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		require.ErrorIs(t, err, service.ErrUserNotFound)
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertNotCalled(t, "FollowUser", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error - target user does not allow follows", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+		noFollowsPrivacy := &dto.PrivacyPreferences{AllowFollows: false}
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(noFollowsPrivacy, nil).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.FollowUser(context.Background(), requesterID, targetID)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		require.ErrorIs(t, err, service.ErrFollowNotAllowed)
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertNotCalled(t, "FollowUser", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error - repository error on FindUserByID", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(nil, errRepoSocial).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.FollowUser(context.Background(), requesterID, targetID)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.Contains(t, err.Error(), "failed to fetch target user")
+
+		mockUserRepo.AssertExpectations(t)
+	})
+
+	t.Run("Error - repository error on FindPrivacyPreferencesByUserID", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(nil, errRepoSocial).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.FollowUser(context.Background(), requesterID, targetID)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.Contains(t, err.Error(), "failed to fetch privacy preferences")
+
+		mockUserRepo.AssertExpectations(t)
+	})
+
+	t.Run("Error - repository error on FollowUser", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+		publicPrivacy := &dto.PrivacyPreferences{AllowFollows: true}
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(publicPrivacy, nil).Once()
+		mockSocialRepo.On("FollowUser", mock.Anything, requesterID, targetID).Return(errRepoSocial).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.FollowUser(context.Background(), requesterID, targetID)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.Contains(t, err.Error(), "failed to follow user")
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertExpectations(t)
 	})
 }

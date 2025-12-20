@@ -60,6 +60,20 @@ func (m *MockSocialRepoComponent) GetFollowers(
 	return users, args.Int(1), nil
 }
 
+func (m *MockSocialRepoComponent) FollowUser(
+	ctx context.Context,
+	followerID, followeeID uuid.UUID,
+) error {
+	args := m.Called(ctx, followerID, followeeID)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockErrorFmt, err)
+	}
+
+	return nil
+}
+
 func createTestUserComponent(userID uuid.UUID, username string) *dto.User {
 	now := time.Now()
 	fullName := "Test User"
@@ -1063,5 +1077,457 @@ func TestGetFollowersComponent_ValidationError_InvalidLimit(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
+}
+
+// FollowUser Component Tests
+
+const followUserTestTargetEmail = "target@example.com"
+
+func targetEmailPtr() *string {
+	s := followUserTestTargetEmail
+
+	return &s
+}
+
+func TestFollowUserComponent_Success(t *testing.T) {
+	t.Parallel()
+
+	mockUserRepo := new(MockUserRepo)
+	mockSocialRepo := new(MockSocialRepoComponent)
+	mockTokenStore := new(MockTokenStore)
+
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+
+	c := &app.Container{
+		UserService:   userSvc,
+		SocialService: socialSvc,
+		Config:        config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	followerID := uuid.New()
+	targetUserID := uuid.New()
+
+	// Target user exists and is active
+	mockUserRepo.On("FindUserByID", mock.Anything, targetUserID).Return(&dto.User{
+		UserID:   targetUserID.String(),
+		Username: "targetuser",
+		Email:    targetEmailPtr(),
+		IsActive: true,
+	}, nil)
+
+	// Target user allows follows
+	mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetUserID).Return(&dto.PrivacyPreferences{
+		AllowFollows: true,
+	}, nil)
+
+	// Follow succeeds
+	mockSocialRepo.On("FollowUser", mock.Anything, followerID, targetUserID).Return(nil)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/user-management/users/"+followerID.String()+"/follow/"+targetUserID.String(),
+		nil,
+	)
+	req.Header.Set("X-User-Id", followerID.String())
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Successfully followed user")
+	assert.Contains(t, rr.Body.String(), `"isFollowing":true`)
+}
+
+func TestFollowUserComponent_Success_AdminOverride(t *testing.T) {
+	t.Parallel()
+
+	mockUserRepo := new(MockUserRepo)
+	mockSocialRepo := new(MockSocialRepoComponent)
+	mockTokenStore := new(MockTokenStore)
+
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+
+	c := &app.Container{
+		UserService:   userSvc,
+		SocialService: socialSvc,
+		Config:        config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	adminID := uuid.New()
+	followerID := uuid.New()
+	targetUserID := uuid.New()
+
+	// Target user exists and is active
+	mockUserRepo.On("FindUserByID", mock.Anything, targetUserID).Return(&dto.User{
+		UserID:   targetUserID.String(),
+		Username: "targetuser",
+		Email:    targetEmailPtr(),
+		IsActive: true,
+	}, nil)
+
+	// Target user allows follows
+	mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetUserID).Return(&dto.PrivacyPreferences{
+		AllowFollows: true,
+	}, nil)
+
+	// Follow succeeds
+	mockSocialRepo.On("FollowUser", mock.Anything, followerID, targetUserID).Return(nil)
+
+	// Admin creates follow on behalf of another user
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/user-management/users/"+followerID.String()+"/follow/"+targetUserID.String(),
+		nil,
+	)
+	req.Header.Set("X-User-Id", adminID.String())
+	req.Header.Set("X-User-Role", "admin")
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Successfully followed user")
+}
+
+func TestFollowUserComponent_BadRequest_SelfFollow(t *testing.T) {
+	t.Parallel()
+
+	mockUserRepo := new(MockUserRepo)
+	mockSocialRepo := new(MockSocialRepoComponent)
+	mockTokenStore := new(MockTokenStore)
+
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+
+	c := &app.Container{
+		UserService:   userSvc,
+		SocialService: socialSvc,
+		Config:        config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+
+	// Attempt to follow self
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/user-management/users/"+userID.String()+"/follow/"+userID.String(),
+		nil,
+	)
+	req.Header.Set("X-User-Id", userID.String())
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
+	assert.Contains(t, rr.Body.String(), "Cannot follow yourself")
+}
+
+func TestFollowUserComponent_NotFound_TargetDoesNotExist(t *testing.T) {
+	t.Parallel()
+
+	mockUserRepo := new(MockUserRepo)
+	mockSocialRepo := new(MockSocialRepoComponent)
+	mockTokenStore := new(MockTokenStore)
+
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+
+	c := &app.Container{
+		UserService:   userSvc,
+		SocialService: socialSvc,
+		Config:        config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	followerID := uuid.New()
+	targetUserID := uuid.New()
+
+	// Target user not found
+	mockUserRepo.On("FindUserByID", mock.Anything, targetUserID).Return(nil, repository.ErrUserNotFound)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/user-management/users/"+followerID.String()+"/follow/"+targetUserID.String(),
+		nil,
+	)
+	req.Header.Set("X-User-Id", followerID.String())
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.Contains(t, rr.Body.String(), "USER_NOT_FOUND")
+}
+
+func TestFollowUserComponent_NotFound_TargetInactive(t *testing.T) {
+	t.Parallel()
+
+	mockUserRepo := new(MockUserRepo)
+	mockSocialRepo := new(MockSocialRepoComponent)
+	mockTokenStore := new(MockTokenStore)
+
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+
+	c := &app.Container{
+		UserService:   userSvc,
+		SocialService: socialSvc,
+		Config:        config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	followerID := uuid.New()
+	targetUserID := uuid.New()
+
+	// Target user exists but is inactive
+	mockUserRepo.On("FindUserByID", mock.Anything, targetUserID).Return(&dto.User{
+		UserID:   targetUserID.String(),
+		Username: "targetuser",
+		Email:    targetEmailPtr(),
+		IsActive: false,
+	}, nil)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/user-management/users/"+followerID.String()+"/follow/"+targetUserID.String(),
+		nil,
+	)
+	req.Header.Set("X-User-Id", followerID.String())
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.Contains(t, rr.Body.String(), "USER_NOT_FOUND")
+}
+
+func TestFollowUserComponent_Forbidden_UserDoesNotAllowFollows(t *testing.T) {
+	t.Parallel()
+
+	mockUserRepo := new(MockUserRepo)
+	mockSocialRepo := new(MockSocialRepoComponent)
+	mockTokenStore := new(MockTokenStore)
+
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+
+	c := &app.Container{
+		UserService:   userSvc,
+		SocialService: socialSvc,
+		Config:        config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	followerID := uuid.New()
+	targetUserID := uuid.New()
+
+	// Target user exists and is active
+	mockUserRepo.On("FindUserByID", mock.Anything, targetUserID).Return(&dto.User{
+		UserID:   targetUserID.String(),
+		Username: "targetuser",
+		Email:    targetEmailPtr(),
+		IsActive: true,
+	}, nil)
+
+	// Target user does not allow follows
+	mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetUserID).Return(&dto.PrivacyPreferences{
+		AllowFollows: false,
+	}, nil)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/user-management/users/"+followerID.String()+"/follow/"+targetUserID.String(),
+		nil,
+	)
+	req.Header.Set("X-User-Id", followerID.String())
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), "FORBIDDEN")
+}
+
+func TestFollowUserComponent_Forbidden_UserIdMismatch(t *testing.T) {
+	t.Parallel()
+
+	mockUserRepo := new(MockUserRepo)
+	mockSocialRepo := new(MockSocialRepoComponent)
+	mockTokenStore := new(MockTokenStore)
+
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+
+	c := &app.Container{
+		UserService:   userSvc,
+		SocialService: socialSvc,
+		Config:        config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	requesterID := uuid.New()
+	differentUserID := uuid.New()
+	targetUserID := uuid.New()
+
+	// Non-admin trying to follow on behalf of another user
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/user-management/users/"+differentUserID.String()+"/follow/"+targetUserID.String(),
+		nil,
+	)
+	req.Header.Set("X-User-Id", requesterID.String())
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), "FORBIDDEN")
+}
+
+func TestFollowUserComponent_Unauthorized_MissingHeader(t *testing.T) {
+	t.Parallel()
+
+	mockUserRepo := new(MockUserRepo)
+	mockSocialRepo := new(MockSocialRepoComponent)
+	mockTokenStore := new(MockTokenStore)
+
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+
+	c := &app.Container{
+		UserService:   userSvc,
+		SocialService: socialSvc,
+		Config:        config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	followerID := uuid.New()
+	targetUserID := uuid.New()
+
+	// Missing X-User-Id header
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/user-management/users/"+followerID.String()+"/follow/"+targetUserID.String(),
+		nil,
+	)
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+	assert.Contains(t, rr.Body.String(), "UNAUTHORIZED")
+}
+
+func TestFollowUserComponent_ValidationError_InvalidUserUUID(t *testing.T) {
+	t.Parallel()
+
+	mockUserRepo := new(MockUserRepo)
+	mockSocialRepo := new(MockSocialRepoComponent)
+	mockTokenStore := new(MockTokenStore)
+
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+
+	c := &app.Container{
+		UserService:   userSvc,
+		SocialService: socialSvc,
+		Config:        config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	requesterID := uuid.New()
+	targetUserID := uuid.New()
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/user-management/users/invalid-uuid/follow/"+targetUserID.String(),
+		nil,
+	)
+	req.Header.Set("X-User-Id", requesterID.String())
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+	assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
+}
+
+func TestFollowUserComponent_ValidationError_InvalidTargetUUID(t *testing.T) {
+	t.Parallel()
+
+	mockUserRepo := new(MockUserRepo)
+	mockSocialRepo := new(MockSocialRepoComponent)
+	mockTokenStore := new(MockTokenStore)
+
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+
+	c := &app.Container{
+		UserService:   userSvc,
+		SocialService: socialSvc,
+		Config:        config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	requesterID := uuid.New()
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/user-management/users/"+requesterID.String()+"/follow/invalid-uuid",
+		nil,
+	)
+	req.Header.Set("X-User-Id", requesterID.String())
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
 	assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
 }

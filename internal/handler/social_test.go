@@ -21,6 +21,7 @@ import (
 var (
 	errMockSocialArgs        = errors.New("mock: missing args")
 	errFollowedUsersRespType = errors.New("invalid type assertion for GetFollowedUsersResponse")
+	errFollowRespType        = errors.New("invalid type assertion for FollowResponse")
 	errUnexpectedService     = errors.New("unexpected service error")
 )
 
@@ -73,6 +74,27 @@ func (m *MockSocialService) GetFollowers(
 	}
 
 	return nil, errFollowedUsersRespType
+}
+
+func (m *MockSocialService) FollowUser(
+	ctx context.Context,
+	followerID, targetUserID uuid.UUID,
+) (*dto.FollowResponse, error) {
+	args := m.Called(ctx, followerID, targetUserID)
+	if args.Get(0) == nil {
+		err := args.Error(1)
+		if err != nil {
+			return nil, fmt.Errorf("mock error: %w", err)
+		}
+
+		return nil, errMockSocialArgs
+	}
+
+	if val, ok := args.Get(0).(*dto.FollowResponse); ok {
+		return val, nil
+	}
+
+	return nil, errFollowRespType
 }
 
 type socialHandlerTestCase struct {
@@ -701,6 +723,233 @@ func TestSocialHandlerGetFollowers(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, url, nil)
 			if tt.requesterIDHdr != "" {
 				req.Header.Set("X-User-Id", tt.requesterIDHdr)
+			}
+
+			rr := httptest.NewRecorder()
+			r.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+
+			if tt.validateBody != nil {
+				tt.validateBody(t, rr.Body.String())
+			}
+		})
+	}
+}
+
+type followUserTestCase struct {
+	name           string
+	userIDPath     string
+	targetIDPath   string
+	requesterIDHdr string
+	userRoleHdr    string
+	mockRun        func(*MockSocialService)
+	expectedStatus int
+	validateBody   func(*testing.T, string)
+}
+
+//nolint:funlen // table-driven test with many test cases
+func TestSocialHandlerFollowUser(t *testing.T) {
+	t.Parallel()
+
+	userID := uuid.New()
+	targetID := uuid.New()
+	differentUserID := uuid.New()
+
+	successResponse := &dto.FollowResponse{
+		Message:     "Successfully followed user",
+		IsFollowing: true,
+	}
+
+	tests := []followUserTestCase{
+		{
+			name:           "Success - follow user (user_id matches requester)",
+			userIDPath:     userID.String(),
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: userID.String(),
+			userRoleHdr:    "",
+			mockRun: func(m *MockSocialService) {
+				m.On("FollowUser", mock.Anything, userID, targetID).Return(successResponse, nil)
+			},
+			expectedStatus: http.StatusOK,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, `"success":true`)
+				assert.Contains(t, body, `"isFollowing":true`)
+				assert.Contains(t, body, `"Successfully followed user"`)
+			},
+		},
+		{
+			name:           "Success - admin follows on behalf of another user",
+			userIDPath:     differentUserID.String(),
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: userID.String(),
+			userRoleHdr:    "admin",
+			mockRun: func(m *MockSocialService) {
+				m.On("FollowUser", mock.Anything, differentUserID, targetID).Return(successResponse, nil)
+			},
+			expectedStatus: http.StatusOK,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, `"success":true`)
+				assert.Contains(t, body, `"isFollowing":true`)
+			},
+		},
+		{
+			name:           "Unauthorized - missing X-User-Id header",
+			userIDPath:     userID.String(),
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: "",
+			userRoleHdr:    "",
+			mockRun:        func(_ *MockSocialService) {},
+			expectedStatus: http.StatusUnauthorized,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "UNAUTHORIZED")
+			},
+		},
+		{
+			name:           "Unauthorized - invalid X-User-Id header",
+			userIDPath:     userID.String(),
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: "invalid-uuid",
+			userRoleHdr:    "",
+			mockRun:        func(_ *MockSocialService) {},
+			expectedStatus: http.StatusUnauthorized,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "UNAUTHORIZED")
+			},
+		},
+		{
+			name:           "Validation Error - invalid user_id format",
+			userIDPath:     "invalid-uuid",
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: userID.String(),
+			userRoleHdr:    "",
+			mockRun:        func(_ *MockSocialService) {},
+			expectedStatus: http.StatusUnprocessableEntity,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "VALIDATION_ERROR")
+				assert.Contains(t, body, "Invalid user ID format")
+			},
+		},
+		{
+			name:           "Validation Error - invalid target_user_id format",
+			userIDPath:     userID.String(),
+			targetIDPath:   "invalid-uuid",
+			requesterIDHdr: userID.String(),
+			userRoleHdr:    "",
+			mockRun:        func(_ *MockSocialService) {},
+			expectedStatus: http.StatusUnprocessableEntity,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "VALIDATION_ERROR")
+				assert.Contains(t, body, "Invalid target user ID format")
+			},
+		},
+		{
+			name:           "Forbidden - user_id does not match authenticated user (non-admin)",
+			userIDPath:     differentUserID.String(),
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: userID.String(),
+			userRoleHdr:    "",
+			mockRun:        func(_ *MockSocialService) {},
+			expectedStatus: http.StatusForbidden,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "FORBIDDEN")
+				assert.Contains(t, body, "Cannot perform follow action for another user")
+			},
+		},
+		{
+			name:           "Bad Request - cannot follow self",
+			userIDPath:     userID.String(),
+			targetIDPath:   userID.String(),
+			requesterIDHdr: userID.String(),
+			userRoleHdr:    "",
+			mockRun: func(m *MockSocialService) {
+				m.On("FollowUser", mock.Anything, userID, userID).Return(nil, service.ErrCannotFollowSelf)
+			},
+			expectedStatus: http.StatusBadRequest,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "VALIDATION_ERROR")
+				assert.Contains(t, body, "Cannot follow yourself")
+			},
+		},
+		{
+			name:           "Not Found - target user does not exist",
+			userIDPath:     userID.String(),
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: userID.String(),
+			userRoleHdr:    "",
+			mockRun: func(m *MockSocialService) {
+				m.On("FollowUser", mock.Anything, userID, targetID).Return(nil, service.ErrUserNotFound)
+			},
+			expectedStatus: http.StatusNotFound,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "USER_NOT_FOUND")
+			},
+		},
+		{
+			name:           "Forbidden - target user does not allow follows",
+			userIDPath:     userID.String(),
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: userID.String(),
+			userRoleHdr:    "",
+			mockRun: func(m *MockSocialService) {
+				m.On("FollowUser", mock.Anything, userID, targetID).Return(nil, service.ErrFollowNotAllowed)
+			},
+			expectedStatus: http.StatusForbidden,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "FORBIDDEN")
+				assert.Contains(t, body, "does not allow follows")
+			},
+		},
+		{
+			name:           "Internal Error - service error",
+			userIDPath:     userID.String(),
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: userID.String(),
+			userRoleHdr:    "",
+			mockRun: func(m *MockSocialService) {
+				m.On("FollowUser", mock.Anything, userID, targetID).Return(nil, errUnexpectedService)
+			},
+			expectedStatus: http.StatusInternalServerError,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "INTERNAL_ERROR")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockSvc := new(MockSocialService)
+			if tt.mockRun != nil {
+				tt.mockRun(mockSvc)
+			}
+
+			h := handler.NewSocialHandler(mockSvc)
+
+			r := chi.NewRouter()
+			r.Post("/users/{user_id}/follow/{target_user_id}", h.FollowUser)
+
+			url := "/users/" + tt.userIDPath + "/follow/" + tt.targetIDPath
+
+			req := httptest.NewRequest(http.MethodPost, url, nil)
+			if tt.requesterIDHdr != "" {
+				req.Header.Set("X-User-Id", tt.requesterIDHdr)
+			}
+
+			if tt.userRoleHdr != "" {
+				req.Header.Set("X-User-Role", tt.userRoleHdr)
 			}
 
 			rr := httptest.NewRecorder()

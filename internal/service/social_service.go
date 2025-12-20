@@ -24,10 +24,20 @@ type SocialService interface {
 		limit, offset int,
 		countOnly bool,
 	) (*dto.GetFollowedUsersResponse, error)
+	FollowUser(
+		ctx context.Context,
+		followerID, targetUserID uuid.UUID,
+	) (*dto.FollowResponse, error)
 }
 
 // ErrAccessDenied is returned when access to a resource is denied due to privacy settings.
 var ErrAccessDenied = errors.New("access denied")
+
+// ErrCannotFollowSelf is returned when a user tries to follow themselves.
+var ErrCannotFollowSelf = errors.New("cannot follow yourself")
+
+// ErrFollowNotAllowed is returned when target user has disabled follows.
+var ErrFollowNotAllowed = errors.New("user does not allow follows")
 
 // Profile visibility constants.
 const (
@@ -135,6 +145,53 @@ func (s *SocialServiceImpl) GetFollowers(
 
 	// 5. Build response
 	return s.buildFollowingResponse(users, totalCount, limit, offset, countOnly), nil
+}
+
+// FollowUser creates a follow relationship from follower to target user.
+func (s *SocialServiceImpl) FollowUser(
+	ctx context.Context,
+	followerID, targetUserID uuid.UUID,
+) (*dto.FollowResponse, error) {
+	// 1. Check self-follow
+	if followerID == targetUserID {
+		return nil, ErrCannotFollowSelf
+	}
+
+	// 2. Verify target user exists and is active
+	targetUser, err := s.userRepo.FindUserByID(ctx, targetUserID)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, ErrUserNotFound
+		}
+
+		return nil, fmt.Errorf("failed to fetch target user: %w", err)
+	}
+
+	if !targetUser.IsActive {
+		return nil, ErrUserNotFound
+	}
+
+	// 3. Check privacy settings - if AllowFollows is false, return forbidden
+	privacy, err := s.userRepo.FindPrivacyPreferencesByUserID(ctx, targetUserID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch privacy preferences: %w", err)
+	}
+
+	if !privacy.AllowFollows {
+		return nil, ErrFollowNotAllowed
+	}
+
+	// 4. Create follow relationship (idempotent - duplicate follows are OK)
+	err = s.socialRepo.FollowUser(ctx, followerID, targetUserID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to follow user: %w", err)
+	}
+
+	// 5. Return success response
+	return &dto.FollowResponse{
+		Message:     "Successfully followed user",
+		IsFollowing: true,
+	}, nil
 }
 
 func (s *SocialServiceImpl) canAccessFollowingList(

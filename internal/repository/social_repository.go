@@ -18,6 +18,7 @@ type SocialRepository interface {
 	GetFollowing(ctx context.Context, userID uuid.UUID, limit, offset int) ([]dto.User, int, error)
 	GetFollowers(ctx context.Context, userID uuid.UUID, limit, offset int) ([]dto.User, int, error)
 	FollowUser(ctx context.Context, followerID, followeeID uuid.UUID) error
+	UnfollowUser(ctx context.Context, followerID, followeeID uuid.UUID) error
 }
 
 // SQLSocialRepository implements SocialRepository using a SQL database.
@@ -221,6 +222,22 @@ func (r *SQLSocialRepository) FollowUser(ctx context.Context, followerID, follow
 		}
 
 		return fmt.Errorf("failed to create follow relationship: %w", err)
+	}
+
+	return nil
+}
+
+// UnfollowUser removes a follow relationship between follower and followee.
+// This operation is idempotent - deleting a non-existent relationship succeeds.
+func (r *SQLSocialRepository) UnfollowUser(ctx context.Context, followerID, followeeID uuid.UUID) error {
+	query := `
+		DELETE FROM recipe_manager.user_follows
+		WHERE follower_id = $1 AND followee_id = $2
+	`
+
+	_, err := r.db.ExecContext(ctx, query, followerID, followeeID)
+	if err != nil {
+		return fmt.Errorf("failed to delete follow relationship: %w", err)
 	}
 
 	return nil

@@ -88,6 +88,74 @@ func (m *MockSocialRepoComponent) UnfollowUser(
 	return nil
 }
 
+func (m *MockSocialRepoComponent) GetRecentRecipes(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int,
+) ([]dto.RecipeSummary, error) {
+	args := m.Called(ctx, userID, limit)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf(mockErrorFmt, err)
+	}
+
+	recipes, _ := args.Get(0).([]dto.RecipeSummary)
+
+	return recipes, nil
+}
+
+func (m *MockSocialRepoComponent) GetRecentFollows(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int,
+) ([]dto.UserSummary, error) {
+	args := m.Called(ctx, userID, limit)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf(mockErrorFmt, err)
+	}
+
+	follows, _ := args.Get(0).([]dto.UserSummary)
+
+	return follows, nil
+}
+
+func (m *MockSocialRepoComponent) GetRecentReviews(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int,
+) ([]dto.ReviewSummary, error) {
+	args := m.Called(ctx, userID, limit)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf(mockErrorFmt, err)
+	}
+
+	reviews, _ := args.Get(0).([]dto.ReviewSummary)
+
+	return reviews, nil
+}
+
+func (m *MockSocialRepoComponent) GetRecentFavorites(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int,
+) ([]dto.FavoriteSummary, error) {
+	args := m.Called(ctx, userID, limit)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf(mockErrorFmt, err)
+	}
+
+	favorites, _ := args.Get(0).([]dto.FavoriteSummary)
+
+	return favorites, nil
+}
+
 func createTestUserComponent(userID uuid.UUID, username string) *dto.User {
 	now := time.Now()
 	fullName := "Test User"
@@ -1973,5 +2041,462 @@ func TestUnfollowUserComponent_ValidationError_InvalidTargetUUID(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+	assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
+}
+
+// ============================================================================
+// GetUserActivity Component Tests
+// ============================================================================
+
+func createTestActivityDataComponent() (
+	[]dto.RecipeSummary, []dto.UserSummary, []dto.ReviewSummary, []dto.FavoriteSummary,
+) {
+	now := time.Now()
+	comment := "Great recipe!"
+
+	recipes := []dto.RecipeSummary{
+		{RecipeID: 1, Title: "Pasta Carbonara", CreatedAt: now},
+		{RecipeID: 2, Title: "Chicken Tikka", CreatedAt: now.Add(-time.Hour)},
+	}
+
+	follows := []dto.UserSummary{
+		{UserID: uuid.New().String(), Username: "chef1", FollowedAt: now},
+	}
+
+	reviews := []dto.ReviewSummary{
+		{ReviewID: 1, RecipeID: 1, Rating: 5, Comment: &comment, CreatedAt: now},
+	}
+
+	favorites := []dto.FavoriteSummary{
+		{RecipeID: 1, Title: "Apple Pie", FavoritedAt: now},
+	}
+
+	return recipes, follows, reviews, favorites
+}
+
+func TestGetUserActivityComponent_Success_Authenticated(t *testing.T) {
+	t.Parallel()
+
+	mockUserRepo := new(MockUserRepo)
+	mockSocialRepo := new(MockSocialRepoComponent)
+	mockTokenStore := new(MockTokenStore)
+
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+
+	c := &app.Container{
+		UserService:   userSvc,
+		SocialService: socialSvc,
+		Config:        config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	targetUserID := uuid.New()
+	requesterID := uuid.New()
+
+	targetUser := createTestUserComponent(targetUserID, "targetuser")
+	publicPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "public"}
+	recipes, follows, reviews, favorites := createTestActivityDataComponent()
+
+	mockUserRepo.On("FindUserByID", mock.Anything, targetUserID).Return(targetUser, nil).Once()
+	mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetUserID).Return(publicPrivacy, nil).Once()
+	mockSocialRepo.On("GetRecentRecipes", mock.Anything, targetUserID, 15).Return(recipes, nil).Once()
+	mockSocialRepo.On("GetRecentFollows", mock.Anything, targetUserID, 15).Return(follows, nil).Once()
+	mockSocialRepo.On("GetRecentReviews", mock.Anything, targetUserID, 15).Return(reviews, nil).Once()
+	mockSocialRepo.On("GetRecentFavorites", mock.Anything, targetUserID, 15).Return(favorites, nil).Once()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/"+targetUserID.String()+"/activity", nil)
+	req.Header.Set("X-User-Id", requesterID.String())
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var apiResp struct {
+		Success bool                     `json:"success"`
+		Data    dto.UserActivityResponse `json:"data"`
+	}
+
+	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
+	require.NoError(t, err)
+	require.True(t, apiResp.Success)
+	assert.Equal(t, targetUserID.String(), apiResp.Data.UserID)
+	assert.Len(t, apiResp.Data.RecentRecipes, 2)
+	assert.Len(t, apiResp.Data.RecentFollows, 1)
+	assert.Len(t, apiResp.Data.RecentReviews, 1)
+	assert.Len(t, apiResp.Data.RecentFavorites, 1)
+
+	mockUserRepo.AssertExpectations(t)
+	mockSocialRepo.AssertExpectations(t)
+}
+
+func TestGetUserActivityComponent_Success_Anonymous(t *testing.T) {
+	t.Parallel()
+
+	mockUserRepo := new(MockUserRepo)
+	mockSocialRepo := new(MockSocialRepoComponent)
+	mockTokenStore := new(MockTokenStore)
+
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+
+	c := &app.Container{
+		UserService:   userSvc,
+		SocialService: socialSvc,
+		Config:        config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	targetUserID := uuid.New()
+
+	targetUser := createTestUserComponent(targetUserID, "targetuser")
+	publicPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "public"}
+	recipes, follows, reviews, favorites := createTestActivityDataComponent()
+
+	mockUserRepo.On("FindUserByID", mock.Anything, targetUserID).Return(targetUser, nil).Once()
+	mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetUserID).Return(publicPrivacy, nil).Once()
+	mockSocialRepo.On("GetRecentRecipes", mock.Anything, targetUserID, 15).Return(recipes, nil).Once()
+	mockSocialRepo.On("GetRecentFollows", mock.Anything, targetUserID, 15).Return(follows, nil).Once()
+	mockSocialRepo.On("GetRecentReviews", mock.Anything, targetUserID, 15).Return(reviews, nil).Once()
+	mockSocialRepo.On("GetRecentFavorites", mock.Anything, targetUserID, 15).Return(favorites, nil).Once()
+
+	// No X-User-Id header - anonymous access
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/"+targetUserID.String()+"/activity", nil)
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), targetUserID.String())
+
+	mockUserRepo.AssertExpectations(t)
+	mockSocialRepo.AssertExpectations(t)
+}
+
+func TestGetUserActivityComponent_Success_CustomLimit(t *testing.T) {
+	t.Parallel()
+
+	mockUserRepo := new(MockUserRepo)
+	mockSocialRepo := new(MockSocialRepoComponent)
+	mockTokenStore := new(MockTokenStore)
+
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+
+	c := &app.Container{
+		UserService:   userSvc,
+		SocialService: socialSvc,
+		Config:        config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	targetUserID := uuid.New()
+	requesterID := uuid.New()
+
+	targetUser := createTestUserComponent(targetUserID, "targetuser")
+	publicPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "public"}
+
+	mockUserRepo.On("FindUserByID", mock.Anything, targetUserID).Return(targetUser, nil).Once()
+	mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetUserID).Return(publicPrivacy, nil).Once()
+	mockSocialRepo.On("GetRecentRecipes", mock.Anything, targetUserID, 50).Return([]dto.RecipeSummary{}, nil).Once()
+	mockSocialRepo.On("GetRecentFollows", mock.Anything, targetUserID, 50).Return([]dto.UserSummary{}, nil).Once()
+	mockSocialRepo.On("GetRecentReviews", mock.Anything, targetUserID, 50).Return([]dto.ReviewSummary{}, nil).Once()
+	mockSocialRepo.On("GetRecentFavorites", mock.Anything, targetUserID, 50).Return([]dto.FavoriteSummary{}, nil).Once()
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/user-management/users/"+targetUserID.String()+"/activity?per_type_limit=50",
+		nil,
+	)
+	req.Header.Set("X-User-Id", requesterID.String())
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	mockUserRepo.AssertExpectations(t)
+	mockSocialRepo.AssertExpectations(t)
+}
+
+func TestGetUserActivityComponent_Success_OwnProfile(t *testing.T) {
+	t.Parallel()
+
+	mockUserRepo := new(MockUserRepo)
+	mockSocialRepo := new(MockSocialRepoComponent)
+	mockTokenStore := new(MockTokenStore)
+
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+
+	c := &app.Container{
+		UserService:   userSvc,
+		SocialService: socialSvc,
+		Config:        config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+
+	targetUser := createTestUserComponent(userID, "ownuser")
+	recipes, follows, reviews, favorites := createTestActivityDataComponent()
+
+	mockUserRepo.On("FindUserByID", mock.Anything, userID).Return(targetUser, nil).Once()
+	mockSocialRepo.On("GetRecentRecipes", mock.Anything, userID, 15).Return(recipes, nil).Once()
+	mockSocialRepo.On("GetRecentFollows", mock.Anything, userID, 15).Return(follows, nil).Once()
+	mockSocialRepo.On("GetRecentReviews", mock.Anything, userID, 15).Return(reviews, nil).Once()
+	mockSocialRepo.On("GetRecentFavorites", mock.Anything, userID, 15).Return(favorites, nil).Once()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/"+userID.String()+"/activity", nil)
+	req.Header.Set("X-User-Id", userID.String())
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	// Privacy preferences should NOT be fetched when viewing own activity
+	mockUserRepo.AssertNotCalled(t, "FindPrivacyPreferencesByUserID", mock.Anything, mock.Anything)
+	mockUserRepo.AssertExpectations(t)
+	mockSocialRepo.AssertExpectations(t)
+}
+
+func TestGetUserActivityComponent_NotFound(t *testing.T) {
+	t.Parallel()
+
+	mockUserRepo := new(MockUserRepo)
+	mockSocialRepo := new(MockSocialRepoComponent)
+	mockTokenStore := new(MockTokenStore)
+
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+
+	c := &app.Container{
+		UserService:   userSvc,
+		SocialService: socialSvc,
+		Config:        config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	targetUserID := uuid.New()
+	requesterID := uuid.New()
+
+	mockUserRepo.On("FindUserByID", mock.Anything, targetUserID).Return(nil, repository.ErrUserNotFound).Once()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/"+targetUserID.String()+"/activity", nil)
+	req.Header.Set("X-User-Id", requesterID.String())
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.Contains(t, rr.Body.String(), "USER_NOT_FOUND")
+
+	mockUserRepo.AssertExpectations(t)
+}
+
+func TestGetUserActivityComponent_Forbidden_PrivateProfile(t *testing.T) {
+	t.Parallel()
+
+	mockUserRepo := new(MockUserRepo)
+	mockSocialRepo := new(MockSocialRepoComponent)
+	mockTokenStore := new(MockTokenStore)
+
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+
+	c := &app.Container{
+		UserService:   userSvc,
+		SocialService: socialSvc,
+		Config:        config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	targetUserID := uuid.New()
+	requesterID := uuid.New()
+
+	targetUser := createTestUserComponent(targetUserID, "privateuser")
+	privatePrivacy := &dto.PrivacyPreferences{ProfileVisibility: "private"}
+
+	mockUserRepo.On("FindUserByID", mock.Anything, targetUserID).Return(targetUser, nil).Once()
+	mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetUserID).Return(privatePrivacy, nil).Once()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/"+targetUserID.String()+"/activity", nil)
+	req.Header.Set("X-User-Id", requesterID.String())
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), "FORBIDDEN")
+
+	mockUserRepo.AssertExpectations(t)
+}
+
+func TestGetUserActivityComponent_Forbidden_FollowersOnlyAnonymous(t *testing.T) {
+	t.Parallel()
+
+	mockUserRepo := new(MockUserRepo)
+	mockSocialRepo := new(MockSocialRepoComponent)
+	mockTokenStore := new(MockTokenStore)
+
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+
+	c := &app.Container{
+		UserService:   userSvc,
+		SocialService: socialSvc,
+		Config:        config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	targetUserID := uuid.New()
+
+	targetUser := createTestUserComponent(targetUserID, "followersonly")
+	followersOnlyPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "followers_only"}
+
+	mockUserRepo.On("FindUserByID", mock.Anything, targetUserID).Return(targetUser, nil).Once()
+	mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetUserID).Return(followersOnlyPrivacy, nil).Once()
+
+	// Anonymous request (no X-User-Id header)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/"+targetUserID.String()+"/activity", nil)
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), "FORBIDDEN")
+
+	mockUserRepo.AssertExpectations(t)
+}
+
+func TestGetUserActivityComponent_ValidationError_InvalidUUID(t *testing.T) {
+	t.Parallel()
+
+	mockUserRepo := new(MockUserRepo)
+	mockSocialRepo := new(MockSocialRepoComponent)
+	mockTokenStore := new(MockTokenStore)
+
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+
+	c := &app.Container{
+		UserService:   userSvc,
+		SocialService: socialSvc,
+		Config:        config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/invalid-uuid/activity", nil)
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+	assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
+}
+
+func TestGetUserActivityComponent_ValidationError_InvalidPerTypeLimit(t *testing.T) {
+	t.Parallel()
+
+	mockUserRepo := new(MockUserRepo)
+	mockSocialRepo := new(MockSocialRepoComponent)
+	mockTokenStore := new(MockTokenStore)
+
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+
+	c := &app.Container{
+		UserService:   userSvc,
+		SocialService: socialSvc,
+		Config:        config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	targetUserID := uuid.New()
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/user-management/users/"+targetUserID.String()+"/activity?per_type_limit=0",
+		nil,
+	)
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
+}
+
+func TestGetUserActivityComponent_ValidationError_PerTypeLimitTooHigh(t *testing.T) {
+	t.Parallel()
+
+	mockUserRepo := new(MockUserRepo)
+	mockSocialRepo := new(MockSocialRepoComponent)
+	mockTokenStore := new(MockTokenStore)
+
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+
+	c := &app.Container{
+		UserService:   userSvc,
+		SocialService: socialSvc,
+		Config:        config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	targetUserID := uuid.New()
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/user-management/users/"+targetUserID.String()+"/activity?per_type_limit=101",
+		nil,
+	)
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
 }

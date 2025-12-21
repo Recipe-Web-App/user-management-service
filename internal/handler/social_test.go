@@ -22,6 +22,7 @@ var (
 	errMockSocialArgs        = errors.New("mock: missing args")
 	errFollowedUsersRespType = errors.New("invalid type assertion for GetFollowedUsersResponse")
 	errFollowRespType        = errors.New("invalid type assertion for FollowResponse")
+	errUserActivityRespType  = errors.New("invalid type assertion for UserActivityResponse")
 	errUnexpectedService     = errors.New("unexpected service error")
 )
 
@@ -116,6 +117,29 @@ func (m *MockSocialService) UnfollowUser(
 	}
 
 	return nil, errFollowRespType
+}
+
+func (m *MockSocialService) GetUserActivity(
+	ctx context.Context,
+	requesterID *uuid.UUID,
+	targetUserID uuid.UUID,
+	perTypeLimit int,
+) (*dto.UserActivityResponse, error) {
+	args := m.Called(ctx, requesterID, targetUserID, perTypeLimit)
+	if args.Get(0) == nil {
+		err := args.Error(1)
+		if err != nil {
+			return nil, fmt.Errorf("mock error: %w", err)
+		}
+
+		return nil, errMockSocialArgs
+	}
+
+	if val, ok := args.Get(0).(*dto.UserActivityResponse); ok {
+		return val, nil
+	}
+
+	return nil, errUserActivityRespType
 }
 
 type socialHandlerTestCase struct {
@@ -1171,6 +1195,260 @@ func TestSocialHandlerUnfollowUser(t *testing.T) {
 
 			if tt.userRoleHdr != "" {
 				req.Header.Set("X-User-Role", tt.userRoleHdr)
+			}
+
+			rr := httptest.NewRecorder()
+			r.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+
+			if tt.validateBody != nil {
+				tt.validateBody(t, rr.Body.String())
+			}
+		})
+	}
+}
+
+//nolint:funlen,maintidx,dupl // table-driven test with many test cases
+func TestSocialHandlerGetUserActivity(t *testing.T) {
+	t.Parallel()
+
+	targetID := uuid.New()
+	requesterID := uuid.New()
+
+	now := time.Now()
+
+	baseResponse := &dto.UserActivityResponse{
+		UserID: targetID.String(),
+		RecentRecipes: []dto.RecipeSummary{
+			{RecipeID: 1, Title: "Test Recipe", CreatedAt: now},
+		},
+		RecentFollows: []dto.UserSummary{
+			{UserID: uuid.New().String(), Username: "testuser", FollowedAt: now},
+		},
+		RecentReviews:   []dto.ReviewSummary{},
+		RecentFavorites: []dto.FavoriteSummary{},
+	}
+
+	emptyResponse := &dto.UserActivityResponse{
+		UserID:          targetID.String(),
+		RecentRecipes:   []dto.RecipeSummary{},
+		RecentFollows:   []dto.UserSummary{},
+		RecentReviews:   []dto.ReviewSummary{},
+		RecentFavorites: []dto.FavoriteSummary{},
+	}
+
+	tests := []socialHandlerTestCase{
+		{
+			name:           "Success - authenticated user views public profile",
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: requesterID.String(),
+			queryParams:    "",
+			mockRun: func(m *MockSocialService) {
+				m.On("GetUserActivity", mock.Anything, mock.AnythingOfType("*uuid.UUID"), targetID, 15).
+					Return(baseResponse, nil)
+			},
+			expectedStatus: http.StatusOK,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, `"success":true`)
+				assert.Contains(t, body, `"userId"`)
+				assert.Contains(t, body, `"recentRecipes"`)
+				assert.Contains(t, body, `"Test Recipe"`)
+			},
+		},
+		{
+			name:           "Success - anonymous user views public profile",
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: "",
+			queryParams:    "",
+			mockRun: func(m *MockSocialService) {
+				m.On("GetUserActivity", mock.Anything, (*uuid.UUID)(nil), targetID, 15).
+					Return(baseResponse, nil)
+			},
+			expectedStatus: http.StatusOK,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, `"success":true`)
+				assert.Contains(t, body, `"recentRecipes"`)
+			},
+		},
+		{
+			name:           "Success - custom per_type_limit",
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: requesterID.String(),
+			queryParams:    "per_type_limit=50",
+			mockRun: func(m *MockSocialService) {
+				m.On("GetUserActivity", mock.Anything, mock.AnythingOfType("*uuid.UUID"), targetID, 50).
+					Return(baseResponse, nil)
+			},
+			expectedStatus: http.StatusOK,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, `"success":true`)
+			},
+		},
+		{
+			name:           "Success - minimum per_type_limit",
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: requesterID.String(),
+			queryParams:    "per_type_limit=1",
+			mockRun: func(m *MockSocialService) {
+				m.On("GetUserActivity", mock.Anything, mock.AnythingOfType("*uuid.UUID"), targetID, 1).
+					Return(emptyResponse, nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "Success - maximum per_type_limit",
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: requesterID.String(),
+			queryParams:    "per_type_limit=100",
+			mockRun: func(m *MockSocialService) {
+				m.On("GetUserActivity", mock.Anything, mock.AnythingOfType("*uuid.UUID"), targetID, 100).
+					Return(emptyResponse, nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "Success - empty activity",
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: requesterID.String(),
+			queryParams:    "",
+			mockRun: func(m *MockSocialService) {
+				m.On("GetUserActivity", mock.Anything, mock.AnythingOfType("*uuid.UUID"), targetID, 15).
+					Return(emptyResponse, nil)
+			},
+			expectedStatus: http.StatusOK,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, `"success":true`)
+				assert.Contains(t, body, `"recentRecipes":[]`)
+			},
+		},
+		{
+			name:           "Validation Error - invalid UUID format",
+			targetIDPath:   "invalid-uuid",
+			requesterIDHdr: requesterID.String(),
+			queryParams:    "",
+			mockRun:        func(_ *MockSocialService) {},
+			expectedStatus: http.StatusUnprocessableEntity,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "VALIDATION_ERROR")
+				assert.Contains(t, body, "Invalid user ID format")
+			},
+		},
+		{
+			name:           "Validation Error - per_type_limit not integer",
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: requesterID.String(),
+			queryParams:    "per_type_limit=abc",
+			mockRun:        func(_ *MockSocialService) {},
+			expectedStatus: http.StatusBadRequest,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "VALIDATION_ERROR")
+				assert.Contains(t, body, "per_type_limit must be a valid integer")
+			},
+		},
+		{
+			name:           "Validation Error - per_type_limit too low",
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: requesterID.String(),
+			queryParams:    "per_type_limit=0",
+			mockRun:        func(_ *MockSocialService) {},
+			expectedStatus: http.StatusBadRequest,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "VALIDATION_ERROR")
+				assert.Contains(t, body, "per_type_limit must be between 1 and 100")
+			},
+		},
+		{
+			name:           "Validation Error - per_type_limit too high",
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: requesterID.String(),
+			queryParams:    "per_type_limit=101",
+			mockRun:        func(_ *MockSocialService) {},
+			expectedStatus: http.StatusBadRequest,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "VALIDATION_ERROR")
+				assert.Contains(t, body, "per_type_limit must be between 1 and 100")
+			},
+		},
+		{
+			name:           "Not Found - user does not exist",
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: requesterID.String(),
+			queryParams:    "",
+			mockRun: func(m *MockSocialService) {
+				m.On("GetUserActivity", mock.Anything, mock.AnythingOfType("*uuid.UUID"), targetID, 15).
+					Return(nil, service.ErrUserNotFound)
+			},
+			expectedStatus: http.StatusNotFound,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "USER_NOT_FOUND")
+				assert.Contains(t, body, "User not found")
+			},
+		},
+		{
+			name:           "Forbidden - private profile",
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: requesterID.String(),
+			queryParams:    "",
+			mockRun: func(m *MockSocialService) {
+				m.On("GetUserActivity", mock.Anything, mock.AnythingOfType("*uuid.UUID"), targetID, 15).
+					Return(nil, service.ErrAccessDenied)
+			},
+			expectedStatus: http.StatusForbidden,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "FORBIDDEN")
+				assert.Contains(t, body, "Access to this user's activity is restricted")
+			},
+		},
+		{
+			name:           "Internal Error - service error",
+			targetIDPath:   targetID.String(),
+			requesterIDHdr: requesterID.String(),
+			queryParams:    "",
+			mockRun: func(m *MockSocialService) {
+				m.On("GetUserActivity", mock.Anything, mock.AnythingOfType("*uuid.UUID"), targetID, 15).
+					Return(nil, errUnexpectedService)
+			},
+			expectedStatus: http.StatusInternalServerError,
+			validateBody: func(t *testing.T, body string) {
+				t.Helper()
+				assert.Contains(t, body, "INTERNAL_ERROR")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockSvc := new(MockSocialService)
+			if tt.mockRun != nil {
+				tt.mockRun(mockSvc)
+			}
+
+			h := handler.NewSocialHandler(mockSvc)
+
+			r := chi.NewRouter()
+			r.Get("/users/{user_id}/activity", h.GetUserActivity)
+
+			url := "/users/" + tt.targetIDPath + "/activity"
+			if tt.queryParams != "" {
+				url += "?" + tt.queryParams
+			}
+
+			req := httptest.NewRequest(http.MethodGet, url, nil)
+			if tt.requesterIDHdr != "" {
+				req.Header.Set("X-User-Id", tt.requesterIDHdr)
 			}
 
 			rr := httptest.NewRecorder()

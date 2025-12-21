@@ -4,12 +4,10 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/service"
 )
 
@@ -209,45 +207,101 @@ func (h *SocialHandler) UnfollowUser(w http.ResponseWriter, r *http.Request) {
 	SuccessResponse(w, http.StatusOK, response)
 }
 
-// GetUserActivity handles GET /users/{user_id}/activity.
-// Stub implementation - to be implemented.
-//
-//nolint:mnd // placeholder values for stub handler
-func (h *SocialHandler) GetUserActivity(w http.ResponseWriter, _ *http.Request) {
-	now := time.Now()
+// Activity parameter constants.
+const (
+	defaultPerTypeLimit = 15
+	minPerTypeLimit     = 1
+	maxPerTypeLimit     = 100
+)
 
-	SuccessResponse(w, http.StatusOK, dto.UserActivityResponse{
-		UserID: uuid.New().String(),
-		RecentRecipes: []dto.RecipeSummary{
-			{
-				RecipeID:  1,
-				Title:     "Spaghetti Carbonara",
-				CreatedAt: now,
-			},
-		},
-		RecentFollows: []dto.UserSummary{
-			{
-				UserID:     uuid.New().String(),
-				Username:   "chefmike",
-				FollowedAt: now,
-			},
-		},
-		RecentReviews: []dto.ReviewSummary{
-			{
-				ReviewID:  1,
-				RecipeID:  2,
-				Rating:    4.5,
-				CreatedAt: now,
-			},
-		},
-		RecentFavorites: []dto.FavoriteSummary{
-			{
-				RecipeID:    3,
-				Title:       "Chocolate Cake",
-				FavoritedAt: now,
-			},
-		},
-	})
+// Activity parameter validation errors.
+var (
+	ErrInvalidPerTypeLimit    = errors.New("per_type_limit must be a valid integer")
+	ErrPerTypeLimitOutOfRange = errors.New("per_type_limit must be between 1 and 100")
+)
+
+// GetUserActivity handles GET /users/{user_id}/activity.
+func (h *SocialHandler) GetUserActivity(w http.ResponseWriter, r *http.Request) {
+	// 1. Extract optional requester ID from header (anonymous access allowed)
+	requesterID := h.extractOptionalUserID(r)
+
+	// 2. Extract and validate target user ID from path
+	userIDStr := chi.URLParam(r, "user_id")
+
+	targetUserID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		ErrorResponse(w, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "Invalid user ID format")
+
+		return
+	}
+
+	// 3. Parse query parameters
+	perTypeLimit, err := h.parseActivityParams(r)
+	if err != nil {
+		ErrorResponse(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
+
+		return
+	}
+
+	// 4. Call service
+	response, err := h.socialService.GetUserActivity(
+		r.Context(),
+		requesterID,
+		targetUserID,
+		perTypeLimit,
+	)
+	if err != nil {
+		h.handleGetUserActivityError(w, err)
+
+		return
+	}
+
+	SuccessResponse(w, http.StatusOK, response)
+}
+
+// extractOptionalUserID extracts user ID from header (nil if not provided or invalid).
+func (h *SocialHandler) extractOptionalUserID(r *http.Request) *uuid.UUID {
+	requesterIDStr := r.Header.Get("X-User-Id")
+	if requesterIDStr == "" {
+		return nil
+	}
+
+	requesterID, err := uuid.Parse(requesterIDStr)
+	if err != nil {
+		return nil
+	}
+
+	return &requesterID
+}
+
+func (h *SocialHandler) parseActivityParams(r *http.Request) (int, error) {
+	perTypeLimit := defaultPerTypeLimit
+
+	if limitStr := r.URL.Query().Get("per_type_limit"); limitStr != "" {
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil {
+			return 0, ErrInvalidPerTypeLimit
+		}
+
+		if limit < minPerTypeLimit || limit > maxPerTypeLimit {
+			return 0, ErrPerTypeLimitOutOfRange
+		}
+
+		perTypeLimit = limit
+	}
+
+	return perTypeLimit, nil
+}
+
+func (h *SocialHandler) handleGetUserActivityError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, service.ErrUserNotFound):
+		ErrorResponse(w, http.StatusNotFound, "USER_NOT_FOUND", "User not found")
+	case errors.Is(err, service.ErrAccessDenied):
+		ForbiddenResponse(w, "Access to this user's activity is restricted")
+	default:
+		InternalErrorResponse(w)
+	}
 }
 
 // Private helper types and methods below.

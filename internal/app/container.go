@@ -19,19 +19,21 @@ type Container struct {
 	Cache    repository.HealthChecker
 
 	// Services
-	HealthService service.HealthServicer
-	UserService   service.UserService
-	SocialService service.SocialService
+	HealthService       service.HealthServicer
+	UserService         service.UserService
+	SocialService       service.SocialService
+	NotificationService service.NotificationService
 }
 
 // ContainerConfig holds options for building the container.
 type ContainerConfig struct {
-	Config     *config.Config
-	Database   repository.HealthChecker    // Optional override for testing
-	Cache      repository.HealthChecker    // Optional override for testing
-	UserRepo   repository.UserRepository   // Optional override for testing
-	SocialRepo repository.SocialRepository // Optional override for testing
-	TokenStore repository.TokenStore       // Optional override for testing
+	Config           *config.Config
+	Database         repository.HealthChecker          // Optional override for testing
+	Cache            repository.HealthChecker          // Optional override for testing
+	UserRepo         repository.UserRepository         // Optional override for testing
+	SocialRepo       repository.SocialRepository       // Optional override for testing
+	NotificationRepo repository.NotificationRepository // Optional override for testing
+	TokenStore       repository.TokenStore             // Optional override for testing
 }
 
 // NewContainer creates a new dependency container.
@@ -98,6 +100,18 @@ func NewContainer(cfg ContainerConfig) (*Container, error) {
 
 	if userRepo != nil && socialRepo != nil {
 		c.SocialService = service.NewSocialService(userRepo, socialRepo)
+	}
+
+	// Initialize notification repository and service
+	var notificationRepo repository.NotificationRepository
+	if cfg.NotificationRepo != nil {
+		notificationRepo = cfg.NotificationRepo
+	} else if dbService, ok := c.Database.(*database.Service); ok {
+		notificationRepo = repository.NewNotificationRepository(dbService.GetDB())
+	}
+
+	if notificationRepo != nil {
+		c.NotificationService = service.NewNotificationService(notificationRepo)
 	}
 
 	return c, nil

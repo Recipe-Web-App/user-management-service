@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
 )
@@ -14,6 +15,7 @@ import (
 type NotificationRepository interface {
 	GetNotifications(ctx context.Context, userID uuid.UUID, limit, offset int) ([]dto.Notification, int, error)
 	CountNotifications(ctx context.Context, userID uuid.UUID) (int, error)
+	DeleteNotifications(ctx context.Context, userID uuid.UUID, notificationIDs []uuid.UUID) ([]uuid.UUID, error)
 }
 
 // SQLNotificationRepository implements NotificationRepository using a SQL database.
@@ -102,4 +104,52 @@ func (r *SQLNotificationRepository) CountNotifications(ctx context.Context, user
 	}
 
 	return count, nil
+}
+
+// DeleteNotifications soft-deletes notifications for a user.
+// Returns the IDs that were actually deleted (found, owned by user, and not already deleted).
+func (r *SQLNotificationRepository) DeleteNotifications(
+	ctx context.Context,
+	userID uuid.UUID,
+	notificationIDs []uuid.UUID,
+) ([]uuid.UUID, error) {
+	if len(notificationIDs) == 0 {
+		return []uuid.UUID{}, nil
+	}
+
+	query := `
+		UPDATE recipe_manager.notifications
+		SET is_deleted = true, updated_at = NOW()
+		WHERE user_id = $1
+		  AND is_deleted = false
+		  AND notification_id = ANY($2)
+		RETURNING notification_id
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, userID, pq.Array(notificationIDs))
+	if err != nil {
+		return nil, fmt.Errorf("delete notifications: %w", err)
+	}
+
+	defer func() { _ = rows.Close() }()
+
+	deletedIDs := make([]uuid.UUID, 0)
+
+	for rows.Next() {
+		var id uuid.UUID
+
+		err := rows.Scan(&id)
+		if err != nil {
+			return nil, fmt.Errorf("scan deleted notification id: %w", err)
+		}
+
+		deletedIDs = append(deletedIDs, id)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("iterate deleted notifications: %w", err)
+	}
+
+	return deletedIDs, nil
 }

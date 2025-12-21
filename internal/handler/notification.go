@@ -15,12 +15,14 @@ import (
 // NotificationHandler handles notification HTTP endpoints.
 type NotificationHandler struct {
 	notificationService service.NotificationService
+	binder              *RequestBinder
 }
 
 // NewNotificationHandler creates a new notification handler.
 func NewNotificationHandler(notificationService service.NotificationService) *NotificationHandler {
 	return &NotificationHandler{
 		notificationService: notificationService,
+		binder:              NewRequestBinder(),
 	}
 }
 
@@ -58,11 +60,52 @@ func (h *NotificationHandler) GetNotifications(w http.ResponseWriter, r *http.Re
 }
 
 // DeleteNotifications handles DELETE /notifications.
-func (h *NotificationHandler) DeleteNotifications(w http.ResponseWriter, _ *http.Request) {
-	SuccessResponse(w, http.StatusOK, dto.NotificationDeleteResponse{
-		Message:                "Notifications deleted successfully",
-		DeletedNotificationIDs: []string{uuid.New().String()},
-	})
+func (h *NotificationHandler) DeleteNotifications(w http.ResponseWriter, r *http.Request) {
+	// 1. Extract and validate requester ID from header
+	userID, ok := h.extractAuthenticatedUserID(w, r)
+	if !ok {
+		return
+	}
+
+	// 2. Parse and validate request body
+	var req dto.NotificationDeleteRequest
+
+	bindErr := h.binder.BindAndValidate(r, &req)
+	if bindErr != nil {
+		h.handleBindError(w, bindErr)
+
+		return
+	}
+
+	// 3. Call service
+	result, err := h.notificationService.DeleteNotifications(r.Context(), userID, req.NotificationIDs)
+	if err != nil {
+		InternalErrorResponse(w)
+
+		return
+	}
+
+	// 4. Build response
+	response := dto.NotificationDeleteResponse{
+		DeletedNotificationIDs: result.DeletedIDs,
+	}
+
+	// Ensure empty slice not nil for JSON serialization
+	if response.DeletedNotificationIDs == nil {
+		response.DeletedNotificationIDs = []string{}
+	}
+
+	// 5. Determine status code and message based on result
+	switch {
+	case result.AllNotFound:
+		NotFoundResponse(w, "Notifications")
+	case result.IsPartial:
+		response.Message = "Some notifications deleted successfully"
+		SuccessResponse(w, http.StatusPartialContent, response)
+	default:
+		response.Message = "Notifications deleted successfully"
+		SuccessResponse(w, http.StatusOK, response)
+	}
 }
 
 // MarkNotificationRead handles PUT /notifications/{notification_id}/read.
@@ -136,6 +179,19 @@ func (h *NotificationHandler) UpdateNotificationPreferences(w http.ResponseWrite
 			},
 		},
 	})
+}
+
+func (h *NotificationHandler) handleBindError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, ErrEmptyBody):
+		ErrorResponse(w, http.StatusBadRequest, "EMPTY_BODY", "Request body is required")
+	case errors.Is(err, ErrInvalidJSON), errors.Is(err, ErrInvalidFieldType):
+		ErrorResponse(w, http.StatusBadRequest, "INVALID_JSON", err.Error())
+	case errors.Is(err, ErrValidationFailed):
+		ValidationErrorResponse(w, err)
+	default:
+		ErrorResponse(w, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+	}
 }
 
 func (h *NotificationHandler) extractAuthenticatedUserID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {

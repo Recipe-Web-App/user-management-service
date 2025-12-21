@@ -248,3 +248,118 @@ func TestSQLNotificationRepository_CountNotifications(t *testing.T) {
 		})
 	}
 }
+
+//nolint:funlen // Table-driven test with many test cases
+func TestSQLNotificationRepository_DeleteNotifications(t *testing.T) {
+	t.Parallel()
+
+	userID := uuid.New()
+	notificationID1 := uuid.New()
+	notificationID2 := uuid.New()
+	notificationID3 := uuid.New()
+
+	tests := []struct {
+		name            string
+		notificationIDs []uuid.UUID
+		setupMock       func(mock sqlmock.Sqlmock)
+		expectedIDs     []uuid.UUID
+		expectError     bool
+	}{
+		{
+			name:            "deletes all notifications successfully",
+			notificationIDs: []uuid.UUID{notificationID1, notificationID2},
+			setupMock: func(mock sqlmock.Sqlmock) {
+				rows := sqlmock.NewRows([]string{"notification_id"}).
+					AddRow(notificationID1).
+					AddRow(notificationID2)
+				mock.ExpectQuery(`UPDATE recipe_manager.notifications`).
+					WithArgs(userID, sqlmock.AnyArg()).
+					WillReturnRows(rows)
+			},
+			expectedIDs: []uuid.UUID{notificationID1, notificationID2},
+			expectError: false,
+		},
+		{
+			name:            "returns only found notifications on partial delete",
+			notificationIDs: []uuid.UUID{notificationID1, notificationID2, notificationID3},
+			setupMock: func(mock sqlmock.Sqlmock) {
+				// Only notificationID1 is found and deleted
+				rows := sqlmock.NewRows([]string{"notification_id"}).
+					AddRow(notificationID1)
+				mock.ExpectQuery(`UPDATE recipe_manager.notifications`).
+					WithArgs(userID, sqlmock.AnyArg()).
+					WillReturnRows(rows)
+			},
+			expectedIDs: []uuid.UUID{notificationID1},
+			expectError: false,
+		},
+		{
+			name:            "returns empty slice when no notifications found",
+			notificationIDs: []uuid.UUID{notificationID1, notificationID2},
+			setupMock: func(mock sqlmock.Sqlmock) {
+				rows := sqlmock.NewRows([]string{"notification_id"})
+				mock.ExpectQuery(`UPDATE recipe_manager.notifications`).
+					WithArgs(userID, sqlmock.AnyArg()).
+					WillReturnRows(rows)
+			},
+			expectedIDs: []uuid.UUID{},
+			expectError: false,
+		},
+		{
+			name:            "returns empty slice for empty input",
+			notificationIDs: []uuid.UUID{},
+			setupMock:       func(_ sqlmock.Sqlmock) {},
+			expectedIDs:     []uuid.UUID{},
+			expectError:     false,
+		},
+		{
+			name:            "returns error on database failure",
+			notificationIDs: []uuid.UUID{notificationID1},
+			setupMock: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(`UPDATE recipe_manager.notifications`).
+					WithArgs(userID, sqlmock.AnyArg()).
+					WillReturnError(errTestDB)
+			},
+			expectError: true,
+		},
+		{
+			name:            "returns error on row scan failure",
+			notificationIDs: []uuid.UUID{notificationID1},
+			setupMock: func(mock sqlmock.Sqlmock) {
+				// Return invalid data that can't be scanned as UUID
+				rows := sqlmock.NewRows([]string{"notification_id"}).
+					AddRow("not-a-uuid")
+				mock.ExpectQuery(`UPDATE recipe_manager.notifications`).
+					WithArgs(userID, sqlmock.AnyArg()).
+					WillReturnRows(rows)
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+
+			defer func() { _ = db.Close() }()
+
+			tt.setupMock(mock)
+
+			repo := repository.NewNotificationRepository(db)
+			deletedIDs, err := repo.DeleteNotifications(context.Background(), userID, tt.notificationIDs)
+
+			if tt.expectError {
+				assert.Error(t, err)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedIDs, deletedIDs)
+			assert.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}

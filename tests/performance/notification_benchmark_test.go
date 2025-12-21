@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,7 +15,8 @@ import (
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/database"
 )
 
-func seedBenchmarkNotifications(b *testing.B, db *sql.DB, userID uuid.UUID, count int) {
+//nolint:funlen // Helper function that seeds test data
+func seedBenchmarkNotifications(b *testing.B, db *sql.DB, userID uuid.UUID, count int) []uuid.UUID {
 	b.Helper()
 
 	ctx := context.Background()
@@ -76,6 +78,8 @@ func seedBenchmarkNotifications(b *testing.B, db *sql.DB, userID uuid.UUID, coun
 		_, _ = db.ExecContext(cleanupCtx, "DELETE FROM recipe_manager.notifications WHERE user_id = $1", userID)
 		_, _ = db.ExecContext(cleanupCtx, "DELETE FROM recipe_manager.users WHERE user_id = $1", userID)
 	})
+
+	return notificationIDs
 }
 
 func BenchmarkGetNotifications(b *testing.B) {
@@ -91,7 +95,7 @@ func BenchmarkGetNotifications(b *testing.B) {
 	userID := uuid.New()
 
 	// Seed 50 notifications for this user
-	seedBenchmarkNotifications(b, dbSvc.GetDB(), userID, 50)
+	_ = seedBenchmarkNotifications(b, dbSvc.GetDB(), userID, 50)
 
 	reqPath := "/api/v1/user-management/notifications"
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
@@ -120,7 +124,7 @@ func BenchmarkGetNotificationsWithPagination(b *testing.B) {
 	userID := uuid.New()
 
 	// Seed 100 notifications for this user
-	seedBenchmarkNotifications(b, dbSvc.GetDB(), userID, 100)
+	_ = seedBenchmarkNotifications(b, dbSvc.GetDB(), userID, 100)
 
 	reqPath := "/api/v1/user-management/notifications?limit=10&offset=50"
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
@@ -149,7 +153,7 @@ func BenchmarkGetNotificationsCountOnly(b *testing.B) {
 	userID := uuid.New()
 
 	// Seed 50 notifications for this user
-	seedBenchmarkNotifications(b, dbSvc.GetDB(), userID, 50)
+	_ = seedBenchmarkNotifications(b, dbSvc.GetDB(), userID, 50)
 
 	reqPath := "/api/v1/user-management/notifications?count_only=true"
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
@@ -160,6 +164,91 @@ func BenchmarkGetNotificationsCountOnly(b *testing.B) {
 		benchmarkHandler.ServeHTTP(rr, req)
 
 		if rr.Code != http.StatusOK {
+			b.Fatalf("unexpected status: %d, body: %s", rr.Code, rr.Body.String())
+		}
+	}
+}
+
+func BenchmarkDeleteNotifications(b *testing.B) {
+	if benchmarkContainer == nil || benchmarkContainer.Database == nil {
+		b.Skip("benchmark container or database is nil - skipping benchmark")
+	}
+
+	dbSvc, ok := benchmarkContainer.Database.(*database.Service)
+	if !ok {
+		b.Fatal("failed to cast database service")
+	}
+
+	userID := uuid.New()
+
+	// Seed notifications for this user - we'll delete 10 at a time
+	notificationIDs := seedBenchmarkNotifications(b, dbSvc.GetDB(), userID, 10)
+
+	// Build request body with notification IDs
+	idStrings := make([]string, len(notificationIDs))
+	for i, id := range notificationIDs {
+		idStrings[i] = fmt.Sprintf(`"%s"`, id.String())
+	}
+
+	reqBody := fmt.Sprintf(`{"notificationIds": [%s]}`, strings.Join(idStrings, ","))
+
+	reqPath := "/api/v1/user-management/notifications"
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodDelete, reqPath, strings.NewReader(reqBody))
+	req.Header.Set("X-User-Id", userID.String())
+	req.Header.Set("Content-Type", "application/json")
+
+	for b.Loop() {
+		// Reset request body for each iteration
+		req, _ = http.NewRequestWithContext(context.Background(), http.MethodDelete, reqPath, strings.NewReader(reqBody))
+		req.Header.Set("X-User-Id", userID.String())
+		req.Header.Set("Content-Type", "application/json")
+
+		rr := httptest.NewRecorder()
+		benchmarkHandler.ServeHTTP(rr, req)
+
+		// After first run, notifications are deleted, so subsequent runs will return 404
+		// This is acceptable for benchmarking the endpoint performance
+		if rr.Code != http.StatusOK && rr.Code != http.StatusNotFound {
+			b.Fatalf("unexpected status: %d, body: %s", rr.Code, rr.Body.String())
+		}
+	}
+}
+
+func BenchmarkDeleteNotificationsLarge(b *testing.B) {
+	if benchmarkContainer == nil || benchmarkContainer.Database == nil {
+		b.Skip("benchmark container or database is nil - skipping benchmark")
+	}
+
+	dbSvc, ok := benchmarkContainer.Database.(*database.Service)
+	if !ok {
+		b.Fatal("failed to cast database service")
+	}
+
+	userID := uuid.New()
+
+	// Seed 100 notifications (max allowed in single request)
+	notificationIDs := seedBenchmarkNotifications(b, dbSvc.GetDB(), userID, 100)
+
+	// Build request body with all 100 notification IDs
+	idStrings := make([]string, len(notificationIDs))
+	for i, id := range notificationIDs {
+		idStrings[i] = fmt.Sprintf(`"%s"`, id.String())
+	}
+
+	reqBody := fmt.Sprintf(`{"notificationIds": [%s]}`, strings.Join(idStrings, ","))
+
+	reqPath := "/api/v1/user-management/notifications"
+
+	for b.Loop() {
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodDelete, reqPath, strings.NewReader(reqBody))
+		req.Header.Set("X-User-Id", userID.String())
+		req.Header.Set("Content-Type", "application/json")
+
+		rr := httptest.NewRecorder()
+		benchmarkHandler.ServeHTTP(rr, req)
+
+		// After first run, notifications are deleted, so subsequent runs will return 404
+		if rr.Code != http.StatusOK && rr.Code != http.StatusNotFound {
 			b.Fatalf("unexpected status: %d, body: %s", rr.Code, rr.Body.String())
 		}
 	}

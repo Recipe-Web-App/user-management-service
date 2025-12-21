@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -59,6 +60,23 @@ func (m *MockNotificationRepository) CountNotifications(ctx context.Context, use
 	}
 
 	return args.Int(0), nil
+}
+
+func (m *MockNotificationRepository) DeleteNotifications(
+	ctx context.Context,
+	userID uuid.UUID,
+	notificationIDs []uuid.UUID,
+) ([]uuid.UUID, error) {
+	args := m.Called(ctx, userID, notificationIDs)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf("delete notifications: %w", err)
+	}
+
+	deletedIDs, _ := args.Get(0).([]uuid.UUID)
+
+	return deletedIDs, nil
 }
 
 type notificationTestFixture struct {
@@ -356,5 +374,187 @@ func TestGetNotifications(t *testing.T) {
 		fix.handler.ServeHTTP(rr, newNotificationRequest(t, fix.userID, "?limit=100"))
 
 		require.Equal(t, http.StatusOK, rr.Code)
+	})
+}
+
+func newDeleteNotificationRequest(t *testing.T, userID uuid.UUID, body string) *http.Request {
+	t.Helper()
+
+	req, err := http.NewRequestWithContext(
+		context.Background(),
+		http.MethodDelete,
+		notificationsBaseURL,
+		strings.NewReader(body),
+	)
+	require.NoError(t, err)
+	req.Header.Set("X-User-Id", userID.String())
+	req.Header.Set("Content-Type", "application/json")
+
+	return req
+}
+
+//nolint:funlen // Integration test with many test cases
+func TestDeleteNotifications(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Success_AllDeleted", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupNotificationTest(t)
+		notificationID1 := uuid.New()
+		notificationID2 := uuid.New()
+
+		fix.mockRepo.On("DeleteNotifications", mock.Anything, fix.userID, mock.Anything).
+			Return([]uuid.UUID{notificationID1, notificationID2}, nil).Once()
+
+		reqBody := fmt.Sprintf(`{"notificationIds": ["%s", "%s"]}`, notificationID1.String(), notificationID2.String())
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newDeleteNotificationRequest(t, fix.userID, reqBody))
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		var resp struct {
+			Success bool                           `json:"success"`
+			Data    dto.NotificationDeleteResponse `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+
+		assert.True(t, resp.Success)
+		assert.Equal(t, "Notifications deleted successfully", resp.Data.Message)
+		assert.Len(t, resp.Data.DeletedNotificationIDs, 2)
+	})
+
+	t.Run("PartialSuccess_SomeDeleted", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupNotificationTest(t)
+		notificationID1 := uuid.New()
+		notificationID2 := uuid.New()
+
+		// Only first notification was deleted
+		fix.mockRepo.On("DeleteNotifications", mock.Anything, fix.userID, mock.Anything).
+			Return([]uuid.UUID{notificationID1}, nil).Once()
+
+		reqBody := fmt.Sprintf(`{"notificationIds": ["%s", "%s"]}`, notificationID1.String(), notificationID2.String())
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newDeleteNotificationRequest(t, fix.userID, reqBody))
+
+		require.Equal(t, http.StatusPartialContent, rr.Code)
+
+		var resp struct {
+			Success bool                           `json:"success"`
+			Data    dto.NotificationDeleteResponse `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+
+		assert.True(t, resp.Success)
+		assert.Equal(t, "Some notifications deleted successfully", resp.Data.Message)
+		assert.Len(t, resp.Data.DeletedNotificationIDs, 1)
+	})
+
+	t.Run("NotFound_NoneDeleted", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupNotificationTest(t)
+		notificationID := uuid.New()
+
+		fix.mockRepo.On("DeleteNotifications", mock.Anything, fix.userID, mock.Anything).
+			Return([]uuid.UUID{}, nil).Once()
+
+		reqBody := fmt.Sprintf(`{"notificationIds": ["%s"]}`, notificationID.String())
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newDeleteNotificationRequest(t, fix.userID, reqBody))
+
+		require.Equal(t, http.StatusNotFound, rr.Code)
+
+		var resp struct {
+			Success bool      `json:"success"`
+			Error   dto.Error `json:"error"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+
+		assert.False(t, resp.Success)
+		assert.Equal(t, "NOT_FOUND", resp.Error.Code)
+	})
+
+	t.Run("Unauthorized_MissingHeader", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupNotificationTest(t)
+		notificationID := uuid.New()
+
+		reqBody := fmt.Sprintf(`{"notificationIds": ["%s"]}`, notificationID.String())
+		req, err := http.NewRequestWithContext(
+			context.Background(),
+			http.MethodDelete,
+			notificationsBaseURL,
+			strings.NewReader(reqBody),
+		)
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		// No X-User-Id header
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusUnauthorized, rr.Code)
+	})
+
+	t.Run("BadRequest_EmptyBody", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupNotificationTest(t)
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newDeleteNotificationRequest(t, fix.userID, ""))
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+	})
+
+	t.Run("BadRequest_InvalidJSON", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupNotificationTest(t)
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newDeleteNotificationRequest(t, fix.userID, "{invalid}"))
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+	})
+
+	t.Run("BadRequest_EmptyNotificationIds", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupNotificationTest(t)
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newDeleteNotificationRequest(t, fix.userID, `{"notificationIds": []}`))
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+	})
+
+	t.Run("InternalError_RepositoryFailure", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupNotificationTest(t)
+		notificationID := uuid.New()
+
+		fix.mockRepo.On("DeleteNotifications", mock.Anything, fix.userID, mock.Anything).
+			Return(nil, errNotificationTest).Once()
+
+		reqBody := fmt.Sprintf(`{"notificationIds": ["%s"]}`, notificationID.String())
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newDeleteNotificationRequest(t, fix.userID, reqBody))
+
+		assert.Equal(t, http.StatusInternalServerError, rr.Code)
+
+		var resp struct {
+			Success bool      `json:"success"`
+			Error   dto.Error `json:"error"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+
+		assert.False(t, resp.Success)
+		assert.Equal(t, "INTERNAL_ERROR", resp.Error.Code)
 	})
 }

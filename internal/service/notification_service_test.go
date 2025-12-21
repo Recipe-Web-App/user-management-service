@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -38,6 +39,23 @@ func (m *MockNotificationRepository) CountNotifications(ctx context.Context, use
 	args := m.Called(ctx, userID)
 
 	return args.Int(0), args.Error(1)
+}
+
+func (m *MockNotificationRepository) DeleteNotifications(
+	ctx context.Context,
+	userID uuid.UUID,
+	notificationIDs []uuid.UUID,
+) ([]uuid.UUID, error) {
+	args := m.Called(ctx, userID, notificationIDs)
+
+	deletedIDs, _ := args.Get(0).([]uuid.UUID)
+
+	err := args.Error(1)
+	if err != nil {
+		return deletedIDs, fmt.Errorf("mock error: %w", err)
+	}
+
+	return deletedIDs, nil
 }
 
 //nolint:funlen // Table-driven test with many test cases
@@ -190,6 +208,117 @@ func TestNotificationService_GetNotifications(t *testing.T) {
 				assert.Equal(t, tt.expectedCount, countResp.TotalCount)
 			}
 
+			mockRepo.AssertExpectations(t)
+		})
+	}
+}
+
+//nolint:funlen // Table-driven test with many test cases
+func TestNotificationService_DeleteNotifications(t *testing.T) {
+	t.Parallel()
+
+	userID := uuid.New()
+	notificationID1 := uuid.New()
+	notificationID2 := uuid.New()
+	notificationID3 := uuid.New()
+
+	tests := []struct {
+		name             string
+		notificationIDs  []string
+		setupMock        func(*MockNotificationRepository)
+		expectedDeleted  int
+		expectedPartial  bool
+		expectedNotFound bool
+		expectError      bool
+	}{
+		{
+			name:            "returns full success when all IDs deleted",
+			notificationIDs: []string{notificationID1.String(), notificationID2.String()},
+			setupMock: func(m *MockNotificationRepository) {
+				m.On("DeleteNotifications", mock.Anything, userID, mock.Anything).
+					Return([]uuid.UUID{notificationID1, notificationID2}, nil)
+			},
+			expectedDeleted:  2,
+			expectedPartial:  false,
+			expectedNotFound: false,
+			expectError:      false,
+		},
+		{
+			name:            "returns partial success when some IDs not found",
+			notificationIDs: []string{notificationID1.String(), notificationID2.String(), notificationID3.String()},
+			setupMock: func(m *MockNotificationRepository) {
+				m.On("DeleteNotifications", mock.Anything, userID, mock.Anything).
+					Return([]uuid.UUID{notificationID1}, nil)
+			},
+			expectedDeleted:  1,
+			expectedPartial:  true,
+			expectedNotFound: false,
+			expectError:      false,
+		},
+		{
+			name:            "returns all not found when no IDs deleted",
+			notificationIDs: []string{notificationID1.String(), notificationID2.String()},
+			setupMock: func(m *MockNotificationRepository) {
+				m.On("DeleteNotifications", mock.Anything, userID, mock.Anything).
+					Return([]uuid.UUID{}, nil)
+			},
+			expectedDeleted:  0,
+			expectedPartial:  false,
+			expectedNotFound: true,
+			expectError:      false,
+		},
+		{
+			name:             "handles empty input",
+			notificationIDs:  []string{},
+			setupMock:        func(_ *MockNotificationRepository) {},
+			expectedDeleted:  0,
+			expectedPartial:  false,
+			expectedNotFound: true,
+			expectError:      false,
+		},
+		{
+			name:             "handles all invalid UUIDs",
+			notificationIDs:  []string{"invalid-uuid-1", "invalid-uuid-2"},
+			setupMock:        func(_ *MockNotificationRepository) {},
+			expectedDeleted:  0,
+			expectedPartial:  false,
+			expectedNotFound: true,
+			expectError:      false,
+		},
+		{
+			name:            "returns error on repository failure",
+			notificationIDs: []string{notificationID1.String()},
+			setupMock: func(m *MockNotificationRepository) {
+				m.On("DeleteNotifications", mock.Anything, userID, mock.Anything).
+					Return(nil, errTestRepo)
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockRepo := new(MockNotificationRepository)
+			tt.setupMock(mockRepo)
+
+			svc := service.NewNotificationService(mockRepo)
+			result, err := svc.DeleteNotifications(context.Background(), userID, tt.notificationIDs)
+
+			if tt.expectError {
+				require.Error(t, err)
+				mockRepo.AssertExpectations(t)
+
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			assert.Len(t, result.DeletedIDs, tt.expectedDeleted)
+			assert.Equal(t, tt.expectedPartial, result.IsPartial)
+			assert.Equal(t, tt.expectedNotFound, result.AllNotFound)
+			assert.Equal(t, tt.notificationIDs, result.RequestedIDs)
 			mockRepo.AssertExpectations(t)
 		})
 	}

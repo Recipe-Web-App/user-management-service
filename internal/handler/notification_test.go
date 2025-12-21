@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/handler"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/service"
 )
 
 var (
@@ -45,6 +47,26 @@ func (m *MockNotificationService) GetNotifications(
 	}
 
 	return args.Get(0), args.Error(1)
+}
+
+func (m *MockNotificationService) DeleteNotifications(
+	ctx context.Context,
+	userID uuid.UUID,
+	notificationIDs []string,
+) (*service.NotificationDeleteResult, error) {
+	args := m.Called(ctx, userID, notificationIDs)
+	if args.Get(0) == nil {
+		return nil, fmt.Errorf("mock error: %w", args.Error(1))
+	}
+
+	result, _ := args.Get(0).(*service.NotificationDeleteResult)
+
+	err := args.Error(1)
+	if err != nil {
+		return result, fmt.Errorf("mock error: %w", err)
+	}
+
+	return result, nil
 }
 
 type notificationHandlerTestCase struct {
@@ -262,6 +284,193 @@ func TestNotificationHandler_GetNotifications(t *testing.T) {
 
 			for _, notExpected := range tt.notExpected {
 				assert.NotContains(t, body, notExpected)
+			}
+
+			mockSvc.AssertExpectations(t)
+		})
+	}
+}
+
+//nolint:funlen // Table-driven test with many test cases
+func TestNotificationHandler_DeleteNotifications(t *testing.T) {
+	t.Parallel()
+
+	validUserID := uuid.New()
+	notificationID1 := uuid.New()
+	notificationID2 := uuid.New()
+
+	tests := []struct {
+		name           string
+		userIDHeader   string
+		requestBody    string
+		mockRun        func(*MockNotificationService)
+		expectedStatus int
+		expectedBody   []string
+		notExpected    []string
+	}{
+		{
+			name:         "returns 200 when all notifications deleted",
+			userIDHeader: validUserID.String(),
+			requestBody:  fmt.Sprintf(`{"notificationIds": ["%s", "%s"]}`, notificationID1.String(), notificationID2.String()),
+			mockRun: func(m *MockNotificationService) {
+				m.On("DeleteNotifications", mock.Anything, validUserID, mock.Anything).
+					Return(&service.NotificationDeleteResult{
+						DeletedIDs:   []string{notificationID1.String(), notificationID2.String()},
+						RequestedIDs: []string{notificationID1.String(), notificationID2.String()},
+						IsPartial:    false,
+						AllNotFound:  false,
+					}, nil)
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody:   []string{`"success":true`, `"message":"Notifications deleted successfully"`},
+		},
+		{
+			name:         "returns 206 when partial success",
+			userIDHeader: validUserID.String(),
+			requestBody:  fmt.Sprintf(`{"notificationIds": ["%s", "%s"]}`, notificationID1.String(), notificationID2.String()),
+			mockRun: func(m *MockNotificationService) {
+				m.On("DeleteNotifications", mock.Anything, validUserID, mock.Anything).
+					Return(&service.NotificationDeleteResult{
+						DeletedIDs:   []string{notificationID1.String()},
+						RequestedIDs: []string{notificationID1.String(), notificationID2.String()},
+						IsPartial:    true,
+						AllNotFound:  false,
+					}, nil)
+			},
+			expectedStatus: http.StatusPartialContent,
+			expectedBody:   []string{`"success":true`, `"message":"Some notifications deleted successfully"`},
+		},
+		{
+			name:         "returns 404 when no notifications found",
+			userIDHeader: validUserID.String(),
+			requestBody:  fmt.Sprintf(`{"notificationIds": ["%s"]}`, notificationID1.String()),
+			mockRun: func(m *MockNotificationService) {
+				m.On("DeleteNotifications", mock.Anything, validUserID, mock.Anything).
+					Return(&service.NotificationDeleteResult{
+						DeletedIDs:   []string{},
+						RequestedIDs: []string{notificationID1.String()},
+						IsPartial:    false,
+						AllNotFound:  true,
+					}, nil)
+			},
+			expectedStatus: http.StatusNotFound,
+			expectedBody:   []string{`"success":false`, `"NOT_FOUND"`},
+		},
+		{
+			name:           "returns 401 when X-User-Id header is missing",
+			userIDHeader:   "",
+			requestBody:    fmt.Sprintf(`{"notificationIds": ["%s"]}`, notificationID1.String()),
+			mockRun:        func(_ *MockNotificationService) {},
+			expectedStatus: http.StatusUnauthorized,
+			expectedBody:   []string{`"success":false`, `"UNAUTHORIZED"`, `"User authentication required"`},
+		},
+		{
+			name:           "returns 401 when X-User-Id header is invalid UUID",
+			userIDHeader:   "not-a-uuid",
+			requestBody:    fmt.Sprintf(`{"notificationIds": ["%s"]}`, notificationID1.String()),
+			mockRun:        func(_ *MockNotificationService) {},
+			expectedStatus: http.StatusUnauthorized,
+			expectedBody:   []string{`"success":false`, `"UNAUTHORIZED"`, `"Invalid user ID in authentication header"`},
+		},
+		{
+			name:           "returns 400 when request body is empty",
+			userIDHeader:   validUserID.String(),
+			requestBody:    "",
+			mockRun:        func(_ *MockNotificationService) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   []string{`"success":false`, `"EMPTY_BODY"`},
+		},
+		{
+			name:           "returns 400 when request body is invalid JSON",
+			userIDHeader:   validUserID.String(),
+			requestBody:    `{invalid json}`,
+			mockRun:        func(_ *MockNotificationService) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   []string{`"success":false`, `"INVALID_JSON"`},
+		},
+		{
+			name:           "returns 400 when notificationIds is empty array",
+			userIDHeader:   validUserID.String(),
+			requestBody:    `{"notificationIds": []}`,
+			mockRun:        func(_ *MockNotificationService) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   []string{`"success":false`, `"VALIDATION_ERROR"`},
+		},
+		{
+			name:           "returns 400 when notificationIds contains invalid UUID",
+			userIDHeader:   validUserID.String(),
+			requestBody:    `{"notificationIds": ["not-a-uuid"]}`,
+			mockRun:        func(_ *MockNotificationService) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   []string{`"success":false`, `"VALIDATION_ERROR"`},
+		},
+		{
+			name:         "returns 500 when service returns error",
+			userIDHeader: validUserID.String(),
+			requestBody:  fmt.Sprintf(`{"notificationIds": ["%s"]}`, notificationID1.String()),
+			mockRun: func(m *MockNotificationService) {
+				m.On("DeleteNotifications", mock.Anything, validUserID, mock.Anything).
+					Return(nil, errTestDatabase)
+			},
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   []string{`"success":false`, `"INTERNAL_ERROR"`},
+		},
+		{
+			name:         "handles single notification deletion",
+			userIDHeader: validUserID.String(),
+			requestBody:  fmt.Sprintf(`{"notificationIds": ["%s"]}`, notificationID1.String()),
+			mockRun: func(m *MockNotificationService) {
+				m.On("DeleteNotifications", mock.Anything, validUserID, mock.Anything).
+					Return(&service.NotificationDeleteResult{
+						DeletedIDs:   []string{notificationID1.String()},
+						RequestedIDs: []string{notificationID1.String()},
+						IsPartial:    false,
+						AllNotFound:  false,
+					}, nil)
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody:   []string{`"success":true`, `"message":"Notifications deleted successfully"`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockSvc := new(MockNotificationService)
+			tt.mockRun(mockSvc)
+
+			h := handler.NewNotificationHandler(mockSvc)
+
+			r := chi.NewRouter()
+			r.Delete("/notifications", h.DeleteNotifications)
+
+			var body *strings.Reader
+			if tt.requestBody != "" {
+				body = strings.NewReader(tt.requestBody)
+			} else {
+				body = strings.NewReader("")
+			}
+
+			req := httptest.NewRequest(http.MethodDelete, "/notifications", body)
+			req.Header.Set("Content-Type", "application/json")
+
+			if tt.userIDHeader != "" {
+				req.Header.Set("X-User-Id", tt.userIDHeader)
+			}
+
+			rr := httptest.NewRecorder()
+			r.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+
+			respBody := rr.Body.String()
+			for _, expected := range tt.expectedBody {
+				assert.Contains(t, respBody, expected)
+			}
+
+			for _, notExpected := range tt.notExpected {
+				assert.NotContains(t, respBody, notExpected)
 			}
 
 			mockSvc.AssertExpectations(t)

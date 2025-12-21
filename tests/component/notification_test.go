@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -52,6 +53,23 @@ func (m *MockNotificationRepo) CountNotifications(ctx context.Context, userID uu
 	}
 
 	return args.Int(0), nil
+}
+
+func (m *MockNotificationRepo) DeleteNotifications(
+	ctx context.Context,
+	userID uuid.UUID,
+	notificationIDs []uuid.UUID,
+) ([]uuid.UUID, error) {
+	args := m.Called(ctx, userID, notificationIDs)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf("mock error: %w", err)
+	}
+
+	deletedIDs, _ := args.Get(0).([]uuid.UUID)
+
+	return deletedIDs, nil
 }
 
 func TestGetNotificationsComponent_Success(t *testing.T) {
@@ -306,4 +324,180 @@ func TestGetNotificationsComponent_EmptyNotifications(t *testing.T) {
 	// Verify that notifications is an empty array, not null
 	body := rr.Body.String()
 	assert.Contains(t, body, `"notifications":[]`)
+}
+
+func TestDeleteNotificationsComponent_Success(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockNotificationRepo)
+	svc := service.NewNotificationService(mockRepo)
+
+	c := &app.Container{
+		NotificationService: svc,
+		Config:              config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+	notificationID1 := uuid.New()
+	notificationID2 := uuid.New()
+
+	mockRepo.On("DeleteNotifications", mock.Anything, userID, mock.Anything).
+		Return([]uuid.UUID{notificationID1, notificationID2}, nil)
+
+	reqBody := fmt.Sprintf(`{"notificationIds": ["%s", "%s"]}`, notificationID1.String(), notificationID2.String())
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/user-management/notifications", strings.NewReader(reqBody))
+	req.Header.Set("X-User-Id", userID.String())
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var apiResp struct {
+		Success bool                           `json:"success"`
+		Data    dto.NotificationDeleteResponse `json:"data"`
+	}
+
+	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
+	require.NoError(t, err)
+	require.True(t, apiResp.Success)
+
+	resp := apiResp.Data
+	assert.Equal(t, "Notifications deleted successfully", resp.Message)
+	assert.Len(t, resp.DeletedNotificationIDs, 2)
+}
+
+func TestDeleteNotificationsComponent_PartialSuccess(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockNotificationRepo)
+	svc := service.NewNotificationService(mockRepo)
+
+	c := &app.Container{
+		NotificationService: svc,
+		Config:              config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+	notificationID1 := uuid.New()
+	notificationID2 := uuid.New()
+
+	// Only one notification is deleted
+	mockRepo.On("DeleteNotifications", mock.Anything, userID, mock.Anything).
+		Return([]uuid.UUID{notificationID1}, nil)
+
+	reqBody := fmt.Sprintf(`{"notificationIds": ["%s", "%s"]}`, notificationID1.String(), notificationID2.String())
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/user-management/notifications", strings.NewReader(reqBody))
+	req.Header.Set("X-User-Id", userID.String())
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusPartialContent, rr.Code)
+
+	var apiResp struct {
+		Success bool                           `json:"success"`
+		Data    dto.NotificationDeleteResponse `json:"data"`
+	}
+
+	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
+	require.NoError(t, err)
+	require.True(t, apiResp.Success)
+
+	resp := apiResp.Data
+	assert.Equal(t, "Some notifications deleted successfully", resp.Message)
+	assert.Len(t, resp.DeletedNotificationIDs, 1)
+}
+
+func TestDeleteNotificationsComponent_NotFound(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockNotificationRepo)
+	svc := service.NewNotificationService(mockRepo)
+
+	c := &app.Container{
+		NotificationService: svc,
+		Config:              config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+	notificationID := uuid.New()
+
+	// No notifications found
+	mockRepo.On("DeleteNotifications", mock.Anything, userID, mock.Anything).
+		Return([]uuid.UUID{}, nil)
+
+	reqBody := fmt.Sprintf(`{"notificationIds": ["%s"]}`, notificationID.String())
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/user-management/notifications", strings.NewReader(reqBody))
+	req.Header.Set("X-User-Id", userID.String())
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	var apiResp struct {
+		Success bool      `json:"success"`
+		Error   dto.Error `json:"error"`
+	}
+
+	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
+	require.NoError(t, err)
+	require.False(t, apiResp.Success)
+
+	assert.Equal(t, "NOT_FOUND", apiResp.Error.Code)
+}
+
+func TestDeleteNotificationsComponent_Unauthorized(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockNotificationRepo)
+	svc := service.NewNotificationService(mockRepo)
+
+	c := &app.Container{
+		NotificationService: svc,
+		Config:              config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	notificationID := uuid.New()
+
+	reqBody := fmt.Sprintf(`{"notificationIds": ["%s"]}`, notificationID.String())
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/user-management/notifications", strings.NewReader(reqBody))
+	// No X-User-Id header
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+
+	var apiResp struct {
+		Success bool      `json:"success"`
+		Error   dto.Error `json:"error"`
+	}
+
+	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
+	require.NoError(t, err)
+	require.False(t, apiResp.Success)
+
+	assert.Equal(t, "UNAUTHORIZED", apiResp.Error.Code)
 }

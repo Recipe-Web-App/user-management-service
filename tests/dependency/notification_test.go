@@ -79,6 +79,21 @@ func (m *MockNotificationRepository) DeleteNotifications(
 	return deletedIDs, nil
 }
 
+func (m *MockNotificationRepository) MarkNotificationRead(
+	ctx context.Context,
+	userID uuid.UUID,
+	notificationID uuid.UUID,
+) (bool, error) {
+	args := m.Called(ctx, userID, notificationID)
+
+	err := args.Error(1)
+	if err != nil {
+		return false, fmt.Errorf("mark notification read: %w", err)
+	}
+
+	return args.Bool(0), nil
+}
+
 type notificationTestFixture struct {
 	handler  http.Handler
 	mockRepo *MockNotificationRepository
@@ -545,6 +560,131 @@ func TestDeleteNotifications(t *testing.T) {
 		reqBody := fmt.Sprintf(`{"notificationIds": ["%s"]}`, notificationID.String())
 		rr := httptest.NewRecorder()
 		fix.handler.ServeHTTP(rr, newDeleteNotificationRequest(t, fix.userID, reqBody))
+
+		assert.Equal(t, http.StatusInternalServerError, rr.Code)
+
+		var resp struct {
+			Success bool      `json:"success"`
+			Error   dto.Error `json:"error"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+
+		assert.False(t, resp.Success)
+		assert.Equal(t, "INTERNAL_ERROR", resp.Error.Code)
+	})
+}
+
+func newMarkNotificationReadRequest(t *testing.T, userID uuid.UUID, notificationID string) *http.Request {
+	t.Helper()
+
+	reqPath := fmt.Sprintf("%s/%s/read", notificationsBaseURL, notificationID)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPut, reqPath, nil)
+	require.NoError(t, err)
+	req.Header.Set("X-User-Id", userID.String())
+
+	return req
+}
+
+//nolint:funlen // Integration test with many test cases
+func TestMarkNotificationRead(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Success_MarkedAsRead", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupNotificationTest(t)
+		notificationID := uuid.New()
+
+		fix.mockRepo.On("MarkNotificationRead", mock.Anything, fix.userID, notificationID).
+			Return(true, nil).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newMarkNotificationReadRequest(t, fix.userID, notificationID.String()))
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		var resp struct {
+			Success bool                         `json:"success"`
+			Data    dto.NotificationReadResponse `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+
+		assert.True(t, resp.Success)
+		assert.Equal(t, "Notification marked as read successfully", resp.Data.Message)
+	})
+
+	t.Run("NotFound_InvalidId", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupNotificationTest(t)
+		notificationID := uuid.New()
+
+		fix.mockRepo.On("MarkNotificationRead", mock.Anything, fix.userID, notificationID).
+			Return(false, nil).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newMarkNotificationReadRequest(t, fix.userID, notificationID.String()))
+
+		require.Equal(t, http.StatusNotFound, rr.Code)
+
+		var resp struct {
+			Success bool      `json:"success"`
+			Error   dto.Error `json:"error"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+
+		assert.False(t, resp.Success)
+		assert.Equal(t, "NOT_FOUND", resp.Error.Code)
+	})
+
+	t.Run("Unauthorized_MissingHeader", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupNotificationTest(t)
+		notificationID := uuid.New()
+
+		reqPath := fmt.Sprintf("%s/%s/read", notificationsBaseURL, notificationID.String())
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodPut, reqPath, nil)
+		require.NoError(t, err)
+		// No X-User-Id header
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusUnauthorized, rr.Code)
+	})
+
+	t.Run("BadRequest_InvalidUUID", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupNotificationTest(t)
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newMarkNotificationReadRequest(t, fix.userID, "not-a-valid-uuid"))
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+
+		var resp struct {
+			Success bool      `json:"success"`
+			Error   dto.Error `json:"error"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+
+		assert.False(t, resp.Success)
+		assert.Equal(t, "VALIDATION_ERROR", resp.Error.Code)
+	})
+
+	t.Run("InternalError_RepositoryFailure", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupNotificationTest(t)
+		notificationID := uuid.New()
+
+		fix.mockRepo.On("MarkNotificationRead", mock.Anything, fix.userID, notificationID).
+			Return(false, errNotificationTest).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newMarkNotificationReadRequest(t, fix.userID, notificationID.String()))
 
 		assert.Equal(t, http.StatusInternalServerError, rr.Code)
 

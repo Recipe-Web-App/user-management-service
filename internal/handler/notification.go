@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
@@ -109,7 +110,44 @@ func (h *NotificationHandler) DeleteNotifications(w http.ResponseWriter, r *http
 }
 
 // MarkNotificationRead handles PUT /notifications/{notification_id}/read.
-func (h *NotificationHandler) MarkNotificationRead(w http.ResponseWriter, _ *http.Request) {
+func (h *NotificationHandler) MarkNotificationRead(w http.ResponseWriter, r *http.Request) {
+	// 1. Extract and validate requester ID from header
+	userID, ok := h.extractAuthenticatedUserID(w, r)
+	if !ok {
+		return
+	}
+
+	// 2. Extract notification_id from path
+	notificationIDStr := chi.URLParam(r, "notification_id")
+	if notificationIDStr == "" {
+		ErrorResponse(w, http.StatusBadRequest, "VALIDATION_ERROR", "notification_id is required")
+
+		return
+	}
+
+	// 3. Validate notification_id is a valid UUID
+	_, parseErr := uuid.Parse(notificationIDStr)
+	if parseErr != nil {
+		ErrorResponse(w, http.StatusBadRequest, "VALIDATION_ERROR", "notification_id must be a valid UUID")
+
+		return
+	}
+
+	// 4. Call service
+	found, err := h.notificationService.MarkNotificationRead(r.Context(), userID, notificationIDStr)
+	if err != nil {
+		InternalErrorResponse(w)
+
+		return
+	}
+
+	// 5. Return 404 if not found, 200 with success message if found
+	if !found {
+		NotFoundResponse(w, "Notification")
+
+		return
+	}
+
 	SuccessResponse(w, http.StatusOK, dto.NotificationReadResponse{
 		Message: "Notification marked as read successfully",
 	})

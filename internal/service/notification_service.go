@@ -23,6 +23,11 @@ type NotificationService interface {
 		userID uuid.UUID,
 		notificationIDs []string,
 	) (*NotificationDeleteResult, error)
+	MarkNotificationRead(
+		ctx context.Context,
+		userID uuid.UUID,
+		notificationID string,
+	) (bool, error)
 }
 
 // NotificationDeleteResult contains the result of a batch delete operation.
@@ -131,4 +136,26 @@ func (s *NotificationServiceImpl) DeleteNotifications(
 		IsPartial:    len(deletedIDs) > 0 && len(deletedIDs) < len(notificationIDStrings),
 		AllNotFound:  len(deletedIDs) == 0,
 	}, nil
+}
+
+// MarkNotificationRead marks a notification as read.
+// Returns true if the notification was found and updated, false if not found.
+// Returns false without error for invalid UUID (treated as not found).
+func (s *NotificationServiceImpl) MarkNotificationRead(
+	ctx context.Context,
+	userID uuid.UUID,
+	notificationIDStr string,
+) (bool, error) {
+	notificationID, parseErr := uuid.Parse(notificationIDStr)
+	if parseErr != nil {
+		// Invalid UUID is treated as "not found" rather than an error
+		return false, nil //nolint:nilerr // Invalid UUID is intentionally treated as not found
+	}
+
+	found, err := s.repo.MarkNotificationRead(ctx, userID, notificationID)
+	if err != nil {
+		return false, fmt.Errorf("mark notification read: %w", err)
+	}
+
+	return found, nil
 }

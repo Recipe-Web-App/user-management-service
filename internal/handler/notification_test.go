@@ -69,6 +69,21 @@ func (m *MockNotificationService) DeleteNotifications(
 	return result, nil
 }
 
+func (m *MockNotificationService) MarkNotificationRead(
+	ctx context.Context,
+	userID uuid.UUID,
+	notificationID string,
+) (bool, error) {
+	args := m.Called(ctx, userID, notificationID)
+
+	err := args.Error(1)
+	if err != nil {
+		return false, fmt.Errorf("mock error: %w", err)
+	}
+
+	return args.Bool(0), nil
+}
+
 type notificationHandlerTestCase struct {
 	name           string
 	userIDHeader   string
@@ -471,6 +486,114 @@ func TestNotificationHandler_DeleteNotifications(t *testing.T) {
 
 			for _, notExpected := range tt.notExpected {
 				assert.NotContains(t, respBody, notExpected)
+			}
+
+			mockSvc.AssertExpectations(t)
+		})
+	}
+}
+
+//nolint:funlen // Table-driven test with many test cases
+func TestNotificationHandler_MarkNotificationRead(t *testing.T) {
+	t.Parallel()
+
+	validUserID := uuid.New()
+	notificationID := uuid.New()
+
+	tests := []struct {
+		name           string
+		userIDHeader   string
+		notificationID string
+		mockRun        func(*MockNotificationService)
+		expectedStatus int
+		expectedBody   []string
+	}{
+		{
+			name:           "returns 200 when notification marked as read",
+			userIDHeader:   validUserID.String(),
+			notificationID: notificationID.String(),
+			mockRun: func(m *MockNotificationService) {
+				m.On("MarkNotificationRead", mock.Anything, validUserID, notificationID.String()).
+					Return(true, nil)
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody:   []string{`"success":true`, `"message":"Notification marked as read successfully"`},
+		},
+		{
+			name:           "returns 404 when notification not found",
+			userIDHeader:   validUserID.String(),
+			notificationID: notificationID.String(),
+			mockRun: func(m *MockNotificationService) {
+				m.On("MarkNotificationRead", mock.Anything, validUserID, notificationID.String()).
+					Return(false, nil)
+			},
+			expectedStatus: http.StatusNotFound,
+			expectedBody:   []string{`"success":false`, `"NOT_FOUND"`},
+		},
+		{
+			name:           "returns 401 when X-User-Id header is missing",
+			userIDHeader:   "",
+			notificationID: notificationID.String(),
+			mockRun:        func(_ *MockNotificationService) {},
+			expectedStatus: http.StatusUnauthorized,
+			expectedBody:   []string{`"success":false`, `"UNAUTHORIZED"`, `"User authentication required"`},
+		},
+		{
+			name:           "returns 401 when X-User-Id header is invalid UUID",
+			userIDHeader:   "not-a-uuid",
+			notificationID: notificationID.String(),
+			mockRun:        func(_ *MockNotificationService) {},
+			expectedStatus: http.StatusUnauthorized,
+			expectedBody:   []string{`"success":false`, `"UNAUTHORIZED"`, `"Invalid user ID in authentication header"`},
+		},
+		{
+			name:           "returns 400 when notification_id is invalid UUID",
+			userIDHeader:   validUserID.String(),
+			notificationID: "not-a-uuid",
+			mockRun:        func(_ *MockNotificationService) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   []string{`"success":false`, `"VALIDATION_ERROR"`, `"notification_id must be a valid UUID"`},
+		},
+		{
+			name:           "returns 500 when service returns error",
+			userIDHeader:   validUserID.String(),
+			notificationID: notificationID.String(),
+			mockRun: func(m *MockNotificationService) {
+				m.On("MarkNotificationRead", mock.Anything, validUserID, notificationID.String()).
+					Return(false, errTestDatabase)
+			},
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   []string{`"success":false`, `"INTERNAL_ERROR"`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockSvc := new(MockNotificationService)
+			tt.mockRun(mockSvc)
+
+			h := handler.NewNotificationHandler(mockSvc)
+
+			r := chi.NewRouter()
+			r.Put("/notifications/{notification_id}/read", h.MarkNotificationRead)
+
+			reqPath := fmt.Sprintf("/notifications/%s/read", tt.notificationID)
+			req := httptest.NewRequest(http.MethodPut, reqPath, nil)
+
+			if tt.userIDHeader != "" {
+				req.Header.Set("X-User-Id", tt.userIDHeader)
+			}
+
+			rr := httptest.NewRecorder()
+			r.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+
+			body := rr.Body.String()
+			for _, expected := range tt.expectedBody {
+				assert.Contains(t, body, expected)
 			}
 
 			mockSvc.AssertExpectations(t)

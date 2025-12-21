@@ -190,6 +190,74 @@ func (m *MockSocialRepo) UnfollowUser(
 	return nil
 }
 
+func (m *MockSocialRepo) GetRecentRecipes(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int,
+) ([]dto.RecipeSummary, error) {
+	args := m.Called(ctx, userID, limit)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf(mockSocialErrorFmt, err)
+	}
+
+	recipes, _ := args.Get(0).([]dto.RecipeSummary)
+
+	return recipes, nil
+}
+
+func (m *MockSocialRepo) GetRecentFollows(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int,
+) ([]dto.UserSummary, error) {
+	args := m.Called(ctx, userID, limit)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf(mockSocialErrorFmt, err)
+	}
+
+	follows, _ := args.Get(0).([]dto.UserSummary)
+
+	return follows, nil
+}
+
+func (m *MockSocialRepo) GetRecentReviews(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int,
+) ([]dto.ReviewSummary, error) {
+	args := m.Called(ctx, userID, limit)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf(mockSocialErrorFmt, err)
+	}
+
+	reviews, _ := args.Get(0).([]dto.ReviewSummary)
+
+	return reviews, nil
+}
+
+func (m *MockSocialRepo) GetRecentFavorites(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int,
+) ([]dto.FavoriteSummary, error) {
+	args := m.Called(ctx, userID, limit)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf(mockSocialErrorFmt, err)
+	}
+
+	favorites, _ := args.Get(0).([]dto.FavoriteSummary)
+
+	return favorites, nil
+}
+
 func createTestUser(userID uuid.UUID, isActive bool) *dto.User {
 	now := time.Now()
 	fullName := "Test User"
@@ -891,6 +959,493 @@ func TestSocialServiceUnfollowUser(t *testing.T) {
 		require.Error(t, err)
 		assert.Nil(t, resp)
 		assert.Contains(t, err.Error(), "failed to unfollow user")
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertExpectations(t)
+	})
+}
+
+// Helper functions for activity tests.
+func createTestActivityData() ([]dto.RecipeSummary, []dto.UserSummary, []dto.ReviewSummary, []dto.FavoriteSummary) {
+	now := time.Now()
+	comment := "Great recipe!"
+
+	recipes := []dto.RecipeSummary{
+		{RecipeID: 1, Title: "Pasta Carbonara", CreatedAt: now},
+		{RecipeID: 2, Title: "Chicken Tikka", CreatedAt: now.Add(-time.Hour)},
+	}
+
+	follows := []dto.UserSummary{
+		{UserID: uuid.New().String(), Username: "chef1", FollowedAt: now},
+		{UserID: uuid.New().String(), Username: "chef2", FollowedAt: now.Add(-time.Hour)},
+	}
+
+	reviews := []dto.ReviewSummary{
+		{ReviewID: 1, RecipeID: 1, Rating: 5, Comment: &comment, CreatedAt: now},
+	}
+
+	favorites := []dto.FavoriteSummary{
+		{RecipeID: 1, Title: "Apple Pie", FavoritedAt: now},
+	}
+
+	return recipes, follows, reviews, favorites
+}
+
+//nolint:funlen,maintidx // table-driven test with many test cases
+func TestSocialServiceGetUserActivity(t *testing.T) {
+	t.Parallel()
+
+	targetID := uuid.New()
+	requesterID := uuid.New()
+
+	t.Run("Success - public profile returns all activity", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+		publicPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "public"}
+		recipes, follows, reviews, favorites := createTestActivityData()
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(publicPrivacy, nil).Once()
+		mockSocialRepo.On("GetRecentRecipes", mock.Anything, targetID, 15).Return(recipes, nil).Once()
+		mockSocialRepo.On("GetRecentFollows", mock.Anything, targetID, 15).Return(follows, nil).Once()
+		mockSocialRepo.On("GetRecentReviews", mock.Anything, targetID, 15).Return(reviews, nil).Once()
+		mockSocialRepo.On("GetRecentFavorites", mock.Anything, targetID, 15).Return(favorites, nil).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, targetID.String(), resp.UserID)
+		assert.Len(t, resp.RecentRecipes, 2)
+		assert.Len(t, resp.RecentFollows, 2)
+		assert.Len(t, resp.RecentReviews, 1)
+		assert.Len(t, resp.RecentFavorites, 1)
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertExpectations(t)
+	})
+
+	t.Run("Success - viewing own activity with private profile", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		ownUser := createTestUser(requesterID, true)
+		recipes, follows, reviews, favorites := createTestActivityData()
+
+		mockUserRepo.On("FindUserByID", mock.Anything, requesterID).Return(ownUser, nil).Once()
+		mockSocialRepo.On("GetRecentRecipes", mock.Anything, requesterID, 15).Return(recipes, nil).Once()
+		mockSocialRepo.On("GetRecentFollows", mock.Anything, requesterID, 15).Return(follows, nil).Once()
+		mockSocialRepo.On("GetRecentReviews", mock.Anything, requesterID, 15).Return(reviews, nil).Once()
+		mockSocialRepo.On("GetRecentFavorites", mock.Anything, requesterID, 15).Return(favorites, nil).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.GetUserActivity(context.Background(), &requesterID, requesterID, 15)
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, requesterID.String(), resp.UserID)
+
+		// Privacy preferences should not be fetched when viewing own activity
+		mockUserRepo.AssertNotCalled(t, "FindPrivacyPreferencesByUserID", mock.Anything, mock.Anything)
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertExpectations(t)
+	})
+
+	t.Run("Success - anonymous user views public profile", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+		publicPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "public"}
+		recipes, follows, reviews, favorites := createTestActivityData()
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(publicPrivacy, nil).Once()
+		mockSocialRepo.On("GetRecentRecipes", mock.Anything, targetID, 15).Return(recipes, nil).Once()
+		mockSocialRepo.On("GetRecentFollows", mock.Anything, targetID, 15).Return(follows, nil).Once()
+		mockSocialRepo.On("GetRecentReviews", mock.Anything, targetID, 15).Return(reviews, nil).Once()
+		mockSocialRepo.On("GetRecentFavorites", mock.Anything, targetID, 15).Return(favorites, nil).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.GetUserActivity(context.Background(), nil, targetID, 15)
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, targetID.String(), resp.UserID)
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertExpectations(t)
+	})
+
+	t.Run("Success - followers_only profile when requester follows target", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+		followersOnlyPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "followers_only"}
+		recipes, follows, reviews, favorites := createTestActivityData()
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(followersOnlyPrivacy, nil).Once()
+		mockUserRepo.On("IsFollowing", mock.Anything, requesterID, targetID).Return(true, nil).Once()
+		mockSocialRepo.On("GetRecentRecipes", mock.Anything, targetID, 15).Return(recipes, nil).Once()
+		mockSocialRepo.On("GetRecentFollows", mock.Anything, targetID, 15).Return(follows, nil).Once()
+		mockSocialRepo.On("GetRecentReviews", mock.Anything, targetID, 15).Return(reviews, nil).Once()
+		mockSocialRepo.On("GetRecentFavorites", mock.Anything, targetID, 15).Return(favorites, nil).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, targetID.String(), resp.UserID)
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertExpectations(t)
+	})
+
+	t.Run("Success - custom per_type_limit", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+		publicPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "public"}
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(publicPrivacy, nil).Once()
+		mockSocialRepo.On("GetRecentRecipes", mock.Anything, targetID, 50).Return([]dto.RecipeSummary{}, nil).Once()
+		mockSocialRepo.On("GetRecentFollows", mock.Anything, targetID, 50).Return([]dto.UserSummary{}, nil).Once()
+		mockSocialRepo.On("GetRecentReviews", mock.Anything, targetID, 50).Return([]dto.ReviewSummary{}, nil).Once()
+		mockSocialRepo.On("GetRecentFavorites", mock.Anything, targetID, 50).Return([]dto.FavoriteSummary{}, nil).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 50)
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertExpectations(t)
+	})
+
+	t.Run("Success - empty activity data", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+		publicPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "public"}
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(publicPrivacy, nil).Once()
+		mockSocialRepo.On("GetRecentRecipes", mock.Anything, targetID, 15).Return(nil, nil).Once()
+		mockSocialRepo.On("GetRecentFollows", mock.Anything, targetID, 15).Return(nil, nil).Once()
+		mockSocialRepo.On("GetRecentReviews", mock.Anything, targetID, 15).Return(nil, nil).Once()
+		mockSocialRepo.On("GetRecentFavorites", mock.Anything, targetID, 15).Return(nil, nil).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Equal(t, targetID.String(), resp.UserID)
+		assert.Empty(t, resp.RecentRecipes)
+		assert.Empty(t, resp.RecentFollows)
+		assert.Empty(t, resp.RecentReviews)
+		assert.Empty(t, resp.RecentFavorites)
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertExpectations(t)
+	})
+
+	t.Run("Error - user not found", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(nil, repository.ErrUserNotFound).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		require.ErrorIs(t, err, service.ErrUserNotFound)
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertNotCalled(t, "GetRecentRecipes", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error - user inactive", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		inactiveUser := createTestUser(targetID, false)
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(inactiveUser, nil).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		require.ErrorIs(t, err, service.ErrUserNotFound)
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertNotCalled(t, "GetRecentRecipes", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error - access denied for private profile", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+		privatePrivacy := &dto.PrivacyPreferences{ProfileVisibility: "private"}
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(privatePrivacy, nil).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		require.ErrorIs(t, err, service.ErrAccessDenied)
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertNotCalled(t, "GetRecentRecipes", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error - access denied for followers_only when not following", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+		followersOnlyPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "followers_only"}
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(followersOnlyPrivacy, nil).Once()
+		mockUserRepo.On("IsFollowing", mock.Anything, requesterID, targetID).Return(false, nil).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		require.ErrorIs(t, err, service.ErrAccessDenied)
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertNotCalled(t, "GetRecentRecipes", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error - access denied for followers_only with anonymous user", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+		followersOnlyPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "followers_only"}
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(followersOnlyPrivacy, nil).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.GetUserActivity(context.Background(), nil, targetID, 15)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		require.ErrorIs(t, err, service.ErrAccessDenied)
+
+		// IsFollowing should not be called for anonymous users
+		mockUserRepo.AssertNotCalled(t, "IsFollowing", mock.Anything, mock.Anything, mock.Anything)
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertNotCalled(t, "GetRecentRecipes", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Error - repository error on FindUserByID", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(nil, errRepoSocial).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.Contains(t, err.Error(), "failed to fetch user")
+
+		mockUserRepo.AssertExpectations(t)
+	})
+
+	t.Run("Error - repository error on FindPrivacyPreferencesByUserID", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(nil, errRepoSocial).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.Contains(t, err.Error(), "failed to fetch privacy preferences")
+
+		mockUserRepo.AssertExpectations(t)
+	})
+
+	t.Run("Error - repository error on IsFollowing", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+		followersOnlyPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "followers_only"}
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(followersOnlyPrivacy, nil).Once()
+		mockUserRepo.On("IsFollowing", mock.Anything, requesterID, targetID).Return(false, errRepoSocial).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.Contains(t, err.Error(), "failed to check following status")
+
+		mockUserRepo.AssertExpectations(t)
+	})
+
+	t.Run("Error - repository error on GetRecentRecipes", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+		publicPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "public"}
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(publicPrivacy, nil).Once()
+		mockSocialRepo.On("GetRecentRecipes", mock.Anything, targetID, 15).Return(nil, errRepoSocial).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.Contains(t, err.Error(), "failed to get recent recipes")
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertExpectations(t)
+	})
+
+	t.Run("Error - repository error on GetRecentFollows", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+		publicPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "public"}
+		recipes, _, _, _ := createTestActivityData()
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(publicPrivacy, nil).Once()
+		mockSocialRepo.On("GetRecentRecipes", mock.Anything, targetID, 15).Return(recipes, nil).Once()
+		mockSocialRepo.On("GetRecentFollows", mock.Anything, targetID, 15).Return(nil, errRepoSocial).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.Contains(t, err.Error(), "failed to get recent follows")
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertExpectations(t)
+	})
+
+	t.Run("Error - repository error on GetRecentReviews", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+		publicPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "public"}
+		recipes, follows, _, _ := createTestActivityData()
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(publicPrivacy, nil).Once()
+		mockSocialRepo.On("GetRecentRecipes", mock.Anything, targetID, 15).Return(recipes, nil).Once()
+		mockSocialRepo.On("GetRecentFollows", mock.Anything, targetID, 15).Return(follows, nil).Once()
+		mockSocialRepo.On("GetRecentReviews", mock.Anything, targetID, 15).Return(nil, errRepoSocial).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.Contains(t, err.Error(), "failed to get recent reviews")
+
+		mockUserRepo.AssertExpectations(t)
+		mockSocialRepo.AssertExpectations(t)
+	})
+
+	t.Run("Error - repository error on GetRecentFavorites", func(t *testing.T) {
+		t.Parallel()
+
+		mockUserRepo := new(MockUserRepoForSocial)
+		mockSocialRepo := new(MockSocialRepo)
+
+		targetUser := createTestUser(targetID, true)
+		publicPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "public"}
+		recipes, follows, reviews, _ := createTestActivityData()
+
+		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
+		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(publicPrivacy, nil).Once()
+		mockSocialRepo.On("GetRecentRecipes", mock.Anything, targetID, 15).Return(recipes, nil).Once()
+		mockSocialRepo.On("GetRecentFollows", mock.Anything, targetID, 15).Return(follows, nil).Once()
+		mockSocialRepo.On("GetRecentReviews", mock.Anything, targetID, 15).Return(reviews, nil).Once()
+		mockSocialRepo.On("GetRecentFavorites", mock.Anything, targetID, 15).Return(nil, errRepoSocial).Once()
+
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.Contains(t, err.Error(), "failed to get recent favorites")
 
 		mockUserRepo.AssertExpectations(t)
 		mockSocialRepo.AssertExpectations(t)

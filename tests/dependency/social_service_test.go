@@ -111,6 +111,74 @@ func (m *MockSocialRepository) UnfollowUser(
 	return nil
 }
 
+func (m *MockSocialRepository) GetRecentRecipes(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int,
+) ([]dto.RecipeSummary, error) {
+	args := m.Called(ctx, userID, limit)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf("get recent recipes: %w", err)
+	}
+
+	recipes, _ := args.Get(0).([]dto.RecipeSummary)
+
+	return recipes, nil
+}
+
+func (m *MockSocialRepository) GetRecentFollows(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int,
+) ([]dto.UserSummary, error) {
+	args := m.Called(ctx, userID, limit)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf("get recent follows: %w", err)
+	}
+
+	follows, _ := args.Get(0).([]dto.UserSummary)
+
+	return follows, nil
+}
+
+func (m *MockSocialRepository) GetRecentReviews(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int,
+) ([]dto.ReviewSummary, error) {
+	args := m.Called(ctx, userID, limit)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf("get recent reviews: %w", err)
+	}
+
+	reviews, _ := args.Get(0).([]dto.ReviewSummary)
+
+	return reviews, nil
+}
+
+func (m *MockSocialRepository) GetRecentFavorites(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int,
+) ([]dto.FavoriteSummary, error) {
+	args := m.Called(ctx, userID, limit)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf("get recent favorites: %w", err)
+	}
+
+	favorites, _ := args.Get(0).([]dto.FavoriteSummary)
+
+	return favorites, nil
+}
+
 type socialTestFixture struct {
 	handler        http.Handler
 	mockUserRepo   *MockUserRepository

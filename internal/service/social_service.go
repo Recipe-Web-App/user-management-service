@@ -32,6 +32,12 @@ type SocialService interface {
 		ctx context.Context,
 		followerID, targetUserID uuid.UUID,
 	) (*dto.FollowResponse, error)
+	GetUserActivity(
+		ctx context.Context,
+		requesterID *uuid.UUID,
+		targetUserID uuid.UUID,
+		perTypeLimit int,
+	) (*dto.UserActivityResponse, error)
 }
 
 // ErrAccessDenied is returned when access to a resource is denied due to privacy settings.
@@ -236,6 +242,125 @@ func (s *SocialServiceImpl) UnfollowUser(
 		Message:     "Successfully unfollowed user",
 		IsFollowing: false,
 	}, nil
+}
+
+// GetUserActivity retrieves a user's recent activity with privacy checks.
+//
+//nolint:cyclop,funlen // Complexity and length are from sequential error checks which are clear and necessary
+func (s *SocialServiceImpl) GetUserActivity(
+	ctx context.Context,
+	requesterID *uuid.UUID,
+	targetUserID uuid.UUID,
+	perTypeLimit int,
+) (*dto.UserActivityResponse, error) {
+	// 1. Verify target user exists and is active
+	user, err := s.userRepo.FindUserByID(ctx, targetUserID)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, ErrUserNotFound
+		}
+
+		return nil, fmt.Errorf("failed to fetch user: %w", err)
+	}
+
+	if !user.IsActive {
+		return nil, ErrUserNotFound
+	}
+
+	// 2. Check privacy settings
+	canAccess, err := s.canAccessUserActivity(ctx, requesterID, targetUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	if !canAccess {
+		return nil, ErrAccessDenied
+	}
+
+	// 3. Fetch all activity data
+	recipes, err := s.socialRepo.GetRecentRecipes(ctx, targetUserID, perTypeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recent recipes: %w", err)
+	}
+
+	follows, err := s.socialRepo.GetRecentFollows(ctx, targetUserID, perTypeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recent follows: %w", err)
+	}
+
+	reviews, err := s.socialRepo.GetRecentReviews(ctx, targetUserID, perTypeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recent reviews: %w", err)
+	}
+
+	favorites, err := s.socialRepo.GetRecentFavorites(ctx, targetUserID, perTypeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recent favorites: %w", err)
+	}
+
+	// 4. Ensure slices are not nil (return empty arrays in JSON)
+	if recipes == nil {
+		recipes = []dto.RecipeSummary{}
+	}
+
+	if follows == nil {
+		follows = []dto.UserSummary{}
+	}
+
+	if reviews == nil {
+		reviews = []dto.ReviewSummary{}
+	}
+
+	if favorites == nil {
+		favorites = []dto.FavoriteSummary{}
+	}
+
+	return &dto.UserActivityResponse{
+		UserID:          targetUserID.String(),
+		RecentRecipes:   recipes,
+		RecentFollows:   follows,
+		RecentReviews:   reviews,
+		RecentFavorites: favorites,
+	}, nil
+}
+
+// canAccessUserActivity checks if requester can view target's activity.
+func (s *SocialServiceImpl) canAccessUserActivity(
+	ctx context.Context,
+	requesterID *uuid.UUID,
+	targetUserID uuid.UUID,
+) (bool, error) {
+	// User can always view their own activity
+	if requesterID != nil && *requesterID == targetUserID {
+		return true, nil
+	}
+
+	// Fetch privacy preferences
+	privacy, err := s.userRepo.FindPrivacyPreferencesByUserID(ctx, targetUserID)
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch privacy preferences: %w", err)
+	}
+
+	switch privacy.ProfileVisibility {
+	case profileVisibilityPublic:
+		return true, nil
+	case profileVisibilityFollowersOnly:
+		// Anonymous users cannot access followers_only profiles
+		if requesterID == nil {
+			return false, nil
+		}
+		// Check if requester follows the target user
+		isFollowing, err := s.userRepo.IsFollowing(ctx, *requesterID, targetUserID)
+		if err != nil {
+			return false, fmt.Errorf("failed to check following status: %w", err)
+		}
+
+		return isFollowing, nil
+	case profileVisibilityPrivate:
+		return false, nil
+	default:
+		return false, nil
+	}
 }
 
 func (s *SocialServiceImpl) canAccessFollowingList(

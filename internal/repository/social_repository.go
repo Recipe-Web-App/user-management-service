@@ -19,6 +19,10 @@ type SocialRepository interface {
 	GetFollowers(ctx context.Context, userID uuid.UUID, limit, offset int) ([]dto.User, int, error)
 	FollowUser(ctx context.Context, followerID, followeeID uuid.UUID) error
 	UnfollowUser(ctx context.Context, followerID, followeeID uuid.UUID) error
+	GetRecentRecipes(ctx context.Context, userID uuid.UUID, limit int) ([]dto.RecipeSummary, error)
+	GetRecentFollows(ctx context.Context, userID uuid.UUID, limit int) ([]dto.UserSummary, error)
+	GetRecentReviews(ctx context.Context, userID uuid.UUID, limit int) ([]dto.ReviewSummary, error)
+	GetRecentFavorites(ctx context.Context, userID uuid.UUID, limit int) ([]dto.FavoriteSummary, error)
 }
 
 // SQLSocialRepository implements SocialRepository using a SQL database.
@@ -241,4 +245,196 @@ func (r *SQLSocialRepository) UnfollowUser(ctx context.Context, followerID, foll
 	}
 
 	return nil
+}
+
+// GetRecentRecipes retrieves the most recent recipes created by a user.
+func (r *SQLSocialRepository) GetRecentRecipes(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int,
+) ([]dto.RecipeSummary, error) {
+	query := `
+		SELECT recipe_id, title, created_at
+		FROM recipe_manager.recipes
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, userID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch recent recipes: %w", err)
+	}
+
+	defer func() { _ = rows.Close() }()
+
+	return scanRecipeSummaries(rows)
+}
+
+func scanRecipeSummaries(rows *sql.Rows) ([]dto.RecipeSummary, error) {
+	var recipes []dto.RecipeSummary
+
+	for rows.Next() {
+		var r dto.RecipeSummary
+
+		err := rows.Scan(&r.RecipeID, &r.Title, &r.CreatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan recipe summary: %w", err)
+		}
+
+		recipes = append(recipes, r)
+	}
+
+	err := rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("error iterating recipe summaries: %w", err)
+	}
+
+	return recipes, nil
+}
+
+// GetRecentFollows retrieves the most recent users followed by a user.
+func (r *SQLSocialRepository) GetRecentFollows(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int,
+) ([]dto.UserSummary, error) {
+	query := `
+		SELECT u.user_id, u.username, uf.followed_at
+		FROM recipe_manager.user_follows uf
+		JOIN recipe_manager.users u ON uf.followee_id = u.user_id
+		WHERE uf.follower_id = $1 AND u.is_active = true
+		ORDER BY uf.followed_at DESC
+		LIMIT $2
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, userID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch recent follows: %w", err)
+	}
+
+	defer func() { _ = rows.Close() }()
+
+	return scanUserSummaries(rows)
+}
+
+func scanUserSummaries(rows *sql.Rows) ([]dto.UserSummary, error) {
+	var users []dto.UserSummary
+
+	for rows.Next() {
+		var u dto.UserSummary
+
+		err := rows.Scan(&u.UserID, &u.Username, &u.FollowedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan user summary: %w", err)
+		}
+
+		users = append(users, u)
+	}
+
+	err := rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("error iterating user summaries: %w", err)
+	}
+
+	return users, nil
+}
+
+// GetRecentReviews retrieves the most recent reviews written by a user.
+func (r *SQLSocialRepository) GetRecentReviews(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int,
+) ([]dto.ReviewSummary, error) {
+	query := `
+		SELECT review_id, recipe_id, rating, comment, created_at
+		FROM recipe_manager.recipe_reviews
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, userID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch recent reviews: %w", err)
+	}
+
+	defer func() { _ = rows.Close() }()
+
+	return scanReviewSummaries(rows)
+}
+
+func scanReviewSummaries(rows *sql.Rows) ([]dto.ReviewSummary, error) {
+	var reviews []dto.ReviewSummary
+
+	for rows.Next() {
+		var r dto.ReviewSummary
+
+		var comment sql.NullString
+
+		err := rows.Scan(&r.ReviewID, &r.RecipeID, &r.Rating, &comment, &r.CreatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan review summary: %w", err)
+		}
+
+		if comment.Valid {
+			r.Comment = &comment.String
+		}
+
+		reviews = append(reviews, r)
+	}
+
+	err := rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("error iterating review summaries: %w", err)
+	}
+
+	return reviews, nil
+}
+
+// GetRecentFavorites retrieves the most recent recipes favorited by a user.
+func (r *SQLSocialRepository) GetRecentFavorites(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int,
+) ([]dto.FavoriteSummary, error) {
+	query := `
+		SELECT rf.recipe_id, rec.title, rf.favorited_at
+		FROM recipe_manager.recipe_favorites rf
+		JOIN recipe_manager.recipes rec ON rf.recipe_id = rec.recipe_id
+		WHERE rf.user_id = $1
+		ORDER BY rf.favorited_at DESC
+		LIMIT $2
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, userID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch recent favorites: %w", err)
+	}
+
+	defer func() { _ = rows.Close() }()
+
+	return scanFavoriteSummaries(rows)
+}
+
+func scanFavoriteSummaries(rows *sql.Rows) ([]dto.FavoriteSummary, error) {
+	var favorites []dto.FavoriteSummary
+
+	for rows.Next() {
+		var f dto.FavoriteSummary
+
+		err := rows.Scan(&f.RecipeID, &f.Title, &f.FavoritedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan favorite summary: %w", err)
+		}
+
+		favorites = append(favorites, f)
+	}
+
+	err := rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("error iterating favorite summaries: %w", err)
+	}
+
+	return favorites, nil
 }

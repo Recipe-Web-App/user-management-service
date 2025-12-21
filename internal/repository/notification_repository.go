@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -16,6 +17,7 @@ type NotificationRepository interface {
 	GetNotifications(ctx context.Context, userID uuid.UUID, limit, offset int) ([]dto.Notification, int, error)
 	CountNotifications(ctx context.Context, userID uuid.UUID) (int, error)
 	DeleteNotifications(ctx context.Context, userID uuid.UUID, notificationIDs []uuid.UUID) ([]uuid.UUID, error)
+	MarkNotificationRead(ctx context.Context, userID uuid.UUID, notificationID uuid.UUID) (bool, error)
 }
 
 // SQLNotificationRepository implements NotificationRepository using a SQL database.
@@ -152,4 +154,32 @@ func (r *SQLNotificationRepository) DeleteNotifications(
 	}
 
 	return deletedIDs, nil
+}
+
+// MarkNotificationRead marks a notification as read for a user.
+// Returns true if the notification was found and updated, false if not found.
+func (r *SQLNotificationRepository) MarkNotificationRead(
+	ctx context.Context,
+	userID uuid.UUID,
+	notificationID uuid.UUID,
+) (bool, error) {
+	query := `
+		UPDATE recipe_manager.notifications
+		SET is_read = true, updated_at = NOW()
+		WHERE notification_id = $1 AND user_id = $2 AND is_deleted = false
+		RETURNING notification_id
+	`
+
+	var returnedID uuid.UUID
+
+	err := r.db.QueryRowContext(ctx, query, notificationID, userID).Scan(&returnedID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+
+		return false, fmt.Errorf("mark notification read: %w", err)
+	}
+
+	return true, nil
 }

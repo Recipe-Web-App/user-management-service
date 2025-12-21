@@ -363,3 +363,86 @@ func TestSQLNotificationRepository_DeleteNotifications(t *testing.T) {
 		})
 	}
 }
+
+//nolint:funlen // Table-driven test with multiple test cases
+func TestSQLNotificationRepository_MarkNotificationRead(t *testing.T) {
+	t.Parallel()
+
+	userID := uuid.New()
+	notificationID := uuid.New()
+
+	tests := []struct {
+		name        string
+		setupMock   func(mock sqlmock.Sqlmock)
+		expectedOk  bool
+		expectError bool
+	}{
+		{
+			name: "marks notification as read successfully",
+			setupMock: func(mock sqlmock.Sqlmock) {
+				rows := sqlmock.NewRows([]string{"notification_id"}).AddRow(notificationID)
+				mock.ExpectQuery(`UPDATE recipe_manager.notifications`).
+					WithArgs(notificationID, userID).
+					WillReturnRows(rows)
+			},
+			expectedOk:  true,
+			expectError: false,
+		},
+		{
+			name: "returns false when notification not found",
+			setupMock: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(`UPDATE recipe_manager.notifications`).
+					WithArgs(notificationID, userID).
+					WillReturnError(sql.ErrNoRows)
+			},
+			expectedOk:  false,
+			expectError: false,
+		},
+		{
+			name: "returns false when notification belongs to different user",
+			setupMock: func(mock sqlmock.Sqlmock) {
+				// No rows returned because user_id doesn't match
+				mock.ExpectQuery(`UPDATE recipe_manager.notifications`).
+					WithArgs(notificationID, userID).
+					WillReturnError(sql.ErrNoRows)
+			},
+			expectedOk:  false,
+			expectError: false,
+		},
+		{
+			name: "returns error on database failure",
+			setupMock: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(`UPDATE recipe_manager.notifications`).
+					WithArgs(notificationID, userID).
+					WillReturnError(errTestDB)
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+
+			defer func() { _ = db.Close() }()
+
+			tt.setupMock(mock)
+
+			repo := repository.NewNotificationRepository(db)
+			ok, err := repo.MarkNotificationRead(context.Background(), userID, notificationID)
+
+			if tt.expectError {
+				assert.Error(t, err)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedOk, ok)
+			assert.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}

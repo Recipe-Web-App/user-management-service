@@ -72,6 +72,21 @@ func (m *MockNotificationRepo) DeleteNotifications(
 	return deletedIDs, nil
 }
 
+func (m *MockNotificationRepo) MarkNotificationRead(
+	ctx context.Context,
+	userID uuid.UUID,
+	notificationID uuid.UUID,
+) (bool, error) {
+	args := m.Called(ctx, userID, notificationID)
+
+	err := args.Error(1)
+	if err != nil {
+		return false, fmt.Errorf("mock error: %w", err)
+	}
+
+	return args.Bool(0), nil
+}
+
 func TestGetNotificationsComponent_Success(t *testing.T) {
 	t.Parallel()
 
@@ -500,4 +515,102 @@ func TestDeleteNotificationsComponent_Unauthorized(t *testing.T) {
 	require.False(t, apiResp.Success)
 
 	assert.Equal(t, "UNAUTHORIZED", apiResp.Error.Code)
+}
+
+//nolint:funlen // Table-driven test with multiple test cases
+func TestMarkNotificationReadComponent(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		setupMock      func(*MockNotificationRepo, uuid.UUID, uuid.UUID)
+		userID         *uuid.UUID // nil means no header
+		notificationID string
+		expectedStatus int
+		expectedBody   []string
+	}{
+		{
+			name: "Success",
+			setupMock: func(m *MockNotificationRepo, userID, notifID uuid.UUID) {
+				m.On("MarkNotificationRead", mock.Anything, userID, notifID).Return(true, nil)
+			},
+			userID:         func() *uuid.UUID { id := uuid.New(); return &id }(),
+			notificationID: uuid.New().String(),
+			expectedStatus: http.StatusOK,
+			expectedBody:   []string{`"success":true`, `"message":"Notification marked as read successfully"`},
+		},
+		{
+			name: "NotFound",
+			setupMock: func(m *MockNotificationRepo, userID, notifID uuid.UUID) {
+				m.On("MarkNotificationRead", mock.Anything, userID, notifID).Return(false, nil)
+			},
+			userID:         func() *uuid.UUID { id := uuid.New(); return &id }(),
+			notificationID: uuid.New().String(),
+			expectedStatus: http.StatusNotFound,
+			expectedBody:   []string{`"success":false`, `"NOT_FOUND"`},
+		},
+		{
+			name:           "Unauthorized",
+			setupMock:      func(_ *MockNotificationRepo, _, _ uuid.UUID) {},
+			userID:         nil,
+			notificationID: uuid.New().String(),
+			expectedStatus: http.StatusUnauthorized,
+			expectedBody:   []string{`"success":false`, `"UNAUTHORIZED"`},
+		},
+		{
+			name:           "InvalidNotificationId",
+			setupMock:      func(_ *MockNotificationRepo, _, _ uuid.UUID) {},
+			userID:         func() *uuid.UUID { id := uuid.New(); return &id }(),
+			notificationID: "not-a-uuid",
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   []string{`"success":false`, `"VALIDATION_ERROR"`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockRepo := new(MockNotificationRepo)
+			svc := service.NewNotificationService(mockRepo)
+
+			c := &app.Container{
+				NotificationService: svc,
+				Config:              config.Instance,
+			}
+			c.HealthService = service.NewHealthService(nil, nil)
+
+			srv := server.NewServerWithContainer(c)
+			handler := srv.Handler
+
+			var userID, notifID uuid.UUID
+			if tt.userID != nil {
+				userID = *tt.userID
+			}
+
+			parsedID, parseErr := uuid.Parse(tt.notificationID)
+			if parseErr == nil {
+				notifID = parsedID
+			}
+
+			tt.setupMock(mockRepo, userID, notifID)
+
+			reqPath := fmt.Sprintf("/api/v1/user-management/notifications/%s/read", tt.notificationID)
+			req := httptest.NewRequest(http.MethodPut, reqPath, nil)
+
+			if tt.userID != nil {
+				req.Header.Set("X-User-Id", tt.userID.String())
+			}
+
+			rr := httptest.NewRecorder()
+			handler.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+
+			body := rr.Body.String()
+			for _, expected := range tt.expectedBody {
+				assert.Contains(t, body, expected)
+			}
+		})
+	}
 }

@@ -73,6 +73,22 @@ func (m *MockNotificationRepository) MarkNotificationRead(
 	return args.Bool(0), nil
 }
 
+func (m *MockNotificationRepository) MarkAllNotificationsRead(
+	ctx context.Context,
+	userID uuid.UUID,
+) ([]uuid.UUID, error) {
+	args := m.Called(ctx, userID)
+
+	readIDs, _ := args.Get(0).([]uuid.UUID)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf("mock error: %w", err)
+	}
+
+	return readIDs, nil
+}
+
 //nolint:funlen // Table-driven test with many test cases
 func TestNotificationService_GetNotifications(t *testing.T) {
 	t.Parallel()
@@ -410,6 +426,90 @@ func TestNotificationService_MarkNotificationRead(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedOk, ok)
+			mockRepo.AssertExpectations(t)
+		})
+	}
+}
+
+//nolint:funlen // Table-driven test with multiple test cases
+func TestNotificationService_MarkAllNotificationsRead(t *testing.T) {
+	t.Parallel()
+
+	userID := uuid.New()
+	notificationID1 := uuid.New()
+	notificationID2 := uuid.New()
+	notificationID3 := uuid.New()
+
+	tests := []struct {
+		name        string
+		setupMock   func(*MockNotificationRepository)
+		expectedLen int
+		expectError bool
+	}{
+		{
+			name: "marks all notifications as read successfully",
+			setupMock: func(m *MockNotificationRepository) {
+				m.On("MarkAllNotificationsRead", mock.Anything, userID).
+					Return([]uuid.UUID{notificationID1, notificationID2, notificationID3}, nil)
+			},
+			expectedLen: 3,
+			expectError: false,
+		},
+		{
+			name: "returns empty slice when no unread notifications",
+			setupMock: func(m *MockNotificationRepository) {
+				m.On("MarkAllNotificationsRead", mock.Anything, userID).
+					Return([]uuid.UUID{}, nil)
+			},
+			expectedLen: 0,
+			expectError: false,
+		},
+		{
+			name: "converts UUIDs to strings correctly",
+			setupMock: func(m *MockNotificationRepository) {
+				m.On("MarkAllNotificationsRead", mock.Anything, userID).
+					Return([]uuid.UUID{notificationID1}, nil)
+			},
+			expectedLen: 1,
+			expectError: false,
+		},
+		{
+			name: "returns error on repository failure",
+			setupMock: func(m *MockNotificationRepository) {
+				m.On("MarkAllNotificationsRead", mock.Anything, userID).
+					Return(nil, errTestRepo)
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockRepo := new(MockNotificationRepository)
+			tt.setupMock(mockRepo)
+
+			svc := service.NewNotificationService(mockRepo)
+			readIDs, err := svc.MarkAllNotificationsRead(context.Background(), userID)
+
+			if tt.expectError {
+				require.Error(t, err)
+				mockRepo.AssertExpectations(t)
+
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, readIDs)
+			assert.Len(t, readIDs, tt.expectedLen)
+
+			// Verify UUIDs are valid strings
+			for _, id := range readIDs {
+				_, err := uuid.Parse(id)
+				require.NoError(t, err, "returned ID should be valid UUID string")
+			}
+
 			mockRepo.AssertExpectations(t)
 		})
 	}

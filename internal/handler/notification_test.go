@@ -84,6 +84,22 @@ func (m *MockNotificationService) MarkNotificationRead(
 	return args.Bool(0), nil
 }
 
+func (m *MockNotificationService) MarkAllNotificationsRead(
+	ctx context.Context,
+	userID uuid.UUID,
+) ([]string, error) {
+	args := m.Called(ctx, userID)
+
+	readIDs, _ := args.Get(0).([]string)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf("mock error: %w", err)
+	}
+
+	return readIDs, nil
+}
+
 type notificationHandlerTestCase struct {
 	name           string
 	userIDHeader   string
@@ -581,6 +597,110 @@ func TestNotificationHandler_MarkNotificationRead(t *testing.T) {
 
 			reqPath := fmt.Sprintf("/notifications/%s/read", tt.notificationID)
 			req := httptest.NewRequest(http.MethodPut, reqPath, nil)
+
+			if tt.userIDHeader != "" {
+				req.Header.Set("X-User-Id", tt.userIDHeader)
+			}
+
+			rr := httptest.NewRecorder()
+			r.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
+
+			body := rr.Body.String()
+			for _, expected := range tt.expectedBody {
+				assert.Contains(t, body, expected)
+			}
+
+			mockSvc.AssertExpectations(t)
+		})
+	}
+}
+
+//nolint:funlen // Table-driven test with multiple test cases
+func TestNotificationHandler_MarkAllNotificationsRead(t *testing.T) {
+	t.Parallel()
+
+	validUserID := uuid.New()
+	notificationID1 := uuid.New()
+	notificationID2 := uuid.New()
+
+	tests := []struct {
+		name           string
+		userIDHeader   string
+		mockRun        func(*MockNotificationService)
+		expectedStatus int
+		expectedBody   []string
+	}{
+		{
+			name:         "returns 200 with notification IDs when marked as read",
+			userIDHeader: validUserID.String(),
+			mockRun: func(m *MockNotificationService) {
+				m.On("MarkAllNotificationsRead", mock.Anything, validUserID).
+					Return([]string{notificationID1.String(), notificationID2.String()}, nil)
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody: []string{
+				`"success":true`,
+				`"message":"All notifications marked as read successfully"`,
+				`"readNotificationIds"`,
+				notificationID1.String(),
+				notificationID2.String(),
+			},
+		},
+		{
+			name:         "returns 200 with empty array when no unread notifications",
+			userIDHeader: validUserID.String(),
+			mockRun: func(m *MockNotificationService) {
+				m.On("MarkAllNotificationsRead", mock.Anything, validUserID).
+					Return([]string{}, nil)
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody: []string{
+				`"success":true`,
+				`"message":"All notifications marked as read successfully"`,
+				`"readNotificationIds":[]`,
+			},
+		},
+		{
+			name:           "returns 401 when X-User-Id header is missing",
+			userIDHeader:   "",
+			mockRun:        func(_ *MockNotificationService) {},
+			expectedStatus: http.StatusUnauthorized,
+			expectedBody:   []string{`"success":false`, `"UNAUTHORIZED"`, `"User authentication required"`},
+		},
+		{
+			name:           "returns 401 when X-User-Id header is invalid UUID",
+			userIDHeader:   "not-a-uuid",
+			mockRun:        func(_ *MockNotificationService) {},
+			expectedStatus: http.StatusUnauthorized,
+			expectedBody:   []string{`"success":false`, `"UNAUTHORIZED"`, `"Invalid user ID in authentication header"`},
+		},
+		{
+			name:         "returns 500 when service returns error",
+			userIDHeader: validUserID.String(),
+			mockRun: func(m *MockNotificationService) {
+				m.On("MarkAllNotificationsRead", mock.Anything, validUserID).
+					Return(nil, errTestDatabase)
+			},
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   []string{`"success":false`, `"INTERNAL_ERROR"`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockSvc := new(MockNotificationService)
+			tt.mockRun(mockSvc)
+
+			h := handler.NewNotificationHandler(mockSvc)
+
+			r := chi.NewRouter()
+			r.Put("/notifications/read-all", h.MarkAllNotificationsRead)
+
+			req := httptest.NewRequest(http.MethodPut, "/notifications/read-all", nil)
 
 			if tt.userIDHeader != "" {
 				req.Header.Set("X-User-Id", tt.userIDHeader)

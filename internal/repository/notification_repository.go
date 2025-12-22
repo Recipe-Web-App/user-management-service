@@ -18,6 +18,7 @@ type NotificationRepository interface {
 	CountNotifications(ctx context.Context, userID uuid.UUID) (int, error)
 	DeleteNotifications(ctx context.Context, userID uuid.UUID, notificationIDs []uuid.UUID) ([]uuid.UUID, error)
 	MarkNotificationRead(ctx context.Context, userID uuid.UUID, notificationID uuid.UUID) (bool, error)
+	MarkAllNotificationsRead(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
 }
 
 // SQLNotificationRepository implements NotificationRepository using a SQL database.
@@ -182,4 +183,45 @@ func (r *SQLNotificationRepository) MarkNotificationRead(
 	}
 
 	return true, nil
+}
+
+// MarkAllNotificationsRead marks all unread notifications as read for a user.
+// Returns the IDs of notifications that were marked as read.
+func (r *SQLNotificationRepository) MarkAllNotificationsRead(
+	ctx context.Context,
+	userID uuid.UUID,
+) ([]uuid.UUID, error) {
+	query := `
+		UPDATE recipe_manager.notifications
+		SET is_read = true, updated_at = NOW()
+		WHERE user_id = $1 AND is_deleted = false AND is_read = false
+		RETURNING notification_id
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("mark all notifications read: %w", err)
+	}
+
+	defer func() { _ = rows.Close() }()
+
+	readIDs := make([]uuid.UUID, 0)
+
+	for rows.Next() {
+		var id uuid.UUID
+
+		err := rows.Scan(&id)
+		if err != nil {
+			return nil, fmt.Errorf("scan read notification id: %w", err)
+		}
+
+		readIDs = append(readIDs, id)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("iterate read notifications: %w", err)
+	}
+
+	return readIDs, nil
 }

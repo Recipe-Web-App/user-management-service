@@ -87,6 +87,22 @@ func (m *MockNotificationRepo) MarkNotificationRead(
 	return args.Bool(0), nil
 }
 
+func (m *MockNotificationRepo) MarkAllNotificationsRead(
+	ctx context.Context,
+	userID uuid.UUID,
+) ([]uuid.UUID, error) {
+	args := m.Called(ctx, userID)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf("mock error: %w", err)
+	}
+
+	readIDs, _ := args.Get(0).([]uuid.UUID)
+
+	return readIDs, nil
+}
+
 func TestGetNotificationsComponent_Success(t *testing.T) {
 	t.Parallel()
 
@@ -613,4 +629,123 @@ func TestMarkNotificationReadComponent(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMarkAllNotificationsReadComponent_Success(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockNotificationRepo)
+	svc := service.NewNotificationService(mockRepo)
+
+	c := &app.Container{
+		NotificationService: svc,
+		Config:              config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+	notificationID1 := uuid.New()
+	notificationID2 := uuid.New()
+	notificationID3 := uuid.New()
+
+	mockRepo.On("MarkAllNotificationsRead", mock.Anything, userID).
+		Return([]uuid.UUID{notificationID1, notificationID2, notificationID3}, nil)
+
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/user-management/notifications/read-all", nil)
+	req.Header.Set("X-User-Id", userID.String())
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var apiResp struct {
+		Success bool                            `json:"success"`
+		Data    dto.NotificationReadAllResponse `json:"data"`
+	}
+
+	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
+	require.NoError(t, err)
+	require.True(t, apiResp.Success)
+
+	resp := apiResp.Data
+	assert.Equal(t, "All notifications marked as read successfully", resp.Message)
+	assert.Len(t, resp.ReadNotificationIDs, 3)
+	assert.Contains(t, resp.ReadNotificationIDs, notificationID1.String())
+	assert.Contains(t, resp.ReadNotificationIDs, notificationID2.String())
+	assert.Contains(t, resp.ReadNotificationIDs, notificationID3.String())
+}
+
+func TestMarkAllNotificationsReadComponent_EmptyResult(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockNotificationRepo)
+	svc := service.NewNotificationService(mockRepo)
+
+	c := &app.Container{
+		NotificationService: svc,
+		Config:              config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+
+	// No unread notifications
+	mockRepo.On("MarkAllNotificationsRead", mock.Anything, userID).
+		Return([]uuid.UUID{}, nil)
+
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/user-management/notifications/read-all", nil)
+	req.Header.Set("X-User-Id", userID.String())
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	// Verify response contains empty array
+	body := rr.Body.String()
+	assert.Contains(t, body, `"success":true`)
+	assert.Contains(t, body, `"readNotificationIds":[]`)
+}
+
+//nolint:dupl // Similar pattern to other unauthorized tests but for different endpoint
+func TestMarkAllNotificationsReadComponent_Unauthorized(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockNotificationRepo)
+	svc := service.NewNotificationService(mockRepo)
+
+	c := &app.Container{
+		NotificationService: svc,
+		Config:              config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/user-management/notifications/read-all", nil)
+	// No X-User-Id header
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+
+	var apiResp struct {
+		Success bool      `json:"success"`
+		Error   dto.Error `json:"error"`
+	}
+
+	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
+	require.NoError(t, err)
+	require.False(t, apiResp.Success)
+
+	assert.Equal(t, "UNAUTHORIZED", apiResp.Error.Code)
 }

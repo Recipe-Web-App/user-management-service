@@ -285,3 +285,35 @@ func BenchmarkMarkNotificationRead(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkMarkAllNotificationsRead(b *testing.B) {
+	if benchmarkContainer == nil || benchmarkContainer.Database == nil {
+		b.Skip("benchmark container or database is nil - skipping benchmark")
+	}
+
+	dbSvc, ok := benchmarkContainer.Database.(*database.Service)
+	if !ok {
+		b.Fatal("failed to cast database service")
+	}
+
+	userID := uuid.New()
+
+	// Seed 100 notifications for this user
+	_ = seedBenchmarkNotifications(b, dbSvc.GetDB(), userID, 100)
+
+	reqPath := "/api/v1/user-management/notifications/read-all"
+
+	for b.Loop() {
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodPut, reqPath, nil)
+		req.Header.Set("X-User-Id", userID.String())
+
+		rr := httptest.NewRecorder()
+		benchmarkHandler.ServeHTTP(rr, req)
+
+		// Should return 200 on success
+		// After first run, all notifications are marked as read, so subsequent runs return empty array
+		if rr.Code != http.StatusOK {
+			b.Fatalf("unexpected status: %d, body: %s", rr.Code, rr.Body.String())
+		}
+	}
+}

@@ -28,6 +28,10 @@ type NotificationService interface {
 		userID uuid.UUID,
 		notificationID string,
 	) (bool, error)
+	MarkAllNotificationsRead(
+		ctx context.Context,
+		userID uuid.UUID,
+	) ([]string, error)
 }
 
 // NotificationDeleteResult contains the result of a batch delete operation.
@@ -158,4 +162,24 @@ func (s *NotificationServiceImpl) MarkNotificationRead(
 	}
 
 	return found, nil
+}
+
+// MarkAllNotificationsRead marks all unread notifications as read for a user.
+// Returns the IDs of notifications that were marked as read.
+func (s *NotificationServiceImpl) MarkAllNotificationsRead(
+	ctx context.Context,
+	userID uuid.UUID,
+) ([]string, error) {
+	readUUIDs, err := s.repo.MarkAllNotificationsRead(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("mark all notifications read: %w", err)
+	}
+
+	// Convert UUIDs to strings
+	readIDs := make([]string, len(readUUIDs))
+	for i, id := range readUUIDs {
+		readIDs[i] = id.String()
+	}
+
+	return readIDs, nil
 }

@@ -94,6 +94,22 @@ func (m *MockNotificationRepository) MarkNotificationRead(
 	return args.Bool(0), nil
 }
 
+func (m *MockNotificationRepository) MarkAllNotificationsRead(
+	ctx context.Context,
+	userID uuid.UUID,
+) ([]uuid.UUID, error) {
+	args := m.Called(ctx, userID)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf("mark all notifications read: %w", err)
+	}
+
+	readIDs, _ := args.Get(0).([]uuid.UUID)
+
+	return readIDs, nil
+}
+
 type notificationTestFixture struct {
 	handler  http.Handler
 	mockRepo *MockNotificationRepository
@@ -685,6 +701,134 @@ func TestMarkNotificationRead(t *testing.T) {
 
 		rr := httptest.NewRecorder()
 		fix.handler.ServeHTTP(rr, newMarkNotificationReadRequest(t, fix.userID, notificationID.String()))
+
+		assert.Equal(t, http.StatusInternalServerError, rr.Code)
+
+		var resp struct {
+			Success bool      `json:"success"`
+			Error   dto.Error `json:"error"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+
+		assert.False(t, resp.Success)
+		assert.Equal(t, "INTERNAL_ERROR", resp.Error.Code)
+	})
+}
+
+func newMarkAllNotificationsReadRequest(t *testing.T, userID uuid.UUID) *http.Request {
+	t.Helper()
+
+	reqPath := notificationsBaseURL + "/read-all"
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPut, reqPath, nil)
+	require.NoError(t, err)
+	req.Header.Set("X-User-Id", userID.String())
+
+	return req
+}
+
+//nolint:funlen // Table-driven test with multiple test cases
+func TestMarkAllNotificationsRead(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Success_AllMarkedAsRead", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupNotificationTest(t)
+		notificationID1 := uuid.New()
+		notificationID2 := uuid.New()
+		notificationID3 := uuid.New()
+
+		fix.mockRepo.On("MarkAllNotificationsRead", mock.Anything, fix.userID).
+			Return([]uuid.UUID{notificationID1, notificationID2, notificationID3}, nil).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newMarkAllNotificationsReadRequest(t, fix.userID))
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		var resp struct {
+			Success bool                            `json:"success"`
+			Data    dto.NotificationReadAllResponse `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+
+		assert.True(t, resp.Success)
+		assert.Equal(t, "All notifications marked as read successfully", resp.Data.Message)
+		assert.Len(t, resp.Data.ReadNotificationIDs, 3)
+		assert.Contains(t, resp.Data.ReadNotificationIDs, notificationID1.String())
+		assert.Contains(t, resp.Data.ReadNotificationIDs, notificationID2.String())
+		assert.Contains(t, resp.Data.ReadNotificationIDs, notificationID3.String())
+	})
+
+	t.Run("Success_EmptyResult", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupNotificationTest(t)
+
+		fix.mockRepo.On("MarkAllNotificationsRead", mock.Anything, fix.userID).
+			Return([]uuid.UUID{}, nil).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newMarkAllNotificationsReadRequest(t, fix.userID))
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		body := rr.Body.String()
+		assert.Contains(t, body, `"success":true`)
+		assert.Contains(t, body, `"readNotificationIds":[]`)
+	})
+
+	t.Run("Unauthorized_MissingHeader", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupNotificationTest(t)
+
+		reqPath := notificationsBaseURL + "/read-all"
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodPut, reqPath, nil)
+		require.NoError(t, err)
+		// No X-User-Id header
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusUnauthorized, rr.Code)
+
+		var resp struct {
+			Success bool      `json:"success"`
+			Error   dto.Error `json:"error"`
+		}
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+
+		assert.False(t, resp.Success)
+		assert.Equal(t, "UNAUTHORIZED", resp.Error.Code)
+	})
+
+	t.Run("Unauthorized_InvalidUUID", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupNotificationTest(t)
+
+		reqPath := notificationsBaseURL + "/read-all"
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodPut, reqPath, nil)
+		require.NoError(t, err)
+		req.Header.Set("X-User-Id", "not-a-valid-uuid")
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusUnauthorized, rr.Code)
+	})
+
+	t.Run("InternalError_RepositoryFailure", func(t *testing.T) {
+		t.Parallel()
+
+		fix := setupNotificationTest(t)
+
+		fix.mockRepo.On("MarkAllNotificationsRead", mock.Anything, fix.userID).
+			Return(nil, errNotificationTest).Once()
+
+		rr := httptest.NewRecorder()
+		fix.handler.ServeHTTP(rr, newMarkAllNotificationsReadRequest(t, fix.userID))
 
 		assert.Equal(t, http.StatusInternalServerError, rr.Code)
 

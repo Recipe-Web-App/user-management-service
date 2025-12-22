@@ -154,10 +154,30 @@ func (h *NotificationHandler) MarkNotificationRead(w http.ResponseWriter, r *htt
 }
 
 // MarkAllNotificationsRead handles PUT /notifications/read-all.
-func (h *NotificationHandler) MarkAllNotificationsRead(w http.ResponseWriter, _ *http.Request) {
+func (h *NotificationHandler) MarkAllNotificationsRead(w http.ResponseWriter, r *http.Request) {
+	// 1. Extract and validate requester ID from header
+	userID, ok := h.extractAuthenticatedUserID(w, r)
+	if !ok {
+		return
+	}
+
+	// 2. Call service
+	readIDs, err := h.notificationService.MarkAllNotificationsRead(r.Context(), userID)
+	if err != nil {
+		InternalErrorResponse(w)
+
+		return
+	}
+
+	// 3. Ensure empty slice not nil for JSON serialization
+	if readIDs == nil {
+		readIDs = []string{}
+	}
+
+	// 4. Return success response
 	SuccessResponse(w, http.StatusOK, dto.NotificationReadAllResponse{
 		Message:             "All notifications marked as read successfully",
-		ReadNotificationIDs: []string{uuid.New().String(), uuid.New().String()},
+		ReadNotificationIDs: readIDs,
 	})
 }
 

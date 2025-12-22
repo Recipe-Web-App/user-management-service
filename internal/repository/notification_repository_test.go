@@ -446,3 +446,92 @@ func TestSQLNotificationRepository_MarkNotificationRead(t *testing.T) {
 		})
 	}
 }
+
+//nolint:funlen // Table-driven test with multiple test cases
+func TestSQLNotificationRepository_MarkAllNotificationsRead(t *testing.T) {
+	t.Parallel()
+
+	userID := uuid.New()
+	notificationID1 := uuid.New()
+	notificationID2 := uuid.New()
+	notificationID3 := uuid.New()
+
+	tests := []struct {
+		name        string
+		setupMock   func(mock sqlmock.Sqlmock)
+		expectedIDs []uuid.UUID
+		expectError bool
+	}{
+		{
+			name: "marks all unread notifications as read",
+			setupMock: func(mock sqlmock.Sqlmock) {
+				rows := sqlmock.NewRows([]string{"notification_id"}).
+					AddRow(notificationID1).
+					AddRow(notificationID2).
+					AddRow(notificationID3)
+				mock.ExpectQuery(`UPDATE recipe_manager.notifications`).
+					WithArgs(userID).
+					WillReturnRows(rows)
+			},
+			expectedIDs: []uuid.UUID{notificationID1, notificationID2, notificationID3},
+			expectError: false,
+		},
+		{
+			name: "returns empty slice when no unread notifications",
+			setupMock: func(mock sqlmock.Sqlmock) {
+				rows := sqlmock.NewRows([]string{"notification_id"})
+				mock.ExpectQuery(`UPDATE recipe_manager.notifications`).
+					WithArgs(userID).
+					WillReturnRows(rows)
+			},
+			expectedIDs: []uuid.UUID{},
+			expectError: false,
+		},
+		{
+			name: "returns error on database failure",
+			setupMock: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery(`UPDATE recipe_manager.notifications`).
+					WithArgs(userID).
+					WillReturnError(errTestDB)
+			},
+			expectError: true,
+		},
+		{
+			name: "returns error on row scan failure",
+			setupMock: func(mock sqlmock.Sqlmock) {
+				rows := sqlmock.NewRows([]string{"notification_id"}).
+					AddRow("not-a-uuid")
+				mock.ExpectQuery(`UPDATE recipe_manager.notifications`).
+					WithArgs(userID).
+					WillReturnRows(rows)
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+
+			defer func() { _ = db.Close() }()
+
+			tt.setupMock(mock)
+
+			repo := repository.NewNotificationRepository(db)
+			readIDs, err := repo.MarkAllNotificationsRead(context.Background(), userID)
+
+			if tt.expectError {
+				assert.Error(t, err)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedIDs, readIDs)
+			assert.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}

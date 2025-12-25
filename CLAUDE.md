@@ -305,7 +305,7 @@ Notification service URLs and scopes are hard-coded in `app/clients/constants.py
 
 ```python
 # Local development
-NOTIFICATION_SERVICE_URL_LOCAL = "http://notification-service.local/api/v1/notification"
+NOTIFICATION_SERVICE_URL_LOCAL = "http://sous-chef-proxy.local/api/v1/notification"
 
 # Kubernetes/production
 NOTIFICATION_SERVICE_URL_K8S = "http://notification-service.notification.svc.cluster.local:8000/api/v1/notification"

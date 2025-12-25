@@ -94,10 +94,10 @@ mkdir -p config
 cat > config/oauth2.json << 'EOF'
 {
   "oauth2_service_urls": {
-    "authorization_url": "https://auth-service.local/authorize",
-    "token_url": "https://auth-service.local/token",
-    "introspection_url": "https://auth-service.local/introspect",
-    "userinfo_url": "https://auth-service.local/userinfo"
+    "authorization_url": "https://sous-chef-proxy.local/authorize",
+    "token_url": "https://sous-chef-proxy.local/token",
+    "introspection_url": "https://sous-chef-proxy.local/introspect",
+    "userinfo_url": "https://sous-chef-proxy.local/userinfo"
   },
   "scopes": {
     "default_scopes": ["openid", "profile"],
@@ -321,10 +321,10 @@ FLUSHALL  # Clear all data (development only!)
 
 ```bash
 # 1. Get authorization code (redirect to OAuth2 service)
-open "https://auth-service.local/authorize?response_type=code&client_id=recipe-web-client&redirect_uri=http://localhost:3000/callback&scope=openid+profile+user:read+user:write&state=dev-state&code_challenge=dev-challenge&code_challenge_method=S256"
+open "https://sous-chef-proxy.local/authorize?response_type=code&client_id=recipe-web-client&redirect_uri=http://localhost:3000/callback&scope=openid+profile+user:read+user:write&state=dev-state&code_challenge=dev-challenge&code_challenge_method=S256"
 
 # 2. Exchange authorization code for tokens
-curl -X POST "https://auth-service.local/token" \
+curl -X POST "https://sous-chef-proxy.local/token" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=authorization_code&code=AUTH_CODE_FROM_STEP_1&redirect_uri=http://localhost:3000/callback&client_id=recipe-web-client&code_verifier=dev-verifier"
 
@@ -338,7 +338,7 @@ curl -X GET "http://localhost:8000/api/v1/users/profile" \
 
 ```bash
 # Get service token
-curl -X POST "https://auth-service.local/token" \
+curl -X POST "https://sous-chef-proxy.local/token" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -H "Authorization: Basic $(echo -n 'service-client:service-secret' | base64)" \
   -d "grant_type=client_credentials&scope=user:read+user:write"
@@ -392,16 +392,16 @@ The project includes HTTP test files in `tests/http/`:
 ```http
 ### OAuth2 Authorization URL
 # Open this URL in browser
-https://auth-service.local/authorize?response_type=code&client_id=recipe-web-client&redirect_uri=http://localhost:3000/callback&scope=openid+profile+user:read+user:write&state=test-state&code_challenge=test-challenge&code_challenge_method=S256
+https://sous-chef-proxy.local/authorize?response_type=code&client_id=recipe-web-client&redirect_uri=http://localhost:3000/callback&scope=openid+profile+user:read+user:write&state=test-state&code_challenge=test-challenge&code_challenge_method=S256
 
 ### Exchange authorization code for tokens
-POST https://auth-service.local/token
+POST https://sous-chef-proxy.local/token
 Content-Type: application/x-www-form-urlencoded
 
 grant_type=authorization_code&code={{auth_code}}&redirect_uri=http://localhost:3000/callback&client_id=recipe-web-client&code_verifier=test-verifier
 
 ### Service-to-service token
-POST https://auth-service.local/token
+POST https://sous-chef-proxy.local/token
 Content-Type: application/x-www-form-urlencoded
 Authorization: Basic {{base64(client_id:client_secret)}}
 
@@ -530,7 +530,7 @@ cat config/oauth2.json
 env | grep OAUTH2
 
 # Test OAuth2 service connectivity
-curl -v https://auth-service.local/health
+curl -v https://sous-chef-proxy.local/health
 
 # Check OAuth2 client initialization
 poetry run python -c "

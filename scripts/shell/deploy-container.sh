@@ -59,11 +59,7 @@ if ! minikube status >/dev/null 2>&1; then
   echo "🚀 Starting Minikube..."
   minikube start
 
-  if ! minikube addons list | grep -q 'ingress *enabled'; then
-    echo "🔌 Enabling Minikube ingress addon..."
-    minikube addons enable ingress
-    echo "✅ Minikube started."
-  fi
+  echo "✅ Minikube started."
 else
   echo "✅ Minikube is already running."
 fi
@@ -135,22 +131,10 @@ print_separator "-"
 kubectl apply -f "${CONFIG_DIR}/service.yaml"
 
 print_separator "="
-echo "⏳ Waiting for Ingress controller to be ready..."
+echo "📥 Applying HTTPRoute for Kong Gateway..."
 print_separator "-"
 
-kubectl wait --namespace ingress-nginx \
-    --for=condition=Ready pod \
-    --selector=app.kubernetes.io/component=controller \
-    --timeout=90s
-
-print_separator "-"
-echo "✅ Ingress controller is running."
-
-print_separator "="
-echo "📥 Applying Ingress resource..."
-print_separator "-"
-
-kubectl apply -f "${CONFIG_DIR}/ingress.yaml"
+kubectl apply -f "${CONFIG_DIR}/gateway-route.yaml"
 
 print_separator "="
 echo "⏳ Waiting for User Management Service pod to be ready..."
@@ -165,7 +149,7 @@ print_separator "-"
 echo "✅ User Management Service is up and running in namespace '$NAMESPACE'."
 
 print_separator "="
-echo "🔗 Setting up /etc/hosts for user-management.local..."
+echo "🔗 Setting up /etc/hosts for sous-chef-proxy.local..."
 print_separator "-"
 
 MINIKUBE_IP=$(minikube ip)
@@ -179,18 +163,19 @@ echo "$MINIKUBE_IP user-management.local" >> /etc/hosts
 echo "✅ /etc/hosts updated with user-management.local pointing to $MINIKUBE_IP"
 
 print_separator "="
-echo "🌍 You can now access your app at: http://user-management.local/api/v1/user-management/health"
+echo "🌍 You can now access your app at: http://sous-chef-proxy.local/api/v1/user-management/health"
 
 POD_NAME=$(kubectl get pods -n "$NAMESPACE" -l app=user-management -o jsonpath="{.items[0].metadata.name}")
 SERVICE_JSON=$(kubectl get svc user-management -n "$NAMESPACE" -o json)
 SERVICE_IP=$(echo "$SERVICE_JSON" | jq -r '.spec.clusterIP')
 SERVICE_PORT=$(echo "$SERVICE_JSON" | jq -r '.spec.ports[0].port')
-INGRESS_HOSTS=$(kubectl get ingress -n "$NAMESPACE" -o jsonpath='{.items[*].spec.rules[*].host}' | tr ' ' '\n' | sort -u | paste -sd ',' -)
+HTTPROUTE_HOSTS=$(kubectl get httproute -n "$NAMESPACE" -o jsonpath='{.items[*].spec.hostnames[*]}' | tr ' ' '\n' | sort -u | paste -sd ',' -)
 
 print_separator "="
 echo "📡 Access info:"
 echo "  Pod: $POD_NAME"
 echo "  Service: $SERVICE_IP:$SERVICE_PORT"
-echo "  Ingress Hosts: $INGRESS_HOSTS"
-echo "  Health Check: http://user-management.local/api/v1/user-management/health"
+echo "  HTTPRoute Hosts: $HTTPROUTE_HOSTS"
+echo "  Gateway: kong (namespace: kong)"
+echo "  Health Check: http://sous-chef-proxy.local/api/v1/user-management/health"
 print_separator "="

@@ -8,7 +8,7 @@ from typing import Final
 
 # Notification Service Configuration
 NOTIFICATION_SERVICE_URL_LOCAL: Final[str] = (
-    "http://notification-service.local/api/v1/notification"
+    "http://sous-chef-proxy.local/api/v1/notification"
 )
 NOTIFICATION_SERVICE_URL_K8S: Final[str] = (
     "http://notification-service.notification.svc.cluster.local:8000/api/v1/notification"

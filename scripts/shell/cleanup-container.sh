@@ -41,7 +41,7 @@ kubectl delete -f "${CONFIG_DIR}/configmap-template.yaml" -n "$NAMESPACE" --igno
 kubectl delete -f "${CONFIG_DIR}/deployment.yaml" -n "$NAMESPACE" --ignore-not-found
 kubectl delete -f "${CONFIG_DIR}/secret-template.yaml" -n "$NAMESPACE" --ignore-not-found
 kubectl delete -f "${CONFIG_DIR}/service.yaml" -n "$NAMESPACE" --ignore-not-found
-kubectl delete -f "${CONFIG_DIR}/ingress.yaml" -n "$NAMESPACE" --ignore-not-found
+kubectl delete -f "${CONFIG_DIR}/gateway-route.yaml" -n "$NAMESPACE" --ignore-not-found
 
 print_separator "="
 echo "🐳 Removing Docker image '${FULL_IMAGE_NAME}' from Minikube..."

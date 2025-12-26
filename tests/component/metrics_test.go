@@ -92,3 +92,63 @@ func (m *mockMetricsService) GetCacheMetrics(ctx context.Context) (*dto.CacheMet
 		HitRate:          0.9,
 	}, nil
 }
+
+func (m *mockMetricsService) GetSystemMetrics(ctx context.Context) (*dto.SystemMetricsResponse, error) {
+	return &dto.SystemMetricsResponse{
+		System: dto.SystemInfo{
+			CPUUsagePercent: 25.5,
+		},
+		Process: dto.ProcessInfo{
+			NumThreads: 10,
+		},
+	}, nil
+}
+
+func TestMetricsEndpoint_System(t *testing.T) {
+	t.Parallel()
+
+	container := &app.Container{
+		Config: &internalConfig.Config{
+			Server: internalConfig.ServerConfig{
+				Port: 8080,
+			},
+		},
+	}
+
+	mockMetricsSvc := &mockMetricsService{}
+	container.MetricsService = mockMetricsSvc
+
+	srv := server.NewServerWithContainer(container)
+
+	ts := httptest.NewServer(srv.Handler)
+	defer ts.Close()
+
+	req, err := http.NewRequestWithContext(
+		context.Background(),
+		http.MethodGet,
+		ts.URL+"/api/v1/user-management/metrics/system",
+		nil,
+	)
+	require.NoError(t, err)
+
+	resp, err := ts.Client().Do(req)
+	require.NoError(t, err)
+
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var response struct {
+		Success bool                      `json:"success"`
+		Data    dto.SystemMetricsResponse `json:"data"`
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	require.NoError(t, err)
+	require.True(t, response.Success)
+
+	assert.InDelta(t, 25.5, response.Data.System.CPUUsagePercent, 0.01)
+	assert.Equal(t, 10, response.Data.Process.NumThreads)
+}

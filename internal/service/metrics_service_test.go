@@ -10,6 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/shirou/gopsutil/v4/disk"
+	"github.com/shirou/gopsutil/v4/mem"
+
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/database"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
 )
@@ -21,6 +24,33 @@ type mockGatherer struct {
 
 func (m *mockGatherer) Gather() ([]*dto_model.MetricFamily, error) {
 	return m.mfs, nil
+}
+
+type mockSystemCollector struct {
+	cpuPercent  float64
+	cpuErr      error
+	memInfo     *mem.VirtualMemoryStat
+	memErr      error
+	diskUsage   *disk.UsageStat
+	diskErr     error
+	processInfo *dto.ProcessInfo
+	processErr  error
+}
+
+func (m *mockSystemCollector) GetCPUPercent() (float64, error) {
+	return m.cpuPercent, m.cpuErr
+}
+
+func (m *mockSystemCollector) GetMemoryInfo() (*mem.VirtualMemoryStat, error) {
+	return m.memInfo, m.memErr
+}
+
+func (m *mockSystemCollector) GetDiskUsage() (*disk.UsageStat, error) {
+	return m.diskUsage, m.diskErr
+}
+
+func (m *mockSystemCollector) GetProcessInfo() (*dto.ProcessInfo, error) {
+	return m.processInfo, m.processErr
 }
 
 func TestMetricsServiceGetPerformanceMetrics(t *testing.T) {
@@ -174,7 +204,7 @@ func TestMetricsServiceGetCacheMetrics(t *testing.T) {
 
 	dbService := database.NewWithDB(db)
 
-	svc := NewMetricsService(dbService, mockRedis)
+	svc := NewMetricsService(dbService, mockRedis, &mockSystemCollector{})
 
 	metrics, err := svc.GetCacheMetrics(context.Background())
 	require.NoError(t, err)
@@ -197,7 +227,7 @@ func TestMetricsServiceGetCacheMetricsError(t *testing.T) {
 
 	dbService := database.NewWithDB(db)
 
-	svc := NewMetricsService(dbService, mockRedis)
+	svc := NewMetricsService(dbService, mockRedis, &mockSystemCollector{})
 
 	metrics, err := svc.GetCacheMetrics(context.Background())
 	require.ErrorIs(t, err, assert.AnError)
@@ -216,10 +246,77 @@ func TestMetricsServiceGetCacheMetricsNoRedis(t *testing.T) {
 	dbService := database.NewWithDB(db)
 
 	// Pass nil as redis client
-	svc := NewMetricsService(dbService, nil)
+	svc := NewMetricsService(dbService, nil, &mockSystemCollector{})
 
 	metrics, err := svc.GetCacheMetrics(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "redis service not available")
 	assert.Nil(t, metrics)
+}
+
+func TestMetricsServiceGetSystemMetrics(t *testing.T) {
+	t.Parallel()
+
+	mockSys := &mockSystemCollector{
+		cpuPercent: 25.5,
+		memInfo: &mem.VirtualMemoryStat{
+			Total:       16 * 1024 * 1024 * 1024,
+			Used:        8 * 1024 * 1024 * 1024,
+			UsedPercent: 50.0,
+		},
+		diskUsage: &disk.UsageStat{
+			Total:       500 * 1024 * 1024 * 1024,
+			Used:        100 * 1024 * 1024 * 1024,
+			UsedPercent: 20.0,
+		},
+		// gopsutil process.Process has private fields, so hard to mock "filled" process without finding a real PID.
+		// For unit test safety, we'll return nil for process to avoid flaky PID lookups,
+		// or rely on limited test coverage for that specific helper.
+		processInfo: nil,
+	}
+
+	db, _, _ := sqlmock.New()
+
+	defer func() { _ = db.Close() }()
+
+	dbService := database.NewWithDB(db)
+
+	svc := NewMetricsService(dbService, &mockRedisClient{}, mockSys)
+
+	metrics, err := svc.GetSystemMetrics(context.Background())
+	require.NoError(t, err)
+
+	assert.InDelta(t, 25.5, metrics.System.CPUUsagePercent, 0.01)
+	assert.InDelta(t, 16.0, metrics.System.MemoryTotalGB, 0.01)
+	assert.InDelta(t, 50.0, metrics.System.MemoryUsagePercent, 0.01)
+	assert.InDelta(t, 500.0, metrics.System.DiskTotalGB, 0.01)
+}
+
+func BenchmarkMetricsService_GetSystemMetrics(b *testing.B) {
+	mockSys := &mockSystemCollector{
+		cpuPercent: 25.5,
+		memInfo: &mem.VirtualMemoryStat{
+			Total:       16 * 1024 * 1024 * 1024,
+			Used:        8 * 1024 * 1024 * 1024,
+			UsedPercent: 50.0,
+		},
+		diskUsage: &disk.UsageStat{
+			Total:       500 * 1024 * 1024 * 1024,
+			Used:        100 * 1024 * 1024 * 1024,
+			UsedPercent: 20.0,
+		},
+	}
+
+	db, _, _ := sqlmock.New()
+
+	defer func() { _ = db.Close() }()
+
+	dbService := database.NewWithDB(db)
+
+	svc := NewMetricsService(dbService, &mockRedisClient{}, mockSys)
+	ctx := context.Background()
+
+	for b.Loop() {
+		_, _ = svc.GetSystemMetrics(ctx)
+	}
 }

@@ -54,27 +54,15 @@ func (h *MetricsHandler) ClearCache(w http.ResponseWriter, _ *http.Request) {
 }
 
 // GetSystemMetrics handles GET /metrics/system.
-func (h *MetricsHandler) GetSystemMetrics(w http.ResponseWriter, _ *http.Request) {
-	SuccessResponse(w, http.StatusOK, dto.SystemMetricsResponse{
-		Timestamp: time.Now(),
-		System: dto.SystemInfo{
-			CPUUsagePercent:    25.5,
-			MemoryTotalGB:      16.0,
-			MemoryUsedGB:       8.5,
-			MemoryUsagePercent: 53.1,
-			DiskTotalGB:        500.0,
-			DiskUsedGB:         150.0,
-			DiskUsagePercent:   30.0,
-		},
-		Process: dto.ProcessInfo{
-			MemoryRSSMB: 128.5,
-			MemoryVMSMB: 512.0,
-			CPUPercent:  2.5,
-			NumThreads:  12,
-			OpenFiles:   45,
-		},
-		UptimeSeconds: 86400,
-	})
+// GetSystemMetrics handles GET /metrics/system.
+func (h *MetricsHandler) GetSystemMetrics(w http.ResponseWriter, r *http.Request) {
+	metrics, err := h.metricsService.GetSystemMetrics(r.Context())
+	if err != nil {
+		InternalErrorResponse(w)
+		return
+	}
+
+	SuccessResponse(w, http.StatusOK, metrics)
 }
 
 // GetDetailedHealthMetrics handles GET /metrics/health/detailed.

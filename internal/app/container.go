@@ -159,7 +159,8 @@ func initMetricsService(c *Container) {
 		redisClient = rc
 	}
 
-	c.MetricsService = service.NewMetricsService(dbService, redisClient)
+	systemCollector := service.NewSystemCollector()
+	c.MetricsService = service.NewMetricsService(dbService, redisClient, systemCollector)
 }
 
 // Close cleanly shuts down all dependencies.

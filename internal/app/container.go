@@ -24,6 +24,7 @@ type Container struct {
 	UserService         service.UserService
 	SocialService       service.SocialService
 	NotificationService service.NotificationService
+	MetricsService      service.MetricsService
 
 	// Handlers
 	HealthHandler       handler.HealthHandler
@@ -51,79 +52,115 @@ func NewContainer(cfg ContainerConfig) (*Container, error) {
 		Config: cfg.Config,
 	}
 
-	// Use provided dependencies or create new ones
-	if cfg.Database != nil {
-		c.Database = cfg.Database
-	} else if cfg.Config != nil {
-		db, err := database.New(&cfg.Config.Postgres)
-		if err != nil {
-			// Non-fatal: continue without database
-			c.Database = nil
-		} else {
-			c.Database = db
-		}
-	}
-
-	if cfg.Cache != nil {
-		c.Cache = cfg.Cache
-	} else if cfg.Config != nil {
-		cache, err := redis.New(&cfg.Config.Redis)
-		if err != nil {
-			// Non-fatal: continue without cache
-			c.Cache = nil
-		} else {
-			c.Cache = cache
-		}
-	}
+	initInfrastructure(c, cfg)
 
 	// Initialize services
 	c.HealthService = service.NewHealthService(c.Database, c.Cache)
 
 	// Initialize repositories and domain services
-	var userRepo repository.UserRepository
-	if cfg.UserRepo != nil {
-		userRepo = cfg.UserRepo
-	} else if dbService, ok := c.Database.(*database.Service); ok {
-		userRepo = repository.NewUserRepository(dbService.GetDB())
-	}
-
-	// Get token store from config or cache
-	var tokenStore repository.TokenStore
-	if cfg.TokenStore != nil {
-		tokenStore = cfg.TokenStore
-	} else if redisService, ok := c.Cache.(*redis.Service); ok {
-		tokenStore = redisService
-	}
+	userRepo, socialRepo, notificationRepo, tokenStore := initRepositories(c, cfg)
 
 	if userRepo != nil {
 		c.UserService = service.NewUserService(userRepo, tokenStore)
-	}
-
-	// Initialize social repository and service
-	var socialRepo repository.SocialRepository
-	if cfg.SocialRepo != nil {
-		socialRepo = cfg.SocialRepo
-	} else if dbService, ok := c.Database.(*database.Service); ok {
-		socialRepo = repository.NewSocialRepository(dbService.GetDB())
 	}
 
 	if userRepo != nil && socialRepo != nil {
 		c.SocialService = service.NewSocialService(userRepo, socialRepo)
 	}
 
-	// Initialize notification repository and service
-	var notificationRepo repository.NotificationRepository
-	if cfg.NotificationRepo != nil {
-		notificationRepo = cfg.NotificationRepo
-	} else if dbService, ok := c.Database.(*database.Service); ok {
-		notificationRepo = repository.NewNotificationRepository(dbService.GetDB())
-	}
-
 	if notificationRepo != nil {
 		c.NotificationService = service.NewNotificationService(notificationRepo, userRepo)
 	}
 
+	initMetricsService(c)
+
 	return c, nil
+}
+
+func initInfrastructure(c *Container, cfg ContainerConfig) {
+	// Database
+	if cfg.Database != nil {
+		c.Database = cfg.Database
+	} else if cfg.Config != nil {
+		db, err := database.New(&cfg.Config.Postgres)
+		if err == nil {
+			c.Database = db
+		}
+	}
+
+	// Cache
+	if cfg.Cache != nil {
+		c.Cache = cfg.Cache
+	} else if cfg.Config != nil {
+		cache, err := redis.New(&cfg.Config.Redis)
+		if err == nil {
+			c.Cache = cache
+		}
+	}
+}
+
+func initRepositories(c *Container, cfg ContainerConfig) (
+	repository.UserRepository,
+	repository.SocialRepository,
+	repository.NotificationRepository,
+	repository.TokenStore,
+) {
+	var (
+		dbService        *database.Service
+		userRepo         repository.UserRepository
+		socialRepo       repository.SocialRepository
+		notificationRepo repository.NotificationRepository
+		tokenStore       repository.TokenStore
+	)
+
+	if svc, ok := c.Database.(*database.Service); ok {
+		dbService = svc
+	}
+
+	// User Repo
+	if cfg.UserRepo != nil {
+		userRepo = cfg.UserRepo
+	} else if dbService != nil {
+		userRepo = repository.NewUserRepository(dbService.GetDB())
+	}
+
+	// Social Repo
+	if cfg.SocialRepo != nil {
+		socialRepo = cfg.SocialRepo
+	} else if dbService != nil {
+		socialRepo = repository.NewSocialRepository(dbService.GetDB())
+	}
+
+	// Notification Repo
+	if cfg.NotificationRepo != nil {
+		notificationRepo = cfg.NotificationRepo
+	} else if dbService != nil {
+		notificationRepo = repository.NewNotificationRepository(dbService.GetDB())
+	}
+
+	// Token Store
+	if cfg.TokenStore != nil {
+		tokenStore = cfg.TokenStore
+	} else if redisService, ok := c.Cache.(*redis.Service); ok {
+		tokenStore = redisService
+	}
+
+	return userRepo, socialRepo, notificationRepo, tokenStore
+}
+
+func initMetricsService(c *Container) {
+	dbService, ok := c.Database.(*database.Service)
+	if !ok || dbService == nil {
+		return
+	}
+
+	var redisClient service.RedisClient
+	if rc, ok := c.Cache.(service.RedisClient); ok {
+		redisClient = rc
+	}
+
+	systemCollector := service.NewSystemCollector()
+	c.MetricsService = service.NewMetricsService(dbService, redisClient, systemCollector, c.Config)
 }
 
 // Close cleanly shuts down all dependencies.

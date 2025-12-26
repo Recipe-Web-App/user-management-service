@@ -18,6 +18,11 @@ type Service struct {
 	db *sql.DB
 }
 
+// NewWithDB creates a new database service with an existing connection (for testing).
+func NewWithDB(db *sql.DB) *Service {
+	return &Service{db: db}
+}
+
 // GetDB returns the underlying sql.DB instance.
 func (s *Service) GetDB() *sql.DB {
 	return s.db

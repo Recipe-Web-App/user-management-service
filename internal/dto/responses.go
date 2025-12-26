@@ -267,9 +267,7 @@ type ResponseTimes struct {
 
 // RequestCounts represents request count metrics.
 type RequestCounts struct {
-	TotalRequests     int `json:"totalRequests"`
-	RequestsPerMinute int `json:"requestsPerMinute"`
-	ActiveSessions    int `json:"activeSessions"`
+	TotalRequests int `json:"totalRequests"`
 }
 
 // ErrorRates represents error rate metrics.
@@ -282,10 +280,8 @@ type ErrorRates struct {
 
 // DatabaseMetrics represents database metrics.
 type DatabaseMetrics struct {
-	ActiveConnections int     `json:"activeConnections"`
-	MaxConnections    int     `json:"maxConnections"`
-	AvgQueryTimeMs    float64 `json:"avgQueryTimeMs"`
-	SlowQueriesCount  int     `json:"slowQueriesCount"`
+	ActiveConnections int `json:"activeConnections"`
+	MaxConnections    int `json:"maxConnections"`
 }
 
 // PerformanceMetricsResponse represents performance metrics.

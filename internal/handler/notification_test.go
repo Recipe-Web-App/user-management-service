@@ -22,6 +22,7 @@ import (
 
 var (
 	errMockNotificationArgs = errors.New("mock: missing args")
+	errMockInvalidUserPrefs = errors.New("invalid type assertion for UserPreferences")
 	errTestDatabase         = errors.New("database error")
 )
 
@@ -98,6 +99,55 @@ func (m *MockNotificationService) MarkAllNotificationsRead(
 	}
 
 	return readIDs, nil
+}
+
+func (m *MockNotificationService) GetNotificationPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*dto.UserPreferences, error) {
+	args := m.Called(ctx, userID)
+
+	resp, ok := args.Get(0).(*dto.UserPreferences)
+	if !ok {
+		err := args.Error(1)
+		if err != nil {
+			return nil, fmt.Errorf("mock error: %w", err)
+		}
+
+		return nil, errMockInvalidUserPrefs
+	}
+
+	err := args.Error(1)
+	if err != nil {
+		return resp, fmt.Errorf("mock error: %w", err)
+	}
+
+	return resp, nil
+}
+
+func (m *MockNotificationService) UpdateNotificationPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	req *dto.UpdateUserPreferenceRequest,
+) (*dto.UserPreferences, error) {
+	args := m.Called(ctx, userID, req)
+
+	resp, ok := args.Get(0).(*dto.UserPreferences)
+	if !ok {
+		err := args.Error(1)
+		if err != nil {
+			return nil, fmt.Errorf("mock error: %w", err)
+		}
+
+		return nil, errMockInvalidUserPrefs
+	}
+
+	err := args.Error(1)
+	if err != nil {
+		return resp, fmt.Errorf("mock error: %w", err)
+	}
+
+	return resp, nil
 }
 
 type notificationHandlerTestCase struct {

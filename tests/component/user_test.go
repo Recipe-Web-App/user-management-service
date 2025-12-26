@@ -26,9 +26,11 @@ import (
 const mockErrorFmt = "mock error: %w"
 
 var (
-	errMockArgs           = errors.New("mock: missing args")
-	errMockInvalidUser    = errors.New("invalid type assertion for User")
-	errMockInvalidPrivacy = errors.New("invalid type assertion for PrivacyPreferences")
+	errMockArgs                = errors.New("mock: missing args")
+	errMockInvalidUser         = errors.New("invalid type assertion for User")
+	errMockInvalidPrivacy      = errors.New("invalid type assertion for PrivacyPreferences")
+	errMockInvalidNotifPrefs   = errors.New("invalid type assertion for NotificationPreferences")
+	errMockInvalidDisplayPrefs = errors.New("invalid type assertion for DisplayPreferences")
 )
 
 // MockUserRepo for component tests.
@@ -73,6 +75,48 @@ func (m *MockUserRepo) FindPrivacyPreferencesByUserID(
 	}
 
 	return nil, errMockInvalidPrivacy
+}
+
+func (m *MockUserRepo) FindNotificationPreferencesByUserID(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*dto.NotificationPreferences, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		err := args.Error(1)
+		if err != nil {
+			return nil, fmt.Errorf(mockErrorFmt, err)
+		}
+
+		return nil, errMockArgs
+	}
+
+	if val, ok := args.Get(0).(*dto.NotificationPreferences); ok {
+		return val, nil
+	}
+
+	return nil, errMockInvalidNotifPrefs
+}
+
+func (m *MockUserRepo) FindDisplayPreferencesByUserID(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*dto.DisplayPreferences, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		err := args.Error(1)
+		if err != nil {
+			return nil, fmt.Errorf(mockErrorFmt, err)
+		}
+
+		return nil, errMockArgs
+	}
+
+	if val, ok := args.Get(0).(*dto.DisplayPreferences); ok {
+		return val, nil
+	}
+
+	return nil, errMockInvalidDisplayPrefs
 }
 
 func (m *MockUserRepo) IsFollowing(ctx context.Context, followerID, followedID uuid.UUID) (bool, error) {
@@ -123,6 +167,51 @@ func (m *MockUserRepo) SearchUsers(
 	results, _ := args.Get(0).([]dto.UserSearchResult)
 
 	return results, args.Int(1), nil
+}
+
+func (m *MockUserRepo) UpdateNotificationPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	prefs *dto.NotificationPreferences,
+) error {
+	args := m.Called(ctx, userID, prefs)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockErrorFmt, err)
+	}
+
+	return nil
+}
+
+func (m *MockUserRepo) UpdatePrivacyPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	prefs *dto.PrivacyPreferences,
+) error {
+	args := m.Called(ctx, userID, prefs)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockErrorFmt, err)
+	}
+
+	return nil
+}
+
+func (m *MockUserRepo) UpdateDisplayPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	prefs *dto.DisplayPreferences,
+) error {
+	args := m.Called(ctx, userID, prefs)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockErrorFmt, err)
+	}
+
+	return nil
 }
 
 // MockTokenStore for component tests.

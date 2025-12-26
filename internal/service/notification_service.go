@@ -18,6 +18,10 @@ type NotificationService interface {
 		limit, offset int,
 		countOnly bool,
 	) (any, error)
+	GetNotificationPreferences(
+		ctx context.Context,
+		userID uuid.UUID,
+	) (*dto.UserPreferences, error)
 	DeleteNotifications(
 		ctx context.Context,
 		userID uuid.UUID,
@@ -32,6 +36,11 @@ type NotificationService interface {
 		ctx context.Context,
 		userID uuid.UUID,
 	) ([]string, error)
+	UpdateNotificationPreferences(
+		ctx context.Context,
+		userID uuid.UUID,
+		req *dto.UpdateUserPreferenceRequest,
+	) (*dto.UserPreferences, error)
 }
 
 // NotificationDeleteResult contains the result of a batch delete operation.
@@ -44,13 +53,18 @@ type NotificationDeleteResult struct {
 
 // NotificationServiceImpl implements NotificationService.
 type NotificationServiceImpl struct {
-	repo repository.NotificationRepository
+	repo     repository.NotificationRepository
+	userRepo repository.UserRepository
 }
 
 // NewNotificationService creates a new NotificationService.
-func NewNotificationService(repo repository.NotificationRepository) *NotificationServiceImpl {
+func NewNotificationService(
+	repo repository.NotificationRepository,
+	userRepo repository.UserRepository,
+) *NotificationServiceImpl {
 	return &NotificationServiceImpl{
-		repo: repo,
+		repo:     repo,
+		userRepo: userRepo,
 	}
 }
 
@@ -182,4 +196,65 @@ func (s *NotificationServiceImpl) MarkAllNotificationsRead(
 	}
 
 	return readIDs, nil
+}
+
+// GetNotificationPreferences retrieves all notification-related preferences for a user.
+func (s *NotificationServiceImpl) GetNotificationPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*dto.UserPreferences, error) {
+	// 1. Get Notification Preferences
+	notifPrefs, err := s.userRepo.FindNotificationPreferencesByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get notification preferences: %w", err)
+	}
+
+	// 2. Get Privacy Preferences
+	privacyPrefs, err := s.userRepo.FindPrivacyPreferencesByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get privacy preferences: %w", err)
+	}
+
+	// 3. Get Display Preferences
+	displayPrefs, err := s.userRepo.FindDisplayPreferencesByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get display preferences: %w", err)
+	}
+
+	return &dto.UserPreferences{
+		NotificationPreferences: notifPrefs,
+		PrivacyPreferences:      privacyPrefs,
+		DisplayPreferences:      displayPrefs,
+	}, nil
+}
+
+// UpdateNotificationPreferences updates user preferences (notification, privacy, display).
+func (s *NotificationServiceImpl) UpdateNotificationPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	req *dto.UpdateUserPreferenceRequest,
+) (*dto.UserPreferences, error) {
+	if req.NotificationPreferences != nil {
+		err := s.userRepo.UpdateNotificationPreferences(ctx, userID, req.NotificationPreferences)
+		if err != nil {
+			return nil, fmt.Errorf("update notification preferences: %w", err)
+		}
+	}
+
+	if req.PrivacyPreferences != nil {
+		err := s.userRepo.UpdatePrivacyPreferences(ctx, userID, req.PrivacyPreferences)
+		if err != nil {
+			return nil, fmt.Errorf("update privacy preferences: %w", err)
+		}
+	}
+
+	if req.DisplayPreferences != nil {
+		err := s.userRepo.UpdateDisplayPreferences(ctx, userID, req.DisplayPreferences)
+		if err != nil {
+			return nil, fmt.Errorf("update display preferences: %w", err)
+		}
+	}
+
+	// Return the updated state
+	return s.GetNotificationPreferences(ctx, userID)
 }

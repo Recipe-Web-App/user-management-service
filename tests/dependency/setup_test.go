@@ -1,6 +1,7 @@
 package dependency_test
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"testing"
@@ -13,6 +14,19 @@ import (
 
 var testHandler http.Handler
 
+// MockHealthChecker mocks health checking.
+type MockHealthChecker struct{}
+
+func (m *MockHealthChecker) Health(ctx context.Context) map[string]string {
+	return map[string]string{
+		"status": "up",
+	}
+}
+
+func (m *MockHealthChecker) Close() error {
+	return nil
+}
+
 func TestMain(m *testing.M) {
 	// Point viper to the project root config directory
 	viper.AddConfigPath("../../config")
@@ -20,9 +34,12 @@ func TestMain(m *testing.M) {
 	// Load the real configuration from files
 	cfg := config.Load()
 
-	// Create container with real config
+	// Create container with injected mock dependencies for health checks
+	mockHealth := &MockHealthChecker{}
 	container, _ := app.NewContainer(app.ContainerConfig{
-		Config: cfg,
+		Config:   cfg,
+		Database: mockHealth,
+		Cache:    mockHealth,
 	})
 
 	// Initialize the router with container

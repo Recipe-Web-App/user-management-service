@@ -7,6 +7,7 @@ import (
 
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/config"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/database"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/handler"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/redis"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/repository"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/service"
@@ -23,6 +24,14 @@ type Container struct {
 	UserService         service.UserService
 	SocialService       service.SocialService
 	NotificationService service.NotificationService
+
+	// Handlers
+	HealthHandler       handler.HealthHandler
+	UserHandler         handler.UserHandler
+	SocialHandler       handler.SocialHandler
+	NotificationHandler handler.NotificationHandler
+	AdminHandler        handler.AdminHandler
+	MetricsHandler      handler.MetricsHandler
 }
 
 // ContainerConfig holds options for building the container.

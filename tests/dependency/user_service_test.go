@@ -246,6 +246,10 @@ func (m *MockUserRepository) UpdateDisplayPreferences(
 	return nil
 }
 
+func (m *MockUserRepository) GetUserStats(ctx context.Context) (*dto.UserStatsResponse, error) {
+	return &dto.UserStatsResponse{}, nil
+}
+
 type testFixture struct {
 	handler     http.Handler
 	mockRepo    *MockUserRepository

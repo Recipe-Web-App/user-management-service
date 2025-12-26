@@ -36,6 +36,7 @@ type UserService interface {
 		countOnly bool,
 	) (*dto.UserSearchResponse, error)
 	GetUserByID(ctx context.Context, userID uuid.UUID) (*dto.UserSearchResult, error)
+	GetUserStats(ctx context.Context) (*dto.UserStatsResponse, error)
 }
 
 // ErrUserNotFound is returned when a user is not found.
@@ -378,4 +379,14 @@ func (s *UserServiceImpl) SearchUsers(
 		Limit:      limit,
 		Offset:     offset,
 	}, nil
+}
+
+// GetUserStats retrieves aggregated user statistics.
+func (s *UserServiceImpl) GetUserStats(ctx context.Context) (*dto.UserStatsResponse, error) {
+	stats, err := s.repo.GetUserStats(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user stats: %w", err)
+	}
+
+	return stats, nil
 }

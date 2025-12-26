@@ -27,6 +27,10 @@ var (
 	errConfirmDeletionType = errors.New("invalid type assertion for UserConfirmAccountDeleteResponse")
 	errSearchResponseType  = errors.New("invalid type assertion for UserSearchResponse")
 	errSearchResultType    = errors.New("invalid type assertion for UserSearchResult")
+	errUserStatsType       = errors.New("invalid type assertion for UserStatsResponse")
+	internalErrorStr       = "Internal Error"
+	userIDHeaderStr        = "X-User-Id"
+	userNotFoundStr        = "Not Found - User does not exist"
 )
 
 // MockUserService is a mock implementation of service.UserService.
@@ -164,6 +168,24 @@ func (m *MockUserService) GetUserByID(
 	return nil, errSearchResultType
 }
 
+func (m *MockUserService) GetUserStats(ctx context.Context) (*dto.UserStatsResponse, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		err := args.Error(1)
+		if err != nil {
+			return nil, fmt.Errorf("mock error: %w", err)
+		}
+
+		return nil, errMockArgs
+	}
+
+	if val, ok := args.Get(0).(*dto.UserStatsResponse); ok {
+		return val, nil
+	}
+
+	return nil, errUserStatsType
+}
+
 type userHandlerTestCase struct {
 	name           string
 	targetIDPath   string
@@ -228,7 +250,7 @@ func getHandlerTestCases(
 			expectedStatus: http.StatusForbidden,
 		},
 		{
-			name:         "Internal Error",
+			name:         internalErrorStr,
 			targetIDPath: targetID.String(),
 			mockRun: func(m *MockUserService) {
 				m.On("GetUserProfile", mock.Anything, uuid.Nil, targetID).Return(nil, errDB)
@@ -265,7 +287,7 @@ func runUserHandlerTest(t *testing.T, tests []userHandlerTestCase) {
 
 			req := httptest.NewRequest(http.MethodGet, "/users/"+tt.targetIDPath+"/profile", nil)
 			if tt.requesterIDHdr != "" {
-				req.Header.Set("X-User-Id", tt.requesterIDHdr)
+				req.Header.Set(userIDHeaderStr, tt.requesterIDHdr)
 			}
 
 			rr := httptest.NewRecorder()
@@ -398,7 +420,7 @@ func TestUserHandlerUpdateUserProfile(t *testing.T) { //nolint:funlen // table-d
 			expectedStatus: http.StatusConflict,
 		},
 		{
-			name:           "Internal Error",
+			name:           internalErrorStr,
 			requesterIDHdr: userID.String(),
 			requestBody:    `{"username": "newusername"}`,
 			contentType:    "application/json",
@@ -425,7 +447,7 @@ func TestUserHandlerUpdateUserProfile(t *testing.T) { //nolint:funlen // table-d
 
 			req := httptest.NewRequest(http.MethodPut, "/users/profile", strings.NewReader(tt.requestBody))
 			if tt.requesterIDHdr != "" {
-				req.Header.Set("X-User-Id", tt.requesterIDHdr)
+				req.Header.Set(userIDHeaderStr, tt.requesterIDHdr)
 			}
 
 			if tt.contentType != "" {
@@ -489,7 +511,7 @@ func TestUserHandlerRequestAccountDeletion(t *testing.T) { //nolint:funlen // ta
 			expectedStatus: http.StatusUnauthorized,
 		},
 		{
-			name:           "Not Found - User does not exist",
+			name:           userNotFoundStr,
 			requesterIDHdr: userID.String(),
 			mockRun: func(m *MockUserService) {
 				m.On("RequestAccountDeletion", mock.Anything, userID).Return(nil, service.ErrUserNotFound)
@@ -513,7 +535,7 @@ func TestUserHandlerRequestAccountDeletion(t *testing.T) { //nolint:funlen // ta
 			},
 		},
 		{
-			name:           "Internal Error",
+			name:           internalErrorStr,
 			requesterIDHdr: userID.String(),
 			mockRun: func(m *MockUserService) {
 				m.On("RequestAccountDeletion", mock.Anything, userID).Return(nil, errDB)
@@ -538,7 +560,7 @@ func TestUserHandlerRequestAccountDeletion(t *testing.T) { //nolint:funlen // ta
 
 			req := httptest.NewRequest(http.MethodPost, "/users/account/delete-request", nil)
 			if tt.requesterIDHdr != "" {
-				req.Header.Set("X-User-Id", tt.requesterIDHdr)
+				req.Header.Set(userIDHeaderStr, tt.requesterIDHdr)
 			}
 
 			rr := httptest.NewRecorder()
@@ -641,7 +663,7 @@ func TestUserHandlerConfirmAccountDeletion(t *testing.T) { //nolint:funlen // ta
 			},
 		},
 		{
-			name:           "Not Found - User does not exist",
+			name:           userNotFoundStr,
 			requesterIDHdr: userID.String(),
 			requestBody:    fmt.Sprintf(`{"confirmationToken": "%s"}`, token),
 			contentType:    "application/json",
@@ -669,7 +691,7 @@ func TestUserHandlerConfirmAccountDeletion(t *testing.T) { //nolint:funlen // ta
 			},
 		},
 		{
-			name:           "Internal Error",
+			name:           internalErrorStr,
 			requesterIDHdr: userID.String(),
 			requestBody:    fmt.Sprintf(`{"confirmationToken": "%s"}`, token),
 			contentType:    "application/json",
@@ -696,7 +718,7 @@ func TestUserHandlerConfirmAccountDeletion(t *testing.T) { //nolint:funlen // ta
 
 			req := httptest.NewRequest(http.MethodDelete, "/users/account", strings.NewReader(tt.requestBody))
 			if tt.requesterIDHdr != "" {
-				req.Header.Set("X-User-Id", tt.requesterIDHdr)
+				req.Header.Set(userIDHeaderStr, tt.requesterIDHdr)
 			}
 
 			if tt.contentType != "" {
@@ -914,7 +936,7 @@ func TestUserHandlerSearchUsers(t *testing.T) { //nolint:funlen // table-driven 
 
 			req := httptest.NewRequest(http.MethodGet, "/users/search"+tt.queryParams, nil)
 			if tt.requesterIDHdr != "" {
-				req.Header.Set("X-User-Id", tt.requesterIDHdr)
+				req.Header.Set(userIDHeaderStr, tt.requesterIDHdr)
 			}
 
 			rr := httptest.NewRecorder()
@@ -969,7 +991,7 @@ func TestUserHandlerGetUserByID(t *testing.T) { //nolint:funlen // table-driven 
 			},
 		},
 		{
-			name:         "Not Found - User does not exist",
+			name:         userNotFoundStr,
 			targetIDPath: targetID.String(),
 			mockRun: func(m *MockUserService) {
 				m.On("GetUserByID", mock.Anything, targetID).Return(nil, service.ErrUserNotFound)

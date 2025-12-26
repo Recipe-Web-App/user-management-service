@@ -110,11 +110,7 @@ func registerNotificationRoutes(r chi.Router, h Handlers) {
 
 func registerAdminRoutes(r chi.Router, h Handlers) {
 	r.Route("/admin", func(r chi.Router) {
-		r.Get("/health", h.Admin.GetSystemHealth)
 		r.Get("/users/stats", h.Admin.GetUserStats)
-		r.Get("/redis/session-stats", h.Admin.GetRedisSessionStats)
-		r.Delete("/redis/sessions", h.Admin.ClearAllSessions)
-		r.Post("/users/{user_id}/force-logout", h.Admin.ForceLogoutUser)
 	})
 }
 

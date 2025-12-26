@@ -213,6 +213,19 @@ func (m *MockUserRepoForSocial) UpdateDisplayPreferences(
 	return nil
 }
 
+func (m *MockUserRepoForSocial) GetUserStats(ctx context.Context) (*dto.UserStatsResponse, error) {
+	args := m.Called(ctx)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf(mockSocialErrorFmt, err)
+	}
+
+	result, _ := args.Get(0).(*dto.UserStatsResponse)
+
+	return result, nil
+}
+
 // MockSocialRepo is a mock implementation of repository.SocialRepository.
 type MockSocialRepo struct {
 	mock.Mock

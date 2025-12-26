@@ -83,3 +83,12 @@ func (m *mockMetricsService) GetPerformanceMetrics(ctx context.Context) (*dto.Pe
 		},
 	}, nil
 }
+
+func (m *mockMetricsService) GetCacheMetrics(ctx context.Context) (*dto.CacheMetricsResponse, error) {
+	return &dto.CacheMetricsResponse{
+		MemoryUsage:      "1024",
+		MemoryUsageHuman: "1KB",
+		KeysCount:        100,
+		HitRate:          0.9,
+	}, nil
+}

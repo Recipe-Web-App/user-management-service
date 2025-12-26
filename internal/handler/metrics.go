@@ -33,17 +33,15 @@ func (h *MetricsHandler) GetPerformanceMetrics(w http.ResponseWriter, r *http.Re
 }
 
 // GetCacheMetrics handles GET /metrics/cache.
-func (h *MetricsHandler) GetCacheMetrics(w http.ResponseWriter, _ *http.Request) {
-	// Note: Use MetricsService for this as well in future
-	SuccessResponse(w, http.StatusOK, dto.CacheMetricsResponse{
-		MemoryUsage:      "268435456",
-		MemoryUsageHuman: "256MB",
-		KeysCount:        5000,
-		HitRate:          0.95,
-		ConnectedClients: 10,
-		EvictedKeys:      50,
-		ExpiredKeys:      1200,
-	})
+func (h *MetricsHandler) GetCacheMetrics(w http.ResponseWriter, r *http.Request) {
+	metrics, err := h.metricsService.GetCacheMetrics(r.Context())
+	if err != nil {
+		// If Redis is unavailable, return 503
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+
+	SuccessResponse(w, http.StatusOK, metrics)
 }
 
 // ClearCache handles POST /metrics/cache/clear.

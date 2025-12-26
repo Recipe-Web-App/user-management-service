@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/config"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -196,6 +198,108 @@ func (s *Service) DeleteDeleteToken(ctx context.Context, userID uuid.UUID) error
 	}
 
 	return nil
+}
+
+// GetCacheMetrics retrieves cache statistics from Redis.
+func (s *Service) GetCacheMetrics(ctx context.Context) (*dto.CacheMetricsResponse, error) {
+	if s == nil || s.client == nil {
+		return nil, ErrRedisUnavailable
+	}
+
+	// Use pipeline to execute multiple commands
+	pipe := s.client.Pipeline()
+	infoCmd := pipe.Info(ctx, "memory", "stats", "keyspace", "clients")
+	dbsizeCmd := pipe.DBSize(ctx)
+
+	_, err := pipe.Exec(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute redis pipeline: %w", err)
+	}
+
+	info := infoCmd.Val()
+	keysCount := dbsizeCmd.Val()
+
+	return parseRedisInfo(info, keysCount), nil
+}
+
+// Redis INFO command output parsing constants.
+const (
+	redisInfoSplitCount = 2
+	redisInfoSplitSep   = ":"
+)
+
+// parseRedisInfo parses the output of Redis INFO command.
+func parseRedisInfo(info string, keysCount int64) *dto.CacheMetricsResponse {
+	metrics := &dto.CacheMetricsResponse{
+		KeysCount: int(keysCount),
+	}
+
+	lines := strings.Split(info, "\r\n")
+
+	var hits, misses float64
+
+	for _, line := range lines {
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		parts := strings.SplitN(line, redisInfoSplitSep, redisInfoSplitCount)
+		if len(parts) != redisInfoSplitCount {
+			continue
+		}
+
+		key := parts[0]
+		val := parts[1]
+
+		processRedisInfoLine(metrics, key, val)
+		processRedisStatsLine(key, val, &hits, &misses)
+	}
+
+	totalOps := hits + misses
+	if totalOps > 0 {
+		metrics.HitRate = hits / totalOps
+	}
+
+	return metrics
+}
+
+func processRedisInfoLine(metrics *dto.CacheMetricsResponse, key, val string) {
+	switch key {
+	case "used_memory":
+		metrics.MemoryUsage = val
+	case "used_memory_human":
+		metrics.MemoryUsageHuman = val
+	case "connected_clients":
+		v, err := strconv.Atoi(val)
+		if err == nil {
+			metrics.ConnectedClients = v
+		}
+	case "evicted_keys":
+		v, err := strconv.Atoi(val)
+		if err == nil {
+			metrics.EvictedKeys = v
+		}
+	case "expired_keys":
+		v, err := strconv.Atoi(val)
+		if err == nil {
+			metrics.ExpiredKeys = v
+		}
+	}
+}
+
+func processRedisStatsLine(key, val string, hits, misses *float64) {
+	switch key {
+	case "keyspace_hits":
+		v, err := strconv.ParseFloat(val, 64)
+		if err == nil {
+			*hits = v
+		}
+	case "keyspace_misses":
+		v, err := strconv.ParseFloat(val, 64)
+		if err == nil {
+			*misses = v
+		}
+	}
 }
 
 // ErrRedisUnavailable is returned when Redis is not available.

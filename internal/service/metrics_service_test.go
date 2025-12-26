@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/database"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
 )
 
 // mockGatherer implements prometheus.Gatherer interface.
@@ -43,6 +44,7 @@ func TestMetricsServiceGetPerformanceMetrics(t *testing.T) {
 	// Inject dependencies directly since we are in the same package
 	svc := &metricsService{
 		db:       dbService,
+		redis:    &mockRedisClient{},
 		gatherer: mockG,
 	}
 
@@ -90,6 +92,7 @@ func TestMetricsServiceGetPerformanceMetricsEmpty(t *testing.T) {
 
 	svc := &metricsService{
 		db:       dbService,
+		redis:    &mockRedisClient{},
 		gatherer: mockG,
 	}
 
@@ -141,4 +144,82 @@ func createSampleMetricFamilies() (*dto_model.MetricFamily, *dto_model.MetricFam
 	}
 
 	return mfTotal, mfDuration
+}
+
+type mockRedisClient struct {
+	metrics *dto.CacheMetricsResponse
+	err     error
+}
+
+func (m *mockRedisClient) GetCacheMetrics(ctx context.Context) (*dto.CacheMetricsResponse, error) {
+	return m.metrics, m.err
+}
+
+func TestMetricsServiceGetCacheMetrics(t *testing.T) {
+	t.Parallel()
+
+	mockRedis := &mockRedisClient{
+		metrics: &dto.CacheMetricsResponse{
+			KeysCount:        100,
+			MemoryUsage:      "1024",
+			MemoryUsageHuman: "1KB",
+		},
+	}
+
+	db, _, _ := sqlmock.New()
+
+	defer func() {
+		_ = db.Close()
+	}()
+
+	dbService := database.NewWithDB(db)
+
+	svc := NewMetricsService(dbService, mockRedis)
+
+	metrics, err := svc.GetCacheMetrics(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 100, metrics.KeysCount)
+	assert.Equal(t, "1KB", metrics.MemoryUsageHuman)
+}
+
+func TestMetricsServiceGetCacheMetricsError(t *testing.T) {
+	t.Parallel()
+
+	mockRedis := &mockRedisClient{
+		err: assert.AnError,
+	}
+
+	db, _, _ := sqlmock.New()
+
+	defer func() {
+		_ = db.Close()
+	}()
+
+	dbService := database.NewWithDB(db)
+
+	svc := NewMetricsService(dbService, mockRedis)
+
+	metrics, err := svc.GetCacheMetrics(context.Background())
+	require.ErrorIs(t, err, assert.AnError)
+	assert.Nil(t, metrics)
+}
+
+func TestMetricsServiceGetCacheMetricsNoRedis(t *testing.T) {
+	t.Parallel()
+
+	db, _, _ := sqlmock.New()
+
+	defer func() {
+		_ = db.Close()
+	}()
+
+	dbService := database.NewWithDB(db)
+
+	// Pass nil as redis client
+	svc := NewMetricsService(dbService, nil)
+
+	metrics, err := svc.GetCacheMetrics(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "redis service not available")
+	assert.Nil(t, metrics)
 }

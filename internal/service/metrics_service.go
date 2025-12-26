@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -24,17 +25,25 @@ const (
 // MetricsService handles metrics gathering.
 type MetricsService interface {
 	GetPerformanceMetrics(ctx context.Context) (*dto.PerformanceMetricsResponse, error)
+	GetCacheMetrics(ctx context.Context) (*dto.CacheMetricsResponse, error)
+}
+
+// RedisClient defines the interface for interacting with Redis cache metrics.
+type RedisClient interface {
+	GetCacheMetrics(ctx context.Context) (*dto.CacheMetricsResponse, error)
 }
 
 type metricsService struct {
 	db       *database.Service
+	redis    RedisClient
 	gatherer prometheus.Gatherer
 }
 
 // NewMetricsService creates a new metrics service.
-func NewMetricsService(db *database.Service) MetricsService {
+func NewMetricsService(db *database.Service, redis RedisClient) MetricsService {
 	return &metricsService{
 		db:       db,
+		redis:    redis,
 		gatherer: prometheus.DefaultGatherer,
 	}
 }
@@ -54,6 +63,23 @@ func (s *metricsService) GetPerformanceMetrics(ctx context.Context) (*dto.Perfor
 	metrics.ErrorRates = calculateErrorRates(stats)
 	metrics.ResponseTimes = calculateResponseTimes(stats)
 	metrics.Database = s.getDatabaseMetrics()
+
+	return metrics, nil
+}
+
+// ErrRedisServiceUnavailable is returned when the Redis service is nil or not configured.
+var ErrRedisServiceUnavailable = errors.New("redis service not available")
+
+// GetCacheMetrics retrieves cache metrics from the Redis service.
+func (s *metricsService) GetCacheMetrics(ctx context.Context) (*dto.CacheMetricsResponse, error) {
+	if s.redis == nil {
+		return nil, ErrRedisServiceUnavailable
+	}
+
+	metrics, err := s.redis.GetCacheMetrics(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cache metrics: %w", err)
+	}
 
 	return metrics, nil
 }

@@ -201,32 +201,34 @@ func (h *NotificationHandler) GetNotificationPreferences(w http.ResponseWriter, 
 	})
 }
 
-// UpdateNotificationPreferences handles PUT /notifications/preferences.
-func (h *NotificationHandler) UpdateNotificationPreferences(w http.ResponseWriter, _ *http.Request) {
+func (h *NotificationHandler) UpdateNotificationPreferences(w http.ResponseWriter, r *http.Request) {
+	// 1. Extract and validate requester ID from header
+	userID, ok := h.extractAuthenticatedUserID(w, r)
+	if !ok {
+		return
+	}
+
+	// 2. Parse and validate request body
+	var req dto.UpdateUserPreferenceRequest
+
+	bindErr := h.binder.BindAndValidate(r, &req)
+	if bindErr != nil {
+		h.handleBindError(w, bindErr)
+
+		return
+	}
+
+	// 3. Call service
+	prefs, err := h.notificationService.UpdateNotificationPreferences(r.Context(), userID, &req)
+	if err != nil {
+		InternalErrorResponse(w)
+
+		return
+	}
+
+	// 4. Return updated preferences
 	SuccessResponse(w, http.StatusOK, dto.UserPreferenceResponse{
-		Preferences: dto.UserPreferences{
-			NotificationPreferences: &dto.NotificationPreferences{
-				EmailNotifications:   true,
-				PushNotifications:    false,
-				FollowNotifications:  true,
-				LikeNotifications:    true,
-				CommentNotifications: true,
-				RecipeNotifications:  true,
-				SystemNotifications:  true,
-			},
-			PrivacyPreferences: &dto.PrivacyPreferences{
-				ProfileVisibility: "public",
-				ShowEmail:         false,
-				ShowFullName:      true,
-				AllowFollows:      true,
-				AllowMessages:     true,
-			},
-			DisplayPreferences: &dto.DisplayPreferences{
-				Theme:    "dark",
-				Language: "en",
-				Timezone: "UTC",
-			},
-		},
+		Preferences: *prefs,
 	})
 }
 

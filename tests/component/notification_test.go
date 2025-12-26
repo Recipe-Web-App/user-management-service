@@ -1,6 +1,7 @@
 package component_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -814,4 +815,84 @@ func TestGetNotificationPreferencesComponent_Success(t *testing.T) {
 
 	require.NotNil(t, apiResp.Data.Preferences.DisplayPreferences, "DisplayPreferences shouldn't be nil")
 	assert.Equal(t, "dark", apiResp.Data.Preferences.DisplayPreferences.Theme)
+}
+
+func TestUpdateNotificationPreferencesComponent_Success(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockNotificationRepo)
+	mockUserRepo := new(MockUserRepo)
+	svc := service.NewNotificationService(mockRepo, mockUserRepo)
+
+	c := &app.Container{
+		NotificationService: svc,
+		Config:              config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+
+	reqBodyObj := dto.UpdateUserPreferenceRequest{
+		NotificationPreferences: &dto.NotificationPreferences{
+			EmailNotifications: true,
+			PushNotifications:  false,
+		},
+		PrivacyPreferences: &dto.PrivacyPreferences{
+			ProfileVisibility: "followers_only",
+		},
+		DisplayPreferences: &dto.DisplayPreferences{
+			Theme: "light",
+		},
+	}
+	reqBytes, _ := json.Marshal(reqBodyObj)
+
+	// Use a helper to set up mocks
+	setupUpdateNotificationPreferencesMocks(mockUserRepo, userID, reqBodyObj)
+
+	req := httptest.NewRequest(
+		http.MethodPut,
+		"/api/v1/user-management/notifications/preferences",
+		bytes.NewReader(reqBytes),
+	)
+	req.Header.Set("X-User-Id", userID.String())
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var apiResp struct {
+		Success bool                       `json:"success"`
+		Data    dto.UserPreferenceResponse `json:"data"`
+	}
+
+	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
+	require.NoError(t, err)
+	require.True(t, apiResp.Success)
+
+	assert.True(t, apiResp.Data.Preferences.NotificationPreferences.EmailNotifications)
+	assert.False(t, apiResp.Data.Preferences.NotificationPreferences.PushNotifications)
+	assert.Equal(t, "followers_only", apiResp.Data.Preferences.PrivacyPreferences.ProfileVisibility)
+	assert.Equal(t, "light", apiResp.Data.Preferences.DisplayPreferences.Theme)
+}
+
+func setupUpdateNotificationPreferencesMocks(
+	mockUserRepo *MockUserRepo,
+	userID uuid.UUID,
+	reqBodyObj dto.UpdateUserPreferenceRequest,
+) {
+	mockUserRepo.On("UpdateNotificationPreferences", mock.Anything, userID, reqBodyObj.NotificationPreferences).Return(nil)
+	mockUserRepo.On("UpdatePrivacyPreferences", mock.Anything, userID, reqBodyObj.PrivacyPreferences).Return(nil)
+	mockUserRepo.On("UpdateDisplayPreferences", mock.Anything, userID, reqBodyObj.DisplayPreferences).Return(nil)
+
+	mockUserRepo.On("FindNotificationPreferencesByUserID", mock.Anything, userID).
+		Return(reqBodyObj.NotificationPreferences, nil)
+	mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, userID).
+		Return(reqBodyObj.PrivacyPreferences, nil)
+	mockUserRepo.On("FindDisplayPreferencesByUserID", mock.Anything, userID).
+		Return(reqBodyObj.DisplayPreferences, nil)
 }

@@ -168,6 +168,51 @@ func (m *MockUserRepoForSocial) SearchUsers(
 	return results, args.Int(1), nil
 }
 
+func (m *MockUserRepoForSocial) UpdateNotificationPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	prefs *dto.NotificationPreferences,
+) error {
+	args := m.Called(ctx, userID, prefs)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockSocialErrorFmt, err)
+	}
+
+	return nil
+}
+
+func (m *MockUserRepoForSocial) UpdatePrivacyPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	prefs *dto.PrivacyPreferences,
+) error {
+	args := m.Called(ctx, userID, prefs)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockSocialErrorFmt, err)
+	}
+
+	return nil
+}
+
+func (m *MockUserRepoForSocial) UpdateDisplayPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	prefs *dto.DisplayPreferences,
+) error {
+	args := m.Called(ctx, userID, prefs)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockSocialErrorFmt, err)
+	}
+
+	return nil
+}
+
 // MockSocialRepo is a mock implementation of repository.SocialRepository.
 type MockSocialRepo struct {
 	mock.Mock

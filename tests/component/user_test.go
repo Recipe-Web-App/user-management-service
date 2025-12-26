@@ -169,6 +169,51 @@ func (m *MockUserRepo) SearchUsers(
 	return results, args.Int(1), nil
 }
 
+func (m *MockUserRepo) UpdateNotificationPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	prefs *dto.NotificationPreferences,
+) error {
+	args := m.Called(ctx, userID, prefs)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockErrorFmt, err)
+	}
+
+	return nil
+}
+
+func (m *MockUserRepo) UpdatePrivacyPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	prefs *dto.PrivacyPreferences,
+) error {
+	args := m.Called(ctx, userID, prefs)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockErrorFmt, err)
+	}
+
+	return nil
+}
+
+func (m *MockUserRepo) UpdateDisplayPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	prefs *dto.DisplayPreferences,
+) error {
+	args := m.Called(ctx, userID, prefs)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockErrorFmt, err)
+	}
+
+	return nil
+}
+
 // MockTokenStore for component tests.
 type MockTokenStore struct {
 	mock.Mock

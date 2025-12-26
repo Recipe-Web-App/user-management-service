@@ -30,6 +30,7 @@ const (
 	headerUserID = "X-User-Id"
 	baseURL      = "/api/v1/user-management/users"
 	reqPathFmt   = "%s/%s/profile"
+	mockErrorFmt = "mock error: %w"
 )
 
 var (
@@ -117,7 +118,7 @@ func (m *MockUserRepository) FindNotificationPreferencesByUserID(
 
 	err := args.Error(1)
 	if err != nil {
-		return prefs, fmt.Errorf("mock error: %w", err)
+		return prefs, fmt.Errorf(mockErrorFmt, err)
 	}
 
 	return prefs, nil
@@ -144,7 +145,7 @@ func (m *MockUserRepository) FindDisplayPreferencesByUserID(
 
 	err := args.Error(1)
 	if err != nil {
-		return prefs, fmt.Errorf("mock error: %w", err)
+		return prefs, fmt.Errorf(mockErrorFmt, err)
 	}
 
 	return prefs, nil
@@ -198,6 +199,51 @@ func (m *MockUserRepository) SearchUsers(
 	results, _ := args.Get(0).([]dto.UserSearchResult)
 
 	return results, args.Int(1), nil
+}
+
+func (m *MockUserRepository) UpdateNotificationPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	prefs *dto.NotificationPreferences,
+) error {
+	args := m.Called(ctx, userID, prefs)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockErrorFmt, err)
+	}
+
+	return nil
+}
+
+func (m *MockUserRepository) UpdatePrivacyPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	prefs *dto.PrivacyPreferences,
+) error {
+	args := m.Called(ctx, userID, prefs)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockErrorFmt, err)
+	}
+
+	return nil
+}
+
+func (m *MockUserRepository) UpdateDisplayPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	prefs *dto.DisplayPreferences,
+) error {
+	args := m.Called(ctx, userID, prefs)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockErrorFmt, err)
+	}
+
+	return nil
 }
 
 type testFixture struct {

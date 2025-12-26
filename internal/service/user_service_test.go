@@ -169,6 +169,51 @@ func (m *MockUserRepository) SearchUsers(
 	return results, args.Int(1), nil
 }
 
+func (m *MockUserRepository) UpdateNotificationPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	prefs *dto.NotificationPreferences,
+) error {
+	args := m.Called(ctx, userID, prefs)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockErrorFmt, err)
+	}
+
+	return nil
+}
+
+func (m *MockUserRepository) UpdatePrivacyPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	prefs *dto.PrivacyPreferences,
+) error {
+	args := m.Called(ctx, userID, prefs)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockErrorFmt, err)
+	}
+
+	return nil
+}
+
+func (m *MockUserRepository) UpdateDisplayPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	prefs *dto.DisplayPreferences,
+) error {
+	args := m.Called(ctx, userID, prefs)
+
+	err := args.Error(0)
+	if err != nil {
+		return fmt.Errorf(mockErrorFmt, err)
+	}
+
+	return nil
+}
+
 // MockTokenStore is a mock implementation of repository.TokenStore.
 type MockTokenStore struct {
 	mock.Mock

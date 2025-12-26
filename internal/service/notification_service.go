@@ -36,6 +36,11 @@ type NotificationService interface {
 		ctx context.Context,
 		userID uuid.UUID,
 	) ([]string, error)
+	UpdateNotificationPreferences(
+		ctx context.Context,
+		userID uuid.UUID,
+		req *dto.UpdateUserPreferenceRequest,
+	) (*dto.UserPreferences, error)
 }
 
 // NotificationDeleteResult contains the result of a batch delete operation.
@@ -221,4 +226,35 @@ func (s *NotificationServiceImpl) GetNotificationPreferences(
 		PrivacyPreferences:      privacyPrefs,
 		DisplayPreferences:      displayPrefs,
 	}, nil
+}
+
+// UpdateNotificationPreferences updates user preferences (notification, privacy, display).
+func (s *NotificationServiceImpl) UpdateNotificationPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	req *dto.UpdateUserPreferenceRequest,
+) (*dto.UserPreferences, error) {
+	if req.NotificationPreferences != nil {
+		err := s.userRepo.UpdateNotificationPreferences(ctx, userID, req.NotificationPreferences)
+		if err != nil {
+			return nil, fmt.Errorf("update notification preferences: %w", err)
+		}
+	}
+
+	if req.PrivacyPreferences != nil {
+		err := s.userRepo.UpdatePrivacyPreferences(ctx, userID, req.PrivacyPreferences)
+		if err != nil {
+			return nil, fmt.Errorf("update privacy preferences: %w", err)
+		}
+	}
+
+	if req.DisplayPreferences != nil {
+		err := s.userRepo.UpdateDisplayPreferences(ctx, userID, req.DisplayPreferences)
+		if err != nil {
+			return nil, fmt.Errorf("update display preferences: %w", err)
+		}
+	}
+
+	// Return the updated state
+	return s.GetNotificationPreferences(ctx, userID)
 }

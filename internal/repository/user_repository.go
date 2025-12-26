@@ -27,6 +27,9 @@ type UserRepository interface {
 	IsFollowing(ctx context.Context, followerID, followedID uuid.UUID) (bool, error)
 	UpdateUser(ctx context.Context, userID uuid.UUID, update *dto.UserProfileUpdateRequest) (*dto.User, error)
 	SearchUsers(ctx context.Context, query string, limit, offset int) ([]dto.UserSearchResult, int, error)
+	UpdateNotificationPreferences(ctx context.Context, userID uuid.UUID, prefs *dto.NotificationPreferences) error
+	UpdatePrivacyPreferences(ctx context.Context, userID uuid.UUID, prefs *dto.PrivacyPreferences) error
+	UpdateDisplayPreferences(ctx context.Context, userID uuid.UUID, prefs *dto.DisplayPreferences) error
 }
 
 // SQLUserRepository implements UserRepository using a SQL database.
@@ -487,4 +490,141 @@ func scanSearchResults(rows *sql.Rows) ([]dto.UserSearchResult, error) {
 	}
 
 	return results, nil
+}
+
+// UpdateNotificationPreferences updates notification preferences for a user.
+func (r *SQLUserRepository) UpdateNotificationPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	prefs *dto.NotificationPreferences,
+) error {
+	query := `
+		INSERT INTO recipe_manager.user_notification_preferences (
+			user_id,
+			email_notifications,
+			push_notifications,
+			social_interactions,
+			recipe_recommendations,
+			activity_summaries,
+			security_alerts,
+			updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+		ON CONFLICT (user_id) DO UPDATE SET
+			email_notifications = EXCLUDED.email_notifications,
+			push_notifications = EXCLUDED.push_notifications,
+			social_interactions = EXCLUDED.social_interactions,
+			recipe_recommendations = EXCLUDED.recipe_recommendations,
+			activity_summaries = EXCLUDED.activity_summaries,
+			security_alerts = EXCLUDED.security_alerts,
+			updated_at = NOW()
+	`
+
+	_, err := r.db.ExecContext(
+		ctx,
+		query,
+		userID,
+		prefs.EmailNotifications,
+		prefs.PushNotifications,
+		// Mapping DTO fields back to DB fields logic:
+		// Follow/Like/Comment -> social_interactions
+		// In Find, we mapped one DB field to multiple DTO fields.
+		// Writing back is lossy if we don't change DB schema.
+		// For now, let's assume if any social pref is true, we enable social_interactions.
+		prefs.FollowNotifications || prefs.LikeNotifications || prefs.CommentNotifications,
+		prefs.RecipeNotifications,
+		false, // Activity summaries not exposing in DTO yet, default false
+		prefs.SystemNotifications,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update notification preferences: %w", err)
+	}
+
+	return nil
+}
+
+// UpdatePrivacyPreferences updates privacy preferences for a user.
+func (r *SQLUserRepository) UpdatePrivacyPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	prefs *dto.PrivacyPreferences,
+) error {
+	// Map DTO values to DB enums
+	var profileVisibility string
+
+	switch prefs.ProfileVisibility {
+	case "followers_only":
+		profileVisibility = "FRIENDS_ONLY"
+	case "private":
+		profileVisibility = "PRIVATE"
+	default: // public
+		profileVisibility = "PUBLIC"
+	}
+
+	var contactVisibility string
+	if prefs.ShowEmail {
+		contactVisibility = "PUBLIC"
+	} else {
+		contactVisibility = "PRIVATE"
+	}
+
+	query := `
+		INSERT INTO recipe_manager.user_privacy_preferences (
+			user_id,
+			profile_visibility,
+			contact_info_visibility,
+			updated_at
+		) VALUES ($1, $2, $3, NOW())
+		ON CONFLICT (user_id) DO UPDATE SET
+			profile_visibility = EXCLUDED.profile_visibility,
+			contact_info_visibility = EXCLUDED.contact_info_visibility,
+			updated_at = NOW()
+	`
+
+	_, err := r.db.ExecContext(ctx, query, userID, profileVisibility, contactVisibility)
+	if err != nil {
+		return fmt.Errorf("failed to update privacy preferences: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateDisplayPreferences updates display preferences for a user.
+func (r *SQLUserRepository) UpdateDisplayPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	prefs *dto.DisplayPreferences,
+) error {
+	var theme string
+
+	switch prefs.Theme {
+	case "light":
+		theme = "LIGHT"
+	case "dark":
+		theme = "DARK"
+	default:
+		theme = "SYSTEM"
+	}
+
+	// Layout density not in DTO, using default 'COMFORTABLE'
+	layoutDensity := "COMFORTABLE"
+
+	query := `
+		INSERT INTO recipe_manager.user_display_preferences (
+			user_id,
+			theme,
+			layout_density,
+			updated_at
+		) VALUES ($1, $2, $3, NOW())
+		ON CONFLICT (user_id) DO UPDATE SET
+			theme = EXCLUDED.theme,
+			layout_density = EXCLUDED.layout_density,
+			updated_at = NOW()
+	`
+
+	_, err := r.db.ExecContext(ctx, query, userID, theme, layoutDensity)
+	if err != nil {
+		return fmt.Errorf("failed to update display preferences: %w", err)
+	}
+
+	return nil
 }

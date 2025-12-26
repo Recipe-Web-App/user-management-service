@@ -125,6 +125,31 @@ func (m *MockNotificationService) GetNotificationPreferences(
 	return resp, nil
 }
 
+func (m *MockNotificationService) UpdateNotificationPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+	req *dto.UpdateUserPreferenceRequest,
+) (*dto.UserPreferences, error) {
+	args := m.Called(ctx, userID, req)
+
+	resp, ok := args.Get(0).(*dto.UserPreferences)
+	if !ok {
+		err := args.Error(1)
+		if err != nil {
+			return nil, fmt.Errorf("mock error: %w", err)
+		}
+
+		return nil, errMockInvalidUserPrefs
+	}
+
+	err := args.Error(1)
+	if err != nil {
+		return resp, fmt.Errorf("mock error: %w", err)
+	}
+
+	return resp, nil
+}
+
 type notificationHandlerTestCase struct {
 	name           string
 	userIDHeader   string

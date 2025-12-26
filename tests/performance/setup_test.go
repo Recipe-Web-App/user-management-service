@@ -1,6 +1,7 @@
 package performance_test
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"os"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/app"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/config"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/server"
 )
 
@@ -39,10 +41,24 @@ func TestMain(m *testing.M) {
 
 	benchmarkContainer = container
 
+	// Inject mocks for benchmarks where external dependencies aren't available
+	container.AdminService = &MockAdminService{}
+
 	// Initialize the router with container
 	srv := server.NewServerWithContainer(container)
 	benchmarkHandler = srv.Handler
 
 	code := m.Run()
 	os.Exit(code)
+}
+
+// MockAdminService for benchmarks.
+type MockAdminService struct{}
+
+func (m *MockAdminService) ClearCache(ctx context.Context, keyPattern string) (*dto.CacheClearResponse, error) {
+	return &dto.CacheClearResponse{
+		Message:      "Cache cleared successfully",
+		Pattern:      keyPattern,
+		ClearedCount: 50,
+	}, nil
 }

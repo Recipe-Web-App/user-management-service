@@ -17,6 +17,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+const defaultScanCount = 100
+
 // Service represents a service that interacts with Redis.
 type Service struct {
 	client     *redis.Client
@@ -307,3 +309,54 @@ var ErrRedisUnavailable = errors.New("redis is unavailable")
 
 // ErrTokenNotFound is returned when a token does not exist.
 var ErrTokenNotFound = errors.New("token not found")
+
+// ClearCache clears keys matching the given pattern.
+// It uses SCAN to find keys and DEL to remove them in batches.
+func (s *Service) ClearCache(ctx context.Context, pattern string) (int, error) {
+	if s == nil || s.client == nil {
+		return 0, ErrRedisUnavailable
+	}
+
+	var (
+		deletedCount int
+		cursor       uint64
+		keys         []string
+		err          error
+	)
+
+	// Default to match all if pattern is empty
+
+	if pattern == "" {
+		pattern = "*"
+	}
+
+	for {
+		keys, cursor, err = s.client.Scan(ctx, cursor, pattern, defaultScanCount).Result()
+		if err != nil {
+			return deletedCount, fmt.Errorf("failed to scan keys: %w", err)
+		}
+
+		if len(keys) > 0 {
+			// Pipeline deletions for better performance
+			pipe := s.client.Pipeline()
+			for _, key := range keys {
+				pipe.Del(ctx, key)
+			}
+
+			_, err = pipe.Exec(ctx)
+			if err != nil {
+				// Continue even if some deletions fail, but log/return error?
+				// For now, we return partial success count and error
+				return deletedCount, fmt.Errorf("failed to delete keys: %w", err)
+			}
+
+			deletedCount += len(keys)
+		}
+
+		if cursor == 0 {
+			break
+		}
+	}
+
+	return deletedCount, nil
+}

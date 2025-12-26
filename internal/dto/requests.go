@@ -40,5 +40,5 @@ type UpdateUserPreferenceRequest struct {
 
 // CacheClearRequest represents a request to clear cache.
 type CacheClearRequest struct {
-	Pattern string `json:"pattern,omitempty"`
+	KeyPattern string `json:"keyPattern,omitempty"`
 }

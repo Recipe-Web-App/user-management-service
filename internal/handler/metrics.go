@@ -4,7 +4,6 @@ package handler
 import (
 	"net/http"
 
-	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/service"
 )
 
@@ -41,15 +40,6 @@ func (h *MetricsHandler) GetCacheMetrics(w http.ResponseWriter, r *http.Request)
 	}
 
 	SuccessResponse(w, http.StatusOK, metrics)
-}
-
-// ClearCache handles POST /metrics/cache/clear.
-func (h *MetricsHandler) ClearCache(w http.ResponseWriter, _ *http.Request) {
-	SuccessResponse(w, http.StatusOK, dto.CacheClearResponse{
-		Message:      "Cache cleared successfully",
-		Pattern:      "*",
-		ClearedCount: 500,
-	})
 }
 
 // GetSystemMetrics handles GET /metrics/system.

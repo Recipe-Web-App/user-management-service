@@ -371,7 +371,7 @@ func TestMetricsServiceGetDetailedHealthMetrics(t *testing.T) {
 
 	// Check DB Health
 	assert.Equal(t, "healthy", metrics.Services.Database.Status)
-	assert.GreaterOrEqual(t, metrics.Services.Database.ResponseTimeMs, 0)
+	assert.GreaterOrEqual(t, metrics.Services.Database.ResponseTimeMs, 0.0)
 
 	// Check Overall Status
 	assert.Equal(t, "healthy", metrics.OverallStatus)

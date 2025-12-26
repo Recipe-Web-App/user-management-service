@@ -25,6 +25,7 @@ type Container struct {
 	SocialService       service.SocialService
 	NotificationService service.NotificationService
 	MetricsService      service.MetricsService
+	AdminService        service.AdminService
 
 	// Handlers
 	HealthHandler       handler.HealthHandler
@@ -73,6 +74,7 @@ func NewContainer(cfg ContainerConfig) (*Container, error) {
 	}
 
 	initMetricsService(c)
+	initAdminService(c)
 
 	return c, nil
 }
@@ -182,4 +184,13 @@ func (c *Container) Close() error {
 	}
 
 	return errors.Join(errs...)
+}
+
+func initAdminService(c *Container) {
+	var redisClient service.RedisCacheClient
+	if rc, ok := c.Cache.(service.RedisCacheClient); ok {
+		redisClient = rc
+	}
+
+	c.AdminService = service.NewAdminService(redisClient)
 }

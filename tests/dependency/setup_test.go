@@ -59,6 +59,17 @@ func (m *MockMetricsService) GetDetailedHealthMetrics(ctx context.Context) (*dto
 	}, nil
 }
 
+// MockAdminService mocks admin service.
+type MockAdminService struct{}
+
+func (m *MockAdminService) ClearCache(ctx context.Context, keyPattern string) (*dto.CacheClearResponse, error) {
+	return &dto.CacheClearResponse{
+		Message:      "Cache cleared successfully",
+		Pattern:      keyPattern,
+		ClearedCount: 10,
+	}, nil
+}
+
 func TestMain(m *testing.M) {
 	// Point viper to the project root config directory
 	viper.AddConfigPath("../../config")
@@ -76,6 +87,7 @@ func TestMain(m *testing.M) {
 
 	// Inject mock metrics service
 	container.MetricsService = &MockMetricsService{}
+	container.AdminService = &MockAdminService{}
 
 	// Initialize the router with container
 	srv := server.NewServerWithContainer(container)

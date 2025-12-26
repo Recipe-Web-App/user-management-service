@@ -111,7 +111,7 @@ func NewContainer(cfg ContainerConfig) (*Container, error) {
 	}
 
 	if notificationRepo != nil {
-		c.NotificationService = service.NewNotificationService(notificationRepo)
+		c.NotificationService = service.NewNotificationService(notificationRepo, userRepo)
 	}
 
 	return c, nil

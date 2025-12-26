@@ -107,7 +107,8 @@ func TestGetNotificationsComponent_Success(t *testing.T) {
 	t.Parallel()
 
 	mockRepo := new(MockNotificationRepo)
-	svc := service.NewNotificationService(mockRepo)
+	mockUserRepo := new(MockUserRepo)
+	svc := service.NewNotificationService(mockRepo, mockUserRepo)
 
 	c := &app.Container{
 		NotificationService: svc,
@@ -168,7 +169,8 @@ func TestGetNotificationsComponent_CountOnly(t *testing.T) {
 	t.Parallel()
 
 	mockRepo := new(MockNotificationRepo)
-	svc := service.NewNotificationService(mockRepo)
+	mockUserRepo := new(MockUserRepo)
+	svc := service.NewNotificationService(mockRepo, mockUserRepo)
 
 	c := &app.Container{
 		NotificationService: svc,
@@ -213,7 +215,8 @@ func TestGetNotificationsComponent_Pagination(t *testing.T) {
 	t.Parallel()
 
 	mockRepo := new(MockNotificationRepo)
-	svc := service.NewNotificationService(mockRepo)
+	mockUserRepo := new(MockUserRepo)
+	svc := service.NewNotificationService(mockRepo, mockUserRepo)
 
 	c := &app.Container{
 		NotificationService: svc,
@@ -256,7 +259,8 @@ func TestGetNotificationsComponent_Unauthorized(t *testing.T) {
 	t.Parallel()
 
 	mockRepo := new(MockNotificationRepo)
-	svc := service.NewNotificationService(mockRepo)
+	mockUserRepo := new(MockUserRepo)
+	svc := service.NewNotificationService(mockRepo, mockUserRepo)
 
 	c := &app.Container{
 		NotificationService: svc,
@@ -291,7 +295,8 @@ func TestGetNotificationsComponent_ValidationError(t *testing.T) {
 	t.Parallel()
 
 	mockRepo := new(MockNotificationRepo)
-	svc := service.NewNotificationService(mockRepo)
+	mockUserRepo := new(MockUserRepo)
+	svc := service.NewNotificationService(mockRepo, mockUserRepo)
 
 	c := &app.Container{
 		NotificationService: svc,
@@ -328,7 +333,8 @@ func TestGetNotificationsComponent_EmptyNotifications(t *testing.T) {
 	t.Parallel()
 
 	mockRepo := new(MockNotificationRepo)
-	svc := service.NewNotificationService(mockRepo)
+	mockUserRepo := new(MockUserRepo)
+	svc := service.NewNotificationService(mockRepo, mockUserRepo)
 
 	c := &app.Container{
 		NotificationService: svc,
@@ -361,7 +367,8 @@ func TestDeleteNotificationsComponent_Success(t *testing.T) {
 	t.Parallel()
 
 	mockRepo := new(MockNotificationRepo)
-	svc := service.NewNotificationService(mockRepo)
+	mockUserRepo := new(MockUserRepo)
+	svc := service.NewNotificationService(mockRepo, mockUserRepo)
 
 	c := &app.Container{
 		NotificationService: svc,
@@ -407,7 +414,8 @@ func TestDeleteNotificationsComponent_PartialSuccess(t *testing.T) {
 	t.Parallel()
 
 	mockRepo := new(MockNotificationRepo)
-	svc := service.NewNotificationService(mockRepo)
+	mockUserRepo := new(MockUserRepo)
+	svc := service.NewNotificationService(mockRepo, mockUserRepo)
 
 	c := &app.Container{
 		NotificationService: svc,
@@ -454,7 +462,8 @@ func TestDeleteNotificationsComponent_NotFound(t *testing.T) {
 	t.Parallel()
 
 	mockRepo := new(MockNotificationRepo)
-	svc := service.NewNotificationService(mockRepo)
+	mockUserRepo := new(MockUserRepo)
+	svc := service.NewNotificationService(mockRepo, mockUserRepo)
 
 	c := &app.Container{
 		NotificationService: svc,
@@ -498,7 +507,8 @@ func TestDeleteNotificationsComponent_Unauthorized(t *testing.T) {
 	t.Parallel()
 
 	mockRepo := new(MockNotificationRepo)
-	svc := service.NewNotificationService(mockRepo)
+	mockUserRepo := new(MockUserRepo)
+	svc := service.NewNotificationService(mockRepo, mockUserRepo)
 
 	c := &app.Container{
 		NotificationService: svc,
@@ -588,7 +598,8 @@ func TestMarkNotificationReadComponent(t *testing.T) {
 			t.Parallel()
 
 			mockRepo := new(MockNotificationRepo)
-			svc := service.NewNotificationService(mockRepo)
+			mockUserRepo := new(MockUserRepo)
+			svc := service.NewNotificationService(mockRepo, mockUserRepo)
 
 			c := &app.Container{
 				NotificationService: svc,
@@ -635,7 +646,8 @@ func TestMarkAllNotificationsReadComponent_Success(t *testing.T) {
 	t.Parallel()
 
 	mockRepo := new(MockNotificationRepo)
-	svc := service.NewNotificationService(mockRepo)
+	mockUserRepo := new(MockUserRepo)
+	svc := service.NewNotificationService(mockRepo, mockUserRepo)
 
 	c := &app.Container{
 		NotificationService: svc,
@@ -683,7 +695,8 @@ func TestMarkAllNotificationsReadComponent_EmptyResult(t *testing.T) {
 	t.Parallel()
 
 	mockRepo := new(MockNotificationRepo)
-	svc := service.NewNotificationService(mockRepo)
+	mockUserRepo := new(MockUserRepo)
+	svc := service.NewNotificationService(mockRepo, mockUserRepo)
 
 	c := &app.Container{
 		NotificationService: svc,
@@ -719,7 +732,8 @@ func TestMarkAllNotificationsReadComponent_Unauthorized(t *testing.T) {
 	t.Parallel()
 
 	mockRepo := new(MockNotificationRepo)
-	svc := service.NewNotificationService(mockRepo)
+	mockUserRepo := new(MockUserRepo)
+	svc := service.NewNotificationService(mockRepo, mockUserRepo)
 
 	c := &app.Container{
 		NotificationService: svc,
@@ -748,4 +762,56 @@ func TestMarkAllNotificationsReadComponent_Unauthorized(t *testing.T) {
 	require.False(t, apiResp.Success)
 
 	assert.Equal(t, "UNAUTHORIZED", apiResp.Error.Code)
+}
+
+func TestGetNotificationPreferencesComponent_Success(t *testing.T) {
+	t.Parallel()
+
+	mockRepo := new(MockNotificationRepo)
+	mockUserRepo := new(MockUserRepo)
+	svc := service.NewNotificationService(mockRepo, mockUserRepo)
+
+	c := &app.Container{
+		NotificationService: svc,
+		Config:              config.Instance,
+	}
+	c.HealthService = service.NewHealthService(nil, nil)
+
+	srv := server.NewServerWithContainer(c)
+	handler := srv.Handler
+
+	userID := uuid.New()
+
+	mockUserRepo.On("FindNotificationPreferencesByUserID", mock.Anything, userID).
+		Return(&dto.NotificationPreferences{EmailNotifications: true}, nil)
+	mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, userID).
+		Return(&dto.PrivacyPreferences{ProfileVisibility: "public"}, nil)
+	mockUserRepo.On("FindDisplayPreferencesByUserID", mock.Anything, userID).
+		Return(&dto.DisplayPreferences{Theme: "dark"}, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/notifications/preferences", nil)
+	req.Header.Set("X-User-Id", userID.String())
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var apiResp struct {
+		Success bool                       `json:"success"`
+		Data    dto.UserPreferenceResponse `json:"data"`
+	}
+
+	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
+	require.NoError(t, err)
+	require.True(t, apiResp.Success)
+
+	require.NotNil(t, apiResp.Data.Preferences.NotificationPreferences, "NotificationPreferences shouldn't be nil")
+	assert.True(t, apiResp.Data.Preferences.NotificationPreferences.EmailNotifications)
+
+	require.NotNil(t, apiResp.Data.Preferences.PrivacyPreferences, "PrivacyPreferences shouldn't be nil")
+	assert.Equal(t, "public", apiResp.Data.Preferences.PrivacyPreferences.ProfileVisibility)
+
+	require.NotNil(t, apiResp.Data.Preferences.DisplayPreferences, "DisplayPreferences shouldn't be nil")
+	assert.Equal(t, "dark", apiResp.Data.Preferences.DisplayPreferences.Theme)
 }

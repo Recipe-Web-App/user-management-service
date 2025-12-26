@@ -22,6 +22,8 @@ var ErrDuplicateUsername = errors.New("username already exists")
 type UserRepository interface {
 	FindUserByID(ctx context.Context, userID uuid.UUID) (*dto.User, error)
 	FindPrivacyPreferencesByUserID(ctx context.Context, userID uuid.UUID) (*dto.PrivacyPreferences, error)
+	FindNotificationPreferencesByUserID(ctx context.Context, userID uuid.UUID) (*dto.NotificationPreferences, error)
+	FindDisplayPreferencesByUserID(ctx context.Context, userID uuid.UUID) (*dto.DisplayPreferences, error)
 	IsFollowing(ctx context.Context, followerID, followedID uuid.UUID) (bool, error)
 	UpdateUser(ctx context.Context, userID uuid.UUID, update *dto.UserProfileUpdateRequest) (*dto.User, error)
 	SearchUsers(ctx context.Context, query string, limit, offset int) ([]dto.UserSearchResult, int, error)
@@ -140,6 +142,111 @@ func (r *SQLUserRepository) FindPrivacyPreferencesByUserID(
 		prefs.ShowEmail = true
 	} else {
 		prefs.ShowEmail = false
+	}
+
+	return prefs, nil
+}
+
+// FindNotificationPreferencesByUserID retrieves notification preferences for a user.
+func (r *SQLUserRepository) FindNotificationPreferencesByUserID(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*dto.NotificationPreferences, error) {
+	query := `
+		SELECT
+			email_notifications,
+			push_notifications,
+			social_interactions,
+			recipe_recommendations,
+			activity_summaries,
+			security_alerts
+		FROM recipe_manager.user_notification_preferences
+		WHERE user_id = $1
+	`
+
+	// Default values matching typical expectations if row missing
+	// (Schema defaults are mostly true)
+	prefs := &dto.NotificationPreferences{
+		EmailNotifications:   true,
+		PushNotifications:    true,
+		FollowNotifications:  true, // Mapped from social_interactions
+		LikeNotifications:    true, // Mapped from social_interactions
+		CommentNotifications: true, // Mapped from social_interactions
+		RecipeNotifications:  true, // Mapped from recipe_recommendations
+		SystemNotifications:  true, // Mapped from security_alerts
+	}
+
+	var email, push, social, recipe, activity, security bool
+
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(
+		&email,
+		&push,
+		&social,
+		&recipe,
+		&activity,
+		&security,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return prefs, nil
+		}
+
+		return nil, fmt.Errorf("failed to query notification preferences: %w", err)
+	}
+
+	prefs.EmailNotifications = email
+	prefs.PushNotifications = push
+	prefs.FollowNotifications = social
+	prefs.LikeNotifications = social
+	prefs.CommentNotifications = social
+	prefs.RecipeNotifications = recipe
+	prefs.SystemNotifications = security
+
+	return prefs, nil
+}
+
+// FindDisplayPreferencesByUserID retrieves display preferences for a user.
+func (r *SQLUserRepository) FindDisplayPreferencesByUserID(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*dto.DisplayPreferences, error) {
+	query := `
+		SELECT theme, layout_density
+		FROM recipe_manager.user_display_preferences
+		WHERE user_id = $1
+	`
+
+	// Default values
+	prefs := &dto.DisplayPreferences{
+		Theme:    "auto",
+		Language: "en",  // Not in DB yet
+		Timezone: "UTC", // Not in DB yet
+	}
+
+	var theme, density string
+
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(
+		&theme,
+		&density,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return prefs, nil
+		}
+
+		return nil, fmt.Errorf("failed to query display preferences: %w", err)
+	}
+
+	// Map DB values to DTO
+	// DB Theme: LIGHT, DARK, SYSTEM
+	// DTO Theme: light, dark, auto
+	switch theme {
+	case "LIGHT":
+		prefs.Theme = "light"
+	case "DARK":
+		prefs.Theme = "dark"
+	default:
+		prefs.Theme = "auto"
 	}
 
 	return prefs, nil

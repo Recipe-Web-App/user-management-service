@@ -18,6 +18,10 @@ type NotificationService interface {
 		limit, offset int,
 		countOnly bool,
 	) (any, error)
+	GetNotificationPreferences(
+		ctx context.Context,
+		userID uuid.UUID,
+	) (*dto.UserPreferences, error)
 	DeleteNotifications(
 		ctx context.Context,
 		userID uuid.UUID,
@@ -44,13 +48,18 @@ type NotificationDeleteResult struct {
 
 // NotificationServiceImpl implements NotificationService.
 type NotificationServiceImpl struct {
-	repo repository.NotificationRepository
+	repo     repository.NotificationRepository
+	userRepo repository.UserRepository
 }
 
 // NewNotificationService creates a new NotificationService.
-func NewNotificationService(repo repository.NotificationRepository) *NotificationServiceImpl {
+func NewNotificationService(
+	repo repository.NotificationRepository,
+	userRepo repository.UserRepository,
+) *NotificationServiceImpl {
 	return &NotificationServiceImpl{
-		repo: repo,
+		repo:     repo,
+		userRepo: userRepo,
 	}
 }
 
@@ -182,4 +191,34 @@ func (s *NotificationServiceImpl) MarkAllNotificationsRead(
 	}
 
 	return readIDs, nil
+}
+
+// GetNotificationPreferences retrieves all notification-related preferences for a user.
+func (s *NotificationServiceImpl) GetNotificationPreferences(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*dto.UserPreferences, error) {
+	// 1. Get Notification Preferences
+	notifPrefs, err := s.userRepo.FindNotificationPreferencesByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get notification preferences: %w", err)
+	}
+
+	// 2. Get Privacy Preferences
+	privacyPrefs, err := s.userRepo.FindPrivacyPreferencesByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get privacy preferences: %w", err)
+	}
+
+	// 3. Get Display Preferences
+	displayPrefs, err := s.userRepo.FindDisplayPreferencesByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get display preferences: %w", err)
+	}
+
+	return &dto.UserPreferences{
+		NotificationPreferences: notifPrefs,
+		PrivacyPreferences:      privacyPrefs,
+		DisplayPreferences:      displayPrefs,
+	}, nil
 }

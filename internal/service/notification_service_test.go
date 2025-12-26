@@ -206,9 +206,10 @@ func TestNotificationService_GetNotifications(t *testing.T) {
 			t.Parallel()
 
 			mockRepo := new(MockNotificationRepository)
+			mockUserRepo := new(MockUserRepository)
 			tt.setupMock(mockRepo)
 
-			svc := service.NewNotificationService(mockRepo)
+			svc := service.NewNotificationService(mockRepo, mockUserRepo)
 			result, err := svc.GetNotifications(context.Background(), userID, tt.limit, tt.offset, tt.countOnly)
 
 			if tt.expectError {
@@ -332,9 +333,10 @@ func TestNotificationService_DeleteNotifications(t *testing.T) {
 			t.Parallel()
 
 			mockRepo := new(MockNotificationRepository)
+			mockUserRepo := new(MockUserRepository)
 			tt.setupMock(mockRepo)
 
-			svc := service.NewNotificationService(mockRepo)
+			svc := service.NewNotificationService(mockRepo, mockUserRepo)
 			result, err := svc.DeleteNotifications(context.Background(), userID, tt.notificationIDs)
 
 			if tt.expectError {
@@ -412,9 +414,10 @@ func TestNotificationService_MarkNotificationRead(t *testing.T) {
 			t.Parallel()
 
 			mockRepo := new(MockNotificationRepository)
+			mockUserRepo := new(MockUserRepository)
 			tt.setupMock(mockRepo)
 
-			svc := service.NewNotificationService(mockRepo)
+			svc := service.NewNotificationService(mockRepo, mockUserRepo)
 			ok, err := svc.MarkNotificationRead(context.Background(), userID, tt.notifIDStr)
 
 			if tt.expectError {
@@ -488,9 +491,10 @@ func TestNotificationService_MarkAllNotificationsRead(t *testing.T) {
 			t.Parallel()
 
 			mockRepo := new(MockNotificationRepository)
+			mockUserRepo := new(MockUserRepository)
 			tt.setupMock(mockRepo)
 
-			svc := service.NewNotificationService(mockRepo)
+			svc := service.NewNotificationService(mockRepo, mockUserRepo)
 			readIDs, err := svc.MarkAllNotificationsRead(context.Background(), userID)
 
 			if tt.expectError {

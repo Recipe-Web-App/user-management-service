@@ -182,31 +182,22 @@ func (h *NotificationHandler) MarkAllNotificationsRead(w http.ResponseWriter, r 
 }
 
 // GetNotificationPreferences handles GET /notifications/preferences.
-func (h *NotificationHandler) GetNotificationPreferences(w http.ResponseWriter, _ *http.Request) {
+// GetNotificationPreferences handles GET /notifications/preferences.
+func (h *NotificationHandler) GetNotificationPreferences(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.extractAuthenticatedUserID(w, r)
+	if !ok {
+		return
+	}
+
+	prefs, err := h.notificationService.GetNotificationPreferences(r.Context(), userID)
+	if err != nil {
+		InternalErrorResponse(w)
+
+		return
+	}
+
 	SuccessResponse(w, http.StatusOK, dto.UserPreferenceResponse{
-		Preferences: dto.UserPreferences{
-			NotificationPreferences: &dto.NotificationPreferences{
-				EmailNotifications:   true,
-				PushNotifications:    true,
-				FollowNotifications:  true,
-				LikeNotifications:    true,
-				CommentNotifications: true,
-				RecipeNotifications:  true,
-				SystemNotifications:  true,
-			},
-			PrivacyPreferences: &dto.PrivacyPreferences{
-				ProfileVisibility: "public",
-				ShowEmail:         false,
-				ShowFullName:      true,
-				AllowFollows:      true,
-				AllowMessages:     true,
-			},
-			DisplayPreferences: &dto.DisplayPreferences{
-				Theme:    "auto",
-				Language: "en",
-				Timezone: "UTC",
-			},
-		},
+		Preferences: *prefs,
 	})
 }
 

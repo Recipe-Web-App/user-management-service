@@ -32,7 +32,7 @@ func NewServerWithContainer(container *app.Container) *http.Server {
 		Social:       handler.NewSocialHandler(container.SocialService),
 		Notification: handler.NewNotificationHandler(container.NotificationService),
 		Admin:        handler.NewAdminHandler(container.UserService),
-		Metrics:      handler.NewMetricsHandler(),
+		Metrics:      handler.NewMetricsHandler(container.MetricsService),
 	}
 
 	server := &http.Server{

@@ -6,47 +6,35 @@ import (
 	"time"
 
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/service"
 )
 
 // MetricsHandler handles metrics HTTP endpoints.
-type MetricsHandler struct{}
+type MetricsHandler struct {
+	metricsService service.MetricsService
+}
 
 // NewMetricsHandler creates a new metrics handler.
-func NewMetricsHandler() *MetricsHandler {
-	return &MetricsHandler{}
+func NewMetricsHandler(metricsService service.MetricsService) *MetricsHandler {
+	return &MetricsHandler{
+		metricsService: metricsService,
+	}
 }
 
 // GetPerformanceMetrics handles GET /metrics/performance.
-func (h *MetricsHandler) GetPerformanceMetrics(w http.ResponseWriter, _ *http.Request) {
-	SuccessResponse(w, http.StatusOK, dto.PerformanceMetricsResponse{
-		ResponseTimes: dto.ResponseTimes{
-			AverageMs: 45.2,
-			P50Ms:     32.0,
-			P95Ms:     120.5,
-			P99Ms:     250.0,
-		},
-		RequestCounts: dto.RequestCounts{
-			TotalRequests:     150000,
-			RequestsPerMinute: 250,
-			ActiveSessions:    42,
-		},
-		ErrorRates: dto.ErrorRates{
-			TotalErrors:      150,
-			ErrorRatePercent: 0.1,
-			Errors4xx:        120,
-			Errors5xx:        30,
-		},
-		Database: dto.DatabaseMetrics{
-			ActiveConnections: 10,
-			MaxConnections:    100,
-			AvgQueryTimeMs:    5.2,
-			SlowQueriesCount:  3,
-		},
-	})
+func (h *MetricsHandler) GetPerformanceMetrics(w http.ResponseWriter, r *http.Request) {
+	metrics, err := h.metricsService.GetPerformanceMetrics(r.Context())
+	if err != nil {
+		InternalErrorResponse(w)
+		return
+	}
+
+	SuccessResponse(w, http.StatusOK, metrics)
 }
 
 // GetCacheMetrics handles GET /metrics/cache.
 func (h *MetricsHandler) GetCacheMetrics(w http.ResponseWriter, _ *http.Request) {
+	// Note: Use MetricsService for this as well in future
 	SuccessResponse(w, http.StatusOK, dto.CacheMetricsResponse{
 		MemoryUsage:      "268435456",
 		MemoryUsageHuman: "256MB",

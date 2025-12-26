@@ -1649,10 +1649,6 @@ components:
           properties:
             total_requests:
               type: integer
-            requests_per_minute:
-              type: integer
-            active_sessions:
-              type: integer
         error_rates:
           type: object
           properties:
@@ -1670,10 +1666,6 @@ components:
             active_connections:
               type: integer
             max_connections:
-              type: integer
-            avg_query_time_ms:
-              type: number
-            slow_queries_count:
               type: integer
 
     CacheMetrics:

@@ -24,6 +24,7 @@ type Container struct {
 	UserService         service.UserService
 	SocialService       service.SocialService
 	NotificationService service.NotificationService
+	MetricsService      service.MetricsService
 
 	// Handlers
 	HealthHandler       handler.HealthHandler
@@ -80,11 +81,24 @@ func NewContainer(cfg ContainerConfig) (*Container, error) {
 	c.HealthService = service.NewHealthService(c.Database, c.Cache)
 
 	// Initialize repositories and domain services
-	var userRepo repository.UserRepository
+	var (
+		userRepo  repository.UserRepository
+		dbService *database.Service
+	)
+
+	if svc, ok := c.Database.(*database.Service); ok {
+		dbService = svc
+	}
+
 	if cfg.UserRepo != nil {
 		userRepo = cfg.UserRepo
-	} else if dbService, ok := c.Database.(*database.Service); ok {
+	} else if dbService != nil {
 		userRepo = repository.NewUserRepository(dbService.GetDB())
+	}
+
+	// Initialize Metrics Service
+	if dbService != nil {
+		c.MetricsService = service.NewMetricsService(dbService)
 	}
 
 	// Get token store from config or cache
@@ -103,7 +117,7 @@ func NewContainer(cfg ContainerConfig) (*Container, error) {
 	var socialRepo repository.SocialRepository
 	if cfg.SocialRepo != nil {
 		socialRepo = cfg.SocialRepo
-	} else if dbService, ok := c.Database.(*database.Service); ok {
+	} else if dbService != nil {
 		socialRepo = repository.NewSocialRepository(dbService.GetDB())
 	}
 
@@ -115,7 +129,7 @@ func NewContainer(cfg ContainerConfig) (*Container, error) {
 	var notificationRepo repository.NotificationRepository
 	if cfg.NotificationRepo != nil {
 		notificationRepo = cfg.NotificationRepo
-	} else if dbService, ok := c.Database.(*database.Service); ok {
+	} else if dbService != nil {
 		notificationRepo = repository.NewNotificationRepository(dbService.GetDB())
 	}
 

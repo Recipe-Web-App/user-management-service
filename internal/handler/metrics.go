@@ -3,7 +3,6 @@ package handler
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/service"
@@ -66,34 +65,12 @@ func (h *MetricsHandler) GetSystemMetrics(w http.ResponseWriter, r *http.Request
 }
 
 // GetDetailedHealthMetrics handles GET /metrics/health/detailed.
-func (h *MetricsHandler) GetDetailedHealthMetrics(w http.ResponseWriter, _ *http.Request) {
-	SuccessResponse(w, http.StatusOK, dto.DetailedHealthMetricsResponse{
-		Timestamp:     time.Now(),
-		OverallStatus: "healthy",
-		Services: dto.ServicesHealth{
-			Redis: dto.RedisHealth{
-				Status:           "healthy",
-				ResponseTimeMs:   1.2,
-				MemoryUsage:      "256MB",
-				ConnectedClients: 10,
-				HitRatePercent:   95.0,
-			},
-			Database: dto.DatabaseHealth{
-				Status:            "healthy",
-				ResponseTimeMs:    2.5,
-				ActiveConnections: 10,
-				MaxConnections:    100,
-			},
-		},
-		Application: dto.ApplicationInfo{
-			Version:     "1.0.0",
-			Environment: "development",
-			Features: dto.ApplicationFeatures{
-				Authentication:  "enabled",
-				Caching:         "enabled",
-				Monitoring:      "enabled",
-				SecurityHeaders: "enabled",
-			},
-		},
-	})
+func (h *MetricsHandler) GetDetailedHealthMetrics(w http.ResponseWriter, r *http.Request) {
+	metrics, err := h.metricsService.GetDetailedHealthMetrics(r.Context())
+	if err != nil {
+		InternalErrorResponse(w)
+		return
+	}
+
+	SuccessResponse(w, http.StatusOK, metrics)
 }

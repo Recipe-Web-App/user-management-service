@@ -13,6 +13,7 @@ import (
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/shirou/gopsutil/v4/mem"
 
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/config"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/database"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
 )
@@ -177,12 +178,17 @@ func createSampleMetricFamilies() (*dto_model.MetricFamily, *dto_model.MetricFam
 }
 
 type mockRedisClient struct {
-	metrics *dto.CacheMetricsResponse
-	err     error
+	metrics     *dto.CacheMetricsResponse
+	err         error
+	healthStats map[string]string
 }
 
 func (m *mockRedisClient) GetCacheMetrics(ctx context.Context) (*dto.CacheMetricsResponse, error) {
 	return m.metrics, m.err
+}
+
+func (m *mockRedisClient) Health(ctx context.Context) map[string]string {
+	return m.healthStats
 }
 
 func TestMetricsServiceGetCacheMetrics(t *testing.T) {
@@ -204,7 +210,7 @@ func TestMetricsServiceGetCacheMetrics(t *testing.T) {
 
 	dbService := database.NewWithDB(db)
 
-	svc := NewMetricsService(dbService, mockRedis, &mockSystemCollector{})
+	svc := NewMetricsService(dbService, mockRedis, &mockSystemCollector{}, nil)
 
 	metrics, err := svc.GetCacheMetrics(context.Background())
 	require.NoError(t, err)
@@ -227,7 +233,7 @@ func TestMetricsServiceGetCacheMetricsError(t *testing.T) {
 
 	dbService := database.NewWithDB(db)
 
-	svc := NewMetricsService(dbService, mockRedis, &mockSystemCollector{})
+	svc := NewMetricsService(dbService, mockRedis, &mockSystemCollector{}, nil)
 
 	metrics, err := svc.GetCacheMetrics(context.Background())
 	require.ErrorIs(t, err, assert.AnError)
@@ -246,7 +252,7 @@ func TestMetricsServiceGetCacheMetricsNoRedis(t *testing.T) {
 	dbService := database.NewWithDB(db)
 
 	// Pass nil as redis client
-	svc := NewMetricsService(dbService, nil, &mockSystemCollector{})
+	svc := NewMetricsService(dbService, nil, &mockSystemCollector{}, nil)
 
 	metrics, err := svc.GetCacheMetrics(context.Background())
 	require.Error(t, err)
@@ -281,7 +287,7 @@ func TestMetricsServiceGetSystemMetrics(t *testing.T) {
 
 	dbService := database.NewWithDB(db)
 
-	svc := NewMetricsService(dbService, &mockRedisClient{}, mockSys)
+	svc := NewMetricsService(dbService, &mockRedisClient{}, mockSys, nil)
 
 	metrics, err := svc.GetSystemMetrics(context.Background())
 	require.NoError(t, err)
@@ -292,7 +298,7 @@ func TestMetricsServiceGetSystemMetrics(t *testing.T) {
 	assert.InDelta(t, 500.0, metrics.System.DiskTotalGB, 0.01)
 }
 
-func BenchmarkMetricsService_GetSystemMetrics(b *testing.B) {
+func BenchmarkMetricsServiceGetSystemMetrics(b *testing.B) {
 	mockSys := &mockSystemCollector{
 		cpuPercent: 25.5,
 		memInfo: &mem.VirtualMemoryStat{
@@ -313,10 +319,60 @@ func BenchmarkMetricsService_GetSystemMetrics(b *testing.B) {
 
 	dbService := database.NewWithDB(db)
 
-	svc := NewMetricsService(dbService, &mockRedisClient{}, mockSys)
+	svc := NewMetricsService(dbService, &mockRedisClient{}, mockSys, nil)
 	ctx := context.Background()
 
 	for b.Loop() {
 		_, _ = svc.GetSystemMetrics(ctx)
 	}
+}
+
+func TestMetricsServiceGetDetailedHealthMetrics(t *testing.T) {
+	t.Parallel()
+
+	mockRedis := &mockRedisClient{
+		healthStats: map[string]string{
+			"status": "up",
+		},
+		metrics: &dto.CacheMetricsResponse{
+			ConnectedClients: 10,
+			HitRate:          0.8,
+			MemoryUsageHuman: "128MB",
+		},
+	}
+
+	db, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
+	require.NoError(t, err)
+
+	mock.ExpectPing()
+
+	defer func() { _ = db.Close() }()
+
+	dbService := database.NewWithDB(db)
+	cfg := &config.Config{
+		Environment: "test-env",
+	}
+
+	svc := NewMetricsService(dbService, mockRedis, &mockSystemCollector{}, cfg)
+
+	metrics, err := svc.GetDetailedHealthMetrics(context.Background())
+	require.NoError(t, err)
+	assert.NotNil(t, metrics)
+
+	// Check Application Info
+	assert.Equal(t, "1.0.0", metrics.Application.Version)
+	assert.Equal(t, "test-env", metrics.Application.Environment)
+
+	// Check Redis Health
+	assert.Equal(t, "healthy", metrics.Services.Redis.Status)
+	assert.Equal(t, 10, metrics.Services.Redis.ConnectedClients)
+	assert.InDelta(t, 80.0, metrics.Services.Redis.HitRatePercent, 0.00)
+	assert.Equal(t, "128MB", metrics.Services.Redis.MemoryUsage)
+
+	// Check DB Health
+	assert.Equal(t, "healthy", metrics.Services.Database.Status)
+	assert.GreaterOrEqual(t, metrics.Services.Database.ResponseTimeMs, 0)
+
+	// Check Overall Status
+	assert.Equal(t, "healthy", metrics.OverallStatus)
 }

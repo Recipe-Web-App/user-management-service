@@ -104,6 +104,23 @@ func (m *mockMetricsService) GetSystemMetrics(ctx context.Context) (*dto.SystemM
 	}, nil
 }
 
+func (m *mockMetricsService) GetDetailedHealthMetrics(ctx context.Context) (*dto.DetailedHealthMetricsResponse, error) {
+	return &dto.DetailedHealthMetricsResponse{
+		OverallStatus: "healthy",
+		Services: dto.ServicesHealth{
+			Redis: dto.RedisHealth{
+				Status: "healthy",
+			},
+			Database: dto.DatabaseHealth{
+				Status: "healthy",
+			},
+		},
+		Application: dto.ApplicationInfo{
+			Version: "1.0.0",
+		},
+	}, nil
+}
+
 func TestMetricsEndpoint_System(t *testing.T) {
 	t.Parallel()
 
@@ -151,4 +168,54 @@ func TestMetricsEndpoint_System(t *testing.T) {
 
 	assert.InDelta(t, 25.5, response.Data.System.CPUUsagePercent, 0.01)
 	assert.Equal(t, 10, response.Data.Process.NumThreads)
+}
+
+func TestMetricsEndpointDetailedHealth(t *testing.T) {
+	t.Parallel()
+
+	container := &app.Container{
+		Config: &internalConfig.Config{
+			Server: internalConfig.ServerConfig{
+				Port: 8080,
+			},
+		},
+	}
+
+	mockMetricsSvc := &mockMetricsService{}
+	container.MetricsService = mockMetricsSvc
+
+	srv := server.NewServerWithContainer(container)
+
+	ts := httptest.NewServer(srv.Handler)
+	defer ts.Close()
+
+	req, err := http.NewRequestWithContext(
+		context.Background(),
+		http.MethodGet,
+		ts.URL+"/api/v1/user-management/metrics/health/detailed",
+		nil,
+	)
+	require.NoError(t, err)
+
+	resp, err := ts.Client().Do(req)
+	require.NoError(t, err)
+
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var response struct {
+		Success bool                              `json:"success"`
+		Data    dto.DetailedHealthMetricsResponse `json:"data"`
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	require.NoError(t, err)
+	require.True(t, response.Success)
+
+	assert.Equal(t, "healthy", response.Data.OverallStatus)
+	assert.Equal(t, "1.0.0", response.Data.Application.Version)
+	assert.Equal(t, "healthy", response.Data.Services.Redis.Status)
 }

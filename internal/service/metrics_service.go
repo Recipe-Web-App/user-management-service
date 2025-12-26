@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/shirou/gopsutil/v4/mem"
 	"github.com/shirou/gopsutil/v4/process"
 
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/config"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/database"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
 )
@@ -29,6 +31,9 @@ const (
 	quantileP99       = 0.99
 	gbDivisor         = 1024 * 1024 * 1024
 	mbDivisor         = 1024 * 1024
+
+	healthyStatusStr   = "healthy"
+	unhealthyStatusStr = "unhealthy"
 )
 
 // MetricsService handles metrics gathering.
@@ -36,6 +41,7 @@ type MetricsService interface {
 	GetPerformanceMetrics(ctx context.Context) (*dto.PerformanceMetricsResponse, error)
 	GetCacheMetrics(ctx context.Context) (*dto.CacheMetricsResponse, error)
 	GetSystemMetrics(ctx context.Context) (*dto.SystemMetricsResponse, error)
+	GetDetailedHealthMetrics(ctx context.Context) (*dto.DetailedHealthMetricsResponse, error)
 }
 
 // SystemCollector defines the interface for gathering system metrics.
@@ -49,22 +55,30 @@ type SystemCollector interface {
 // RedisClient defines the interface for interacting with Redis cache metrics.
 type RedisClient interface {
 	GetCacheMetrics(ctx context.Context) (*dto.CacheMetricsResponse, error)
+	Health(ctx context.Context) map[string]string
 }
 
 type metricsService struct {
 	db        *database.Service
 	redis     RedisClient
 	sys       SystemCollector
+	config    *config.Config
 	gatherer  prometheus.Gatherer
 	startTime time.Time
 }
 
 // NewMetricsService creates a new metrics service.
-func NewMetricsService(db *database.Service, redis RedisClient, sys SystemCollector) MetricsService {
+func NewMetricsService(
+	db *database.Service,
+	redis RedisClient,
+	sys SystemCollector,
+	cfg *config.Config,
+) MetricsService {
 	return &metricsService{
 		db:        db,
 		redis:     redis,
 		sys:       sys,
+		config:    cfg,
 		gatherer:  prometheus.DefaultGatherer,
 		startTime: time.Now(),
 	}
@@ -368,4 +382,127 @@ func (s *metricsService) GetSystemMetrics(ctx context.Context) (*dto.SystemMetri
 	}
 
 	return response, nil
+}
+
+// GetDetailedHealthMetrics retrieves detailed health metrics for all services.
+func (s *metricsService) GetDetailedHealthMetrics(ctx context.Context) (*dto.DetailedHealthMetricsResponse, error) {
+	redisHealth := s.getRedisHealth(ctx)
+	dbHealth := s.getDBHealth(ctx)
+
+	// Overall Status
+	overallStatus := healthyStatusStr
+	if redisHealth.Status != healthyStatusStr || dbHealth.Status != healthyStatusStr {
+		overallStatus = "degraded" // Or unhealthy if critical
+		if dbHealth.Status != healthyStatusStr {
+			// DB is critical
+			overallStatus = unhealthyStatusStr
+		}
+	}
+
+	// Application Info
+	appInfo := dto.ApplicationInfo{
+		Version:     "1.0.0", // Hardcoded as per plan
+		Environment: "development",
+		Features: dto.ApplicationFeatures{
+			Authentication:  "enabled",
+			Caching:         "enabled",
+			Monitoring:      "enabled",
+			SecurityHeaders: "enabled",
+		},
+	}
+
+	if s.config != nil {
+		appInfo.Environment = s.config.Environment
+	}
+
+	return &dto.DetailedHealthMetricsResponse{
+		Timestamp:     time.Now(),
+		OverallStatus: overallStatus,
+		Services: dto.ServicesHealth{
+			Redis:    redisHealth,
+			Database: dbHealth,
+		},
+		Application: appInfo,
+	}, nil
+}
+
+func (s *metricsService) getRedisHealth(ctx context.Context) dto.RedisHealth {
+	var redisHealth dto.RedisHealth
+	if s.redis == nil {
+		redisHealth.Status = unhealthyStatusStr
+		return redisHealth
+	}
+
+	start := time.Now()
+	stats := s.redis.Health(ctx)
+	duration := time.Since(start)
+
+	redisHealth.Status = unhealthyStatusStr
+	if status, ok := stats["status"]; ok && status == "up" {
+		redisHealth.Status = healthyStatusStr
+	}
+
+	redisHealth.ResponseTimeMs = float64(duration.Milliseconds())
+
+	if redisHealth.Status == healthyStatusStr {
+		// Fetch detailed metrics for memory usage etc.
+		cacheMetrics, err := s.redis.GetCacheMetrics(ctx)
+		if err == nil && cacheMetrics != nil {
+			redisHealth.MemoryUsage = cacheMetrics.MemoryUsageHuman
+			redisHealth.ConnectedClients = cacheMetrics.ConnectedClients
+			redisHealth.HitRatePercent = cacheMetrics.HitRate * percentMultiplier
+		} else {
+			// Fallback to stats from Health() if GetCacheMetrics fails
+			s.parseRedisHealthStats(stats, &redisHealth)
+		}
+	}
+
+	return redisHealth
+}
+
+func (s *metricsService) parseRedisHealthStats(stats map[string]string, health *dto.RedisHealth) {
+	if val, ok := stats["total_conns"]; ok {
+		clients, _ := strconv.Atoi(val)
+		health.ConnectedClients = clients
+	}
+
+	var hits, misses float64
+	if val, ok := stats["hits"]; ok {
+		hits, _ = strconv.ParseFloat(val, 64)
+	}
+
+	if val, ok := stats["misses"]; ok {
+		misses, _ = strconv.ParseFloat(val, 64)
+	}
+
+	if hits+misses > 0 {
+		health.HitRatePercent = (hits / (hits + misses)) * percentMultiplier
+	}
+}
+
+func (s *metricsService) getDBHealth(ctx context.Context) dto.DatabaseHealth {
+	var dbHealth dto.DatabaseHealth
+	if s.db == nil {
+		dbHealth.Status = unhealthyStatusStr
+		return dbHealth
+	}
+
+	start := time.Now()
+	// Ping to check connectivity and measure latency
+	err := s.db.GetDB().PingContext(ctx)
+	duration := time.Since(start)
+
+	dbHealth.Status = healthyStatusStr
+	if err != nil {
+		dbHealth.Status = unhealthyStatusStr
+	}
+
+	dbHealth.ResponseTimeMs = float64(duration.Milliseconds())
+
+	// Get pool stats
+	dbStats := s.db.GetDB().Stats()
+	dbHealth.ActiveConnections = dbStats.InUse // InUse is better reflection of "active" than Open (which includes idle)
+	dbHealth.MaxConnections = dbStats.MaxOpenConnections
+
+	return dbHealth
 }

@@ -30,6 +30,7 @@ var (
 	errMockInvalidNotifPrefs   = errors.New("invalid type assertion for NotificationPreferences")
 	errMockInvalidDisplayPrefs = errors.New("invalid type assertion for DisplayPreferences")
 	errRedis                   = errors.New("redis error")
+	errDB                      = errors.New("database error")
 )
 
 // MockUserRepository is a mock implementation of repository.UserRepository.
@@ -212,6 +213,19 @@ func (m *MockUserRepository) UpdateDisplayPreferences(
 	}
 
 	return nil
+}
+
+func (m *MockUserRepository) GetUserStats(ctx context.Context) (*dto.UserStatsResponse, error) {
+	args := m.Called(ctx)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf(mockErrorFmt, err)
+	}
+
+	result, _ := args.Get(0).(*dto.UserStatsResponse)
+
+	return result, nil
 }
 
 // MockTokenStore is a mock implementation of repository.TokenStore.
@@ -820,6 +834,64 @@ func TestUserServiceConfirmAccountDeletion(t *testing.T) { //nolint:funlen // ta
 				if tt.validateResp != nil {
 					tt.validateResp(t, resp)
 				}
+			}
+		})
+	}
+}
+
+func TestUserServiceGetUserStats(t *testing.T) {
+	t.Parallel()
+
+	expectedStats := &dto.UserStatsResponse{
+		TotalUsers:        100,
+		ActiveUsers:       80,
+		InactiveUsers:     20,
+		NewUsersToday:     5,
+		NewUsersThisWeek:  15,
+		NewUsersThisMonth: 30,
+	}
+
+	tests := []struct {
+		name        string
+		setupMock   func(*MockUserRepository)
+		expectedErr error
+		expected    *dto.UserStatsResponse
+	}{
+		{
+			name: "Success",
+			setupMock: func(m *MockUserRepository) {
+				m.On("GetUserStats", mock.Anything).Return(expectedStats, nil)
+			},
+			expected: expectedStats,
+		},
+		{
+			name: "Repository Error",
+			setupMock: func(m *MockUserRepository) {
+				m.On("GetUserStats", mock.Anything).Return(nil, errDB)
+			},
+			expectedErr: errDB,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockRepo := new(MockUserRepository)
+			mockTokenStore := new(MockTokenStore)
+			svc := service.NewUserService(mockRepo, mockTokenStore)
+
+			tt.setupMock(mockRepo)
+
+			stats, err := svc.GetUserStats(context.Background())
+
+			if tt.expectedErr != nil {
+				require.Error(t, err)
+				require.ErrorIs(t, err, tt.expectedErr)
+				assert.Nil(t, stats)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.expected, stats)
 			}
 		})
 	}

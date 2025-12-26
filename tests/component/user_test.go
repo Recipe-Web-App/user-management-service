@@ -214,6 +214,19 @@ func (m *MockUserRepo) UpdateDisplayPreferences(
 	return nil
 }
 
+func (m *MockUserRepo) GetUserStats(ctx context.Context) (*dto.UserStatsResponse, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, fmt.Errorf("mock error: %w", args.Error(1))
+	}
+
+	if val, ok := args.Get(0).(*dto.UserStatsResponse); ok {
+		return val, nil
+	}
+
+	return nil, fmt.Errorf("mock error: %w", args.Error(1))
+}
+
 // MockTokenStore for component tests.
 type MockTokenStore struct {
 	mock.Mock

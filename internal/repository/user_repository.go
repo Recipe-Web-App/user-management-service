@@ -30,6 +30,7 @@ type UserRepository interface {
 	UpdateNotificationPreferences(ctx context.Context, userID uuid.UUID, prefs *dto.NotificationPreferences) error
 	UpdatePrivacyPreferences(ctx context.Context, userID uuid.UUID, prefs *dto.PrivacyPreferences) error
 	UpdateDisplayPreferences(ctx context.Context, userID uuid.UUID, prefs *dto.DisplayPreferences) error
+	GetUserStats(ctx context.Context) (*dto.UserStatsResponse, error)
 }
 
 // SQLUserRepository implements UserRepository using a SQL database.
@@ -86,6 +87,35 @@ func (r *SQLUserRepository) FindUserByID(ctx context.Context, userID uuid.UUID) 
 	}
 
 	return &user, nil
+}
+
+// GetUserStats retrieves aggregated user statistics.
+func (r *SQLUserRepository) GetUserStats(ctx context.Context) (*dto.UserStatsResponse, error) {
+	query := `
+		SELECT
+			(SELECT COUNT(*) FROM recipe_manager.users) as total_users,
+			(SELECT COUNT(*) FROM recipe_manager.users WHERE is_active = true) as active_users,
+			(SELECT COUNT(*) FROM recipe_manager.users WHERE is_active = false) as inactive_users,
+			(SELECT COUNT(*) FROM recipe_manager.users WHERE created_at >= NOW()::DATE) as new_users_today,
+			(SELECT COUNT(*) FROM recipe_manager.users WHERE created_at >= date_trunc('week', NOW())) as new_users_this_week,
+			(SELECT COUNT(*) FROM recipe_manager.users WHERE created_at >= date_trunc('month', NOW())) as new_users_this_month
+	`
+
+	var stats dto.UserStatsResponse
+
+	err := r.db.QueryRowContext(ctx, query).Scan(
+		&stats.TotalUsers,
+		&stats.ActiveUsers,
+		&stats.InactiveUsers,
+		&stats.NewUsersToday,
+		&stats.NewUsersThisWeek,
+		&stats.NewUsersThisMonth,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query user stats: %w", err)
+	}
+
+	return &stats, nil
 }
 
 // FindPrivacyPreferencesByUserID retrieves privacy preferences for a user.

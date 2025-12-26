@@ -103,7 +103,7 @@ paths:
       summary: Update user profile
       description: Update current user's profile information
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -727,10 +727,10 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
-  /metrics/cache/clear:
+  /admin/cache/clear:
     post:
       tags:
-        - metrics
+        - admin
       summary: Clear cache entries
       description: Clear cache entries matching a pattern (requires admin authentication)
       requestBody:
@@ -740,7 +740,7 @@ paths:
             schema:
               type: object
               properties:
-                pattern:
+                keyPattern:
                   type: string
                   default: "*"
                   description: Redis pattern for keys to clear

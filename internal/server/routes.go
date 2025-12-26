@@ -111,6 +111,7 @@ func registerNotificationRoutes(r chi.Router, h Handlers) {
 func registerAdminRoutes(r chi.Router, h Handlers) {
 	r.Route("/admin", func(r chi.Router) {
 		r.Get("/users/stats", h.Admin.GetUserStats)
+		r.Post("/cache/clear", h.Admin.ClearCache)
 	})
 }
 
@@ -118,7 +119,8 @@ func registerMetricsRoutes(r chi.Router, h Handlers) {
 	r.Route("/metrics", func(r chi.Router) {
 		r.Get("/performance", h.Metrics.GetPerformanceMetrics)
 		r.Get("/cache", h.Metrics.GetCacheMetrics)
-		r.Post("/cache/clear", h.Metrics.ClearCache)
+		r.Get("/cache", h.Metrics.GetCacheMetrics)
+		// r.Post("/cache/clear", h.Metrics.ClearCache) // Moved to Admin
 		r.Get("/system", h.Metrics.GetSystemMetrics)
 		r.Get("/health/detailed", h.Metrics.GetDetailedHealthMetrics)
 	})

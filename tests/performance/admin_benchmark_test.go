@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -74,4 +75,25 @@ func BenchmarkGetUserStatsConcurrent(b *testing.B) {
 			}
 		}
 	})
+}
+
+func BenchmarkClearCache(b *testing.B) {
+	if benchmarkContainer == nil {
+		b.Fatal("benchmark container is nil")
+	}
+
+	reqPath := "/api/v1/user-management/admin/cache/clear"
+
+	for b.Loop() {
+		reqBody := strings.NewReader(`{"keyPattern": "*"}`)
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, reqPath, reqBody)
+		req.Header.Set("Content-Type", "application/json")
+
+		rr := httptest.NewRecorder()
+		benchmarkHandler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			b.Fatalf("unexpected status: %d, body: %s", rr.Code, rr.Body.String())
+		}
+	}
 }

@@ -139,3 +139,50 @@ func createConfigFile(t *testing.T, dir, name, content string) {
 	err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0600)
 	require.NoError(t, err)
 }
+
+//nolint:paralleltest
+func TestLoad_EnvironmentDefaults(t *testing.T) {
+	viper.Reset()
+
+	tmpDir := t.TempDir()
+	configDir := filepath.Join(tmpDir, "config")
+	err := os.Mkdir(configDir, 0750)
+	require.NoError(t, err)
+
+	// Create minimal config files
+	createConfigFile(t, configDir, "server.yaml", "server:\n  port: 8080")
+	createConfigFile(t, configDir, "cors.yaml", "cors:\n  allowedorigins: ['*']")
+	createConfigFile(t, configDir, "logging.yaml", "logging:\n  consoleenabled: true")
+	createConfigFile(t, configDir, "database.yaml", "postgres:\n  defaultmaxopenconns: 10")
+
+	t.Chdir(tmpDir)
+
+	// Case 1: Default value
+	cfg := Load()
+	assert.Equal(t, "development", cfg.Environment)
+}
+
+func TestLoad_EnvironmentVariableBinding(t *testing.T) {
+	viper.Reset()
+
+	tmpDir := t.TempDir()
+	configDir := filepath.Join(tmpDir, "config")
+	err := os.Mkdir(configDir, 0750)
+	require.NoError(t, err)
+
+	// Create minimal config files
+	createConfigFile(t, configDir, "server.yaml", "server:\n  port: 8080")
+	createConfigFile(t, configDir, "cors.yaml", "cors:\n  allowedorigins: ['*']")
+	createConfigFile(t, configDir, "logging.yaml", "logging:\n  consoleenabled: true")
+	createConfigFile(t, configDir, "database.yaml", "postgres:\n  defaultmaxopenconns: 10")
+
+	t.Chdir(tmpDir)
+
+	// Test ENVIRONMENT variable binding
+	t.Setenv("ENVIRONMENT", "staging")
+
+	// Re-bind envs because viper.Reset() clears them
+	// In the real application, Load() handles the binding.
+	cfg := Load()
+	assert.Equal(t, "staging", cfg.Environment)
+}

@@ -83,6 +83,11 @@ func Load() *Config {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
+	// Defaults
+	viper.SetDefault("environment", "development")
+
+	_ = viper.BindEnv("environment", "ENVIRONMENT")
+
 	// Read config files
 	viper.AddConfigPath("./config")
 

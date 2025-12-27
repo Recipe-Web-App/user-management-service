@@ -63,7 +63,7 @@ tags:
 
 paths:
   # User Management Endpoints
-  /users/{user_id}/profile:
+  /users/{userId}/profile:
     get:
       tags:
         - users
@@ -212,7 +212,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /users/{user_id}:
+  /users/{userId}:
     get:
       tags:
         - users
@@ -240,7 +240,7 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
 
   # Social Features Endpoints
-  /users/{user_id}/following:
+  /users/{userId}/following:
     get:
       tags:
         - social
@@ -271,7 +271,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /users/{user_id}/followers:
+  /users/{userId}/followers:
     get:
       tags:
         - social
@@ -300,7 +300,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /users/{user_id}/follow/{target_user_id}:
+  /users/{userId}/follow/{targetUserId}:
     post:
       tags:
         - social
@@ -308,7 +308,7 @@ paths:
       description: Follow another user
       parameters:
         - $ref: "#/components/parameters/UserIdPath"
-        - name: target_user_id
+        - name: targetUserId
           in: path
           required: true
           description: Target user ID to follow
@@ -340,7 +340,7 @@ paths:
       description: Unfollow another user
       parameters:
         - $ref: "#/components/parameters/UserIdPath"
-        - name: target_user_id
+        - name: targetUserId
           in: path
           required: true
           description: Target user ID to unfollow
@@ -365,7 +365,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /users/{user_id}/activity:
+  /users/{userId}/activity:
     get:
       tags:
         - social
@@ -373,7 +373,7 @@ paths:
       description: Retrieve activity from a specific user (recipes, follows, reviews, favorites)
       parameters:
         - $ref: "#/components/parameters/UserIdPath"
-        - name: per_type_limit
+        - name: perTypeLimit
           in: query
           description: Number of results to return per activity type
           schema:
@@ -463,14 +463,14 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /notifications/{notification_id}/read:
+  /notifications/{notificationId}/read:
     put:
       tags:
         - notifications
       summary: Mark notification as read
       description: Mark a notification as read
       parameters:
-        - name: notification_id
+        - name: notificationId
           in: path
           required: true
           description: Notification ID
@@ -756,7 +756,7 @@ components:
 
   parameters:
     UserIdPath:
-      name: user_id
+      name: userId
       in: path
       required: true
       description: User ID
@@ -784,7 +784,7 @@ components:
         default: 0
 
     CountOnlyParam:
-      name: count_only
+      name: countOnly
       in: query
       description: Return only the count of results
       schema:
@@ -820,20 +820,20 @@ components:
           schema:
             $ref: "#/components/schemas/OAuth2ScopeError"
           examples:
-            missing_write_scope:
+            missingWriteScope:
               summary: Missing write scope
               value:
                 detail: "Missing required scope: user:write"
-                error_code: "INSUFFICIENT_SCOPE"
-                required_scopes: ["user:write"]
-                available_scopes: ["user:read", "profile"]
-            missing_admin_scope:
+                errorCode: "INSUFFICIENT_SCOPE"
+                requiredScopes: ["user:write"]
+                availableScopes: ["user:read", "profile"]
+            missingAdminScope:
               summary: Missing admin scope
               value:
                 detail: "Missing required scope: admin"
-                error_code: "INSUFFICIENT_SCOPE"
-                required_scopes: ["admin"]
-                available_scopes: ["user:read", "user:write", "profile"]
+                errorCode: "INSUFFICIENT_SCOPE"
+                requiredScopes: ["admin"]
+                availableScopes: ["user:read", "user:write", "profile"]
 
     NotFound:
       description: Resource not found
@@ -874,7 +874,7 @@ components:
         error:
           type: string
           description: Error type or category
-          example: validation_error
+          example: validationError
         message:
           type: string
           description: Human-readable error message
@@ -1110,15 +1110,15 @@ components:
           items:
             $ref: "#/components/schemas/User"
           nullable: true
-          description: List of users being followed (null when count_only=true)
+          description: List of users being followed (null when countOnly=true)
         limit:
           type: integer
           nullable: true
-          description: Number of results returned (null when count_only=true)
+          description: Number of results returned (null when countOnly=true)
         offset:
           type: integer
           nullable: true
-          description: Number of results skipped (null when count_only=true)
+          description: Number of results skipped (null when countOnly=true)
 
     FollowResponse:
       type: object
@@ -1376,7 +1376,7 @@ components:
           type: string
           description: Success message
           example: Notifications deleted successfully
-        deleted_notification_ids:
+        deletedNotificationIds:
           type: array
           items:
             type: string
@@ -1387,11 +1387,11 @@ components:
     UserPreferences:
       type: object
       properties:
-        notification_preferences:
+        notificationPreferences:
           $ref: "#/components/schemas/NotificationPreferences"
-        privacy_preferences:
+        privacyPreferences:
           $ref: "#/components/schemas/PrivacyPreferences"
-        display_preferences:
+        displayPreferences:
           $ref: "#/components/schemas/DisplayPreferences"
 
     UserPreferenceResponse:
@@ -1403,55 +1403,55 @@ components:
     UpdateUserPreferenceRequest:
       type: object
       properties:
-        notification_preferences:
+        notificationPreferences:
           $ref: "#/components/schemas/NotificationPreferences"
-        privacy_preferences:
+        privacyPreferences:
           $ref: "#/components/schemas/PrivacyPreferences"
-        display_preferences:
+        displayPreferences:
           $ref: "#/components/schemas/DisplayPreferences"
 
     NotificationPreferences:
       type: object
       properties:
-        email_notifications:
+        emailNotifications:
           type: boolean
           default: true
-        push_notifications:
+        pushNotifications:
           type: boolean
           default: true
-        follow_notifications:
+        followNotifications:
           type: boolean
           default: true
-        like_notifications:
+        likeNotifications:
           type: boolean
           default: true
-        comment_notifications:
+        commentNotifications:
           type: boolean
           default: true
-        recipe_notifications:
+        recipeNotifications:
           type: boolean
           default: true
-        system_notifications:
+        systemNotifications:
           type: boolean
           default: true
 
     PrivacyPreferences:
       type: object
       properties:
-        profile_visibility:
+        profileVisibility:
           type: string
-          enum: [public, followers_only, private]
+          enum: [public, followersOnly, private]
           default: public
-        show_email:
+        showEmail:
           type: boolean
           default: false
-        show_full_name:
+        showFullName:
           type: boolean
           default: true
-        allow_follows:
+        allowFollows:
           type: boolean
           default: true
-        allow_messages:
+        allowMessages:
           type: boolean
           default: true
 
@@ -1473,74 +1473,74 @@ components:
     UserStatsResponse:
       type: object
       properties:
-        total_users:
+        totalUsers:
           type: integer
-        active_users:
+        activeUsers:
           type: integer
-        inactive_users:
+        inactiveUsers:
           type: integer
-        new_users_today:
+        newUsersToday:
           type: integer
-        new_users_this_week:
+        newUsersThisWeek:
           type: integer
-        new_users_this_month:
+        newUsersThisMonth:
           type: integer
 
     # Metrics Schemas
     PerformanceMetrics:
       type: object
       properties:
-        response_times:
+        responseTimes:
           type: object
           properties:
-            average_ms:
+            averageMs:
               type: number
-            p50_ms:
+            p50Ms:
               type: number
-            p95_ms:
+            p95Ms:
               type: number
-            p99_ms:
+            p99Ms:
               type: number
-        request_counts:
+        requestCounts:
           type: object
           properties:
-            total_requests:
+            totalRequests:
               type: integer
-        error_rates:
+        errorRates:
           type: object
           properties:
-            total_errors:
+            totalErrors:
               type: integer
-            error_rate_percent:
+            errorRatePercent:
               type: number
-            4xx_errors:
+            4xxErrors:
               type: integer
-            5xx_errors:
+            5xxErrors:
               type: integer
         database:
           type: object
           properties:
-            active_connections:
+            activeConnections:
               type: integer
-            max_connections:
+            maxConnections:
               type: integer
 
     CacheMetrics:
       type: object
       properties:
-        memory_usage:
+        memoryUsage:
           type: string
-        memory_usage_human:
+        memoryUsageHuman:
           type: string
-        keys_count:
+        keysCount:
           type: integer
-        hit_rate:
+        hitRate:
           type: number
-        connected_clients:
+        connectedClients:
           type: integer
-        evicted_keys:
+        evictedKeys:
           type: integer
-        expired_keys:
+        expiredKeys:
           type: integer
 
     CacheClearResponse:
@@ -1551,7 +1551,7 @@ components:
           example: Cache cleared successfully
         pattern:
           type: string
-        cleared_count:
+        clearedCount:
           type: integer
 
     SystemMetrics:
@@ -1563,34 +1563,34 @@ components:
         system:
           type: object
           properties:
-            cpu_usage_percent:
+            cpuUsagePercent:
               type: number
-            memory_total_gb:
+            memoryTotalGb:
               type: number
-            memory_used_gb:
+            memoryUsedGb:
               type: number
-            memory_usage_percent:
+            memoryUsagePercent:
               type: number
-            disk_total_gb:
+            diskTotalGb:
               type: number
-            disk_used_gb:
+            diskUsedGb:
               type: number
-            disk_usage_percent:
+            diskUsagePercent:
               type: number
         process:
           type: object
           properties:
-            memory_rss_mb:
+            memoryRssMb:
               type: number
-            memory_vms_mb:
+            memoryVmsMb:
               type: number
-            cpu_percent:
+            cpuPercent:
               type: number
-            num_threads:
+            numThreads:
               type: integer
-            open_files:
+            openFiles:
               type: integer
-        uptime_seconds:
+        uptimeSeconds:
           type: integer
 
     DetailedHealthMetrics:
@@ -1599,7 +1599,7 @@ components:
         timestamp:
           type: string
           format: date-time
-        overall_status:
+        overallStatus:
           type: string
           enum: [healthy, degraded, unhealthy]
         services:
@@ -1611,13 +1611,13 @@ components:
                 status:
                   type: string
                   enum: [healthy, unhealthy]
-                response_time_ms:
+                responseTimeMs:
                   type: number
-                memory_usage:
+                memoryUsage:
                   type: string
-                connected_clients:
+                connectedClients:
                   type: integer
-                hit_rate_percent:
+                hitRatePercent:
                   type: number
             database:
               type: object
@@ -1625,11 +1625,11 @@ components:
                 status:
                   type: string
                   enum: [healthy, unhealthy]
-                response_time_ms:
+                responseTimeMs:
                   type: number
-                active_connections:
+                activeConnections:
                   type: integer
-                max_connections:
+                maxConnections:
                   type: integer
         application:
           type: object
@@ -1647,7 +1647,7 @@ components:
                   type: string
                 monitoring:
                   type: string
-                security_headers:
+                securityHeaders:
                   type: string
 
     # Health Check Schemas
@@ -1658,7 +1658,7 @@ components:
           type: boolean
         status:
           type: string
-          enum: [ready, degraded, not_ready]
+          enum: [ready, degraded, notReady]
         checks:
           type: object
           properties:
@@ -1691,24 +1691,24 @@ components:
       type: object
       required:
         - detail
-        - error_code
-        - required_scopes
+        - errorCode
+        - requiredScopes
       properties:
         detail:
           type: string
           description: Human-readable error message
           example: "Missing required scope: user:write"
-        error_code:
+        errorCode:
           type: string
           description: Machine-readable error code
           example: "INSUFFICIENT_SCOPE"
-        required_scopes:
+        requiredScopes:
           type: array
           items:
             type: string
           description: List of scopes required for this operation
           example: ["user:write"]
-        available_scopes:
+        availableScopes:
           type: array
           items:
             type: string

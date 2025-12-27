@@ -3,6 +3,7 @@ package handler
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
@@ -72,6 +73,7 @@ func (h *AdminHandler) handleBindError(w http.ResponseWriter, err error) {
 	case errors.Is(err, ErrValidationFailed):
 		ValidationErrorResponse(w, err)
 	default:
+		slog.Error("failed to bind request body", "error", err)
 		ErrorResponse(w, http.StatusBadRequest, "BAD_REQUEST", err.Error())
 	}
 }

@@ -1,16 +1,9 @@
 // Package dto contains Data Transfer Objects for API request/response handling.
 package dto
 
-// Response represents a standard API response wrapper.
-type Response struct {
-	Success bool   `json:"success"`
-	Data    any    `json:"data,omitempty"`
-	Error   *Error `json:"error,omitempty"`
-}
-
 // Error represents an API error response.
 type Error struct {
-	Code    string            `json:"code"`
+	Code    string            `json:"error"`
 	Message string            `json:"message"`
 	Details map[string]string `json:"details,omitempty"`
 }

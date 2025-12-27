@@ -406,7 +406,7 @@ func (s *SocialServiceImpl) buildFollowingResponse(
 	}
 
 	if countOnly {
-		// When count_only is true, return only totalCount (other fields remain nil)
+		// When countOnly is true, return only totalCount (other fields remain nil)
 		return response
 	}
 

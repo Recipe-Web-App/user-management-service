@@ -203,23 +203,21 @@ func TestSocialHandlerGetFollowing(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 				assert.Contains(t, body, `"totalCount":1`)
 				assert.Contains(t, body, `"janesmith"`)
 			},
 		},
 		{
-			name:           "Success - count_only returns only totalCount",
+			name:           "Success - countOnly returns only totalCount",
 			targetIDPath:   targetID.String(),
 			requesterIDHdr: requesterID.String(),
-			queryParams:    "count_only=true",
+			queryParams:    "countOnly=true",
 			mockRun: func(m *MockSocialService) {
 				m.On("GetFollowing", mock.Anything, requesterID, targetID, 20, 0, true).Return(countOnlyResponse, nil)
 			},
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 				assert.Contains(t, body, `"totalCount":42`)
 			},
 		},
@@ -234,7 +232,6 @@ func TestSocialHandlerGetFollowing(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 				assert.Contains(t, body, `"totalCount":0`)
 				// Empty followedUsers is omitted due to omitempty tag
 				assert.NotContains(t, body, `"followedUsers"`)
@@ -251,7 +248,6 @@ func TestSocialHandlerGetFollowing(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 			},
 		},
 		{
@@ -265,7 +261,6 @@ func TestSocialHandlerGetFollowing(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 			},
 		},
 		{
@@ -373,16 +368,16 @@ func TestSocialHandlerGetFollowing(t *testing.T) {
 			},
 		},
 		{
-			name:           "Validation Error - invalid count_only",
+			name:           "Validation Error - invalid countOnly",
 			targetIDPath:   targetID.String(),
 			requesterIDHdr: requesterID.String(),
-			queryParams:    "count_only=maybe",
+			queryParams:    "countOnly=maybe",
 			mockRun:        func(_ *MockSocialService) {},
 			expectedStatus: http.StatusBadRequest,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
 				assert.Contains(t, body, "VALIDATION_ERROR")
-				assert.Contains(t, body, "count_only must be a valid boolean")
+				assert.Contains(t, body, "countOnly must be a valid boolean")
 			},
 		},
 		{
@@ -518,23 +513,21 @@ func TestSocialHandlerGetFollowers(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 				assert.Contains(t, body, `"totalCount":1`)
 				assert.Contains(t, body, `"janesmith"`)
 			},
 		},
 		{
-			name:           "Success - count_only returns only totalCount",
+			name:           "Success - countOnly returns only totalCount",
 			targetIDPath:   targetID.String(),
 			requesterIDHdr: requesterID.String(),
-			queryParams:    "count_only=true",
+			queryParams:    "countOnly=true",
 			mockRun: func(m *MockSocialService) {
 				m.On("GetFollowers", mock.Anything, requesterID, targetID, 20, 0, true).Return(countOnlyResponse, nil)
 			},
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 				assert.Contains(t, body, `"totalCount":42`)
 			},
 		},
@@ -549,7 +542,6 @@ func TestSocialHandlerGetFollowers(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 				assert.Contains(t, body, `"totalCount":0`)
 				// Empty followedUsers is omitted due to omitempty tag
 				assert.NotContains(t, body, `"followedUsers"`)
@@ -566,7 +558,6 @@ func TestSocialHandlerGetFollowers(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 			},
 		},
 		{
@@ -580,7 +571,6 @@ func TestSocialHandlerGetFollowers(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 			},
 		},
 		{
@@ -688,16 +678,16 @@ func TestSocialHandlerGetFollowers(t *testing.T) {
 			},
 		},
 		{
-			name:           "Validation Error - invalid count_only",
+			name:           "Validation Error - invalid countOnly",
 			targetIDPath:   targetID.String(),
 			requesterIDHdr: requesterID.String(),
-			queryParams:    "count_only=maybe",
+			queryParams:    "countOnly=maybe",
 			mockRun:        func(_ *MockSocialService) {},
 			expectedStatus: http.StatusBadRequest,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
 				assert.Contains(t, body, "VALIDATION_ERROR")
-				assert.Contains(t, body, "count_only must be a valid boolean")
+				assert.Contains(t, body, "countOnly must be a valid boolean")
 			},
 		},
 		{
@@ -819,7 +809,6 @@ func TestSocialHandlerFollowUser(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 				assert.Contains(t, body, `"isFollowing":true`)
 				assert.Contains(t, body, `"Successfully followed user"`)
 			},
@@ -836,7 +825,6 @@ func TestSocialHandlerFollowUser(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 				assert.Contains(t, body, `"isFollowing":true`)
 			},
 		},
@@ -1035,7 +1023,6 @@ func TestSocialHandlerUnfollowUser(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 				assert.Contains(t, body, `"isFollowing":false`)
 				assert.Contains(t, body, `"Successfully unfollowed user"`)
 			},
@@ -1052,7 +1039,6 @@ func TestSocialHandlerUnfollowUser(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 				assert.Contains(t, body, `"isFollowing":false`)
 			},
 		},
@@ -1251,7 +1237,6 @@ func TestSocialHandlerGetUserActivity(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 				assert.Contains(t, body, `"userId"`)
 				assert.Contains(t, body, `"recentRecipes"`)
 				assert.Contains(t, body, `"Test Recipe"`)
@@ -1269,7 +1254,6 @@ func TestSocialHandlerGetUserActivity(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 				assert.Contains(t, body, `"recentRecipes"`)
 			},
 		},
@@ -1285,7 +1269,7 @@ func TestSocialHandlerGetUserActivity(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
+				// success check removed
 			},
 		},
 		{
@@ -1322,7 +1306,6 @@ func TestSocialHandlerGetUserActivity(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 				assert.Contains(t, body, `"recentRecipes":[]`)
 			},
 		},

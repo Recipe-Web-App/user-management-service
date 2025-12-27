@@ -244,7 +244,7 @@ func (r *SQLUserRepository) FindDisplayPreferencesByUserID(
 	userID uuid.UUID,
 ) (*dto.DisplayPreferences, error) {
 	query := `
-		SELECT theme, layout_density
+		SELECT color_scheme, layout_density
 		FROM recipe_manager.user_display_preferences
 		WHERE user_id = $1
 	`
@@ -256,10 +256,10 @@ func (r *SQLUserRepository) FindDisplayPreferencesByUserID(
 		Timezone: "UTC", // Not in DB yet
 	}
 
-	var theme, density string
+	var colorScheme, density string
 
 	err := r.db.QueryRowContext(ctx, query, userID).Scan(
-		&theme,
+		&colorScheme,
 		&density,
 	)
 	if err != nil {
@@ -271,14 +271,15 @@ func (r *SQLUserRepository) FindDisplayPreferencesByUserID(
 	}
 
 	// Map DB values to DTO
-	// DB Theme: LIGHT, DARK, SYSTEM
+	// DB Color Scheme: LIGHT, DARK, AUTO, HIGH_CONTRAST
 	// DTO Theme: light, dark, auto
-	switch theme {
+	switch colorScheme {
 	case "LIGHT":
 		prefs.Theme = "light"
 	case "DARK":
 		prefs.Theme = "dark"
 	default:
+		// AUTO and HIGH_CONTRAST map to auto for now
 		prefs.Theme = "auto"
 	}
 
@@ -624,15 +625,20 @@ func (r *SQLUserRepository) UpdateDisplayPreferences(
 	userID uuid.UUID,
 	prefs *dto.DisplayPreferences,
 ) error {
-	var theme string
+	var colorScheme string
 
-	switch prefs.Theme {
+	// Normalize theme input: trim spaces, trim quotes, to lowercase
+	themeInput := strings.TrimSpace(prefs.Theme)
+	themeInput = strings.Trim(themeInput, "\"")
+	themeInput = strings.ToLower(themeInput)
+
+	switch themeInput {
 	case "light":
-		theme = "LIGHT"
+		colorScheme = "LIGHT"
 	case "dark":
-		theme = "DARK"
+		colorScheme = "DARK"
 	default:
-		theme = "SYSTEM"
+		colorScheme = "AUTO"
 	}
 
 	// Layout density not in DTO, using default 'COMFORTABLE'
@@ -641,17 +647,17 @@ func (r *SQLUserRepository) UpdateDisplayPreferences(
 	query := `
 		INSERT INTO recipe_manager.user_display_preferences (
 			user_id,
-			theme,
+			color_scheme,
 			layout_density,
 			updated_at
 		) VALUES ($1, $2, $3, NOW())
 		ON CONFLICT (user_id) DO UPDATE SET
-			theme = EXCLUDED.theme,
+			color_scheme = EXCLUDED.color_scheme,
 			layout_density = EXCLUDED.layout_density,
 			updated_at = NOW()
 	`
 
-	_, err := r.db.ExecContext(ctx, query, userID, theme, layoutDensity)
+	_, err := r.db.ExecContext(ctx, query, userID, colorScheme, layoutDensity)
 	if err != nil {
 		return fmt.Errorf("failed to update display preferences: %w", err)
 	}

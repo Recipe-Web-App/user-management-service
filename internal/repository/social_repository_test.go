@@ -23,7 +23,7 @@ const (
 		`WHERE uf.follower_id = \$1 AND u.is_active = true ` +
 		`ORDER BY uf.followed_at DESC LIMIT \$2`
 	selectRecentReviewsQuery = `SELECT review_id, recipe_id, rating, comment, created_at ` +
-		`FROM recipe_manager.recipe_reviews WHERE user_id = \$1 ` +
+		`FROM recipe_manager.reviews WHERE user_id = \$1 ` +
 		`ORDER BY created_at DESC LIMIT \$2`
 	selectRecentFavoritesQuery = `SELECT rf.recipe_id, rec.title, rf.favorited_at ` +
 		`FROM recipe_manager.recipe_favorites rf ` +

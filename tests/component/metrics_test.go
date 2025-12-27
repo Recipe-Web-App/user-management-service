@@ -56,18 +56,14 @@ func TestMetricsEndpoint(t *testing.T) {
 	// Assert
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	var response struct {
-		Success bool                           `json:"success"`
-		Data    dto.PerformanceMetricsResponse `json:"data"`
-	}
+	var response dto.PerformanceMetricsResponse
 
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	require.NoError(t, err)
-	require.True(t, response.Success)
 
 	// Verify values from mock
-	assert.Equal(t, 100, response.Data.RequestCounts.TotalRequests)
-	assert.InDelta(t, 42.0, response.Data.ResponseTimes.AverageMs, 0.1)
+	assert.Equal(t, 100, response.RequestCounts.TotalRequests)
+	assert.InDelta(t, 42.0, response.ResponseTimes.AverageMs, 0.1)
 }
 
 // Mock service.
@@ -157,17 +153,13 @@ func TestMetricsEndpoint_System(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	var response struct {
-		Success bool                      `json:"success"`
-		Data    dto.SystemMetricsResponse `json:"data"`
-	}
+	var response dto.SystemMetricsResponse
 
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	require.NoError(t, err)
-	require.True(t, response.Success)
 
-	assert.InDelta(t, 25.5, response.Data.System.CPUUsagePercent, 0.01)
-	assert.Equal(t, 10, response.Data.Process.NumThreads)
+	assert.InDelta(t, 25.5, response.System.CPUUsagePercent, 0.01)
+	assert.Equal(t, 10, response.Process.NumThreads)
 }
 
 func TestMetricsEndpointDetailedHealth(t *testing.T) {
@@ -206,16 +198,12 @@ func TestMetricsEndpointDetailedHealth(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	var response struct {
-		Success bool                              `json:"success"`
-		Data    dto.DetailedHealthMetricsResponse `json:"data"`
-	}
+	var response dto.DetailedHealthMetricsResponse
 
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	require.NoError(t, err)
-	require.True(t, response.Success)
 
-	assert.Equal(t, "healthy", response.Data.OverallStatus)
-	assert.Equal(t, "1.0.0", response.Data.Application.Version)
-	assert.Equal(t, "healthy", response.Data.Services.Redis.Status)
+	assert.Equal(t, "healthy", response.OverallStatus)
+	assert.Equal(t, "1.0.0", response.Application.Version)
+	assert.Equal(t, "healthy", response.Services.Redis.Status)
 }

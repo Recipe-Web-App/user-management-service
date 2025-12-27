@@ -35,11 +35,8 @@ func TestPerformanceMetricsEndpoint(t *testing.T) {
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	require.NoError(t, err)
 
-	data, ok := response["data"].(map[string]any)
-	require.True(t, ok, responseDataMapMsg)
-
-	assert.Contains(t, data, "requestCounts")
-	assert.Contains(t, data, "database")
+	assert.Contains(t, response, "requestCounts")
+	assert.Contains(t, response, "database")
 }
 
 func TestCacheMetricsEndpoint(t *testing.T) {
@@ -64,10 +61,7 @@ func TestCacheMetricsEndpoint(t *testing.T) {
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	require.NoError(t, err)
 
-	data, ok := response["data"].(map[string]any)
-	require.True(t, ok, responseDataMapMsg)
-
-	assert.Contains(t, data, "hitRate")
+	assert.Contains(t, response, "hitRate")
 }
 
 func TestSystemMetricsEndpoint(t *testing.T) {
@@ -92,11 +86,8 @@ func TestSystemMetricsEndpoint(t *testing.T) {
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	require.NoError(t, err)
 
-	data, ok := response["data"].(map[string]any)
-	require.True(t, ok, responseDataMapMsg)
-
-	assert.Contains(t, data, "system")
-	assert.Contains(t, data, "process")
+	assert.Contains(t, response, "system")
+	assert.Contains(t, response, "process")
 }
 
 func TestDetailedHealthMetricsEndpoint(t *testing.T) {
@@ -121,10 +112,7 @@ func TestDetailedHealthMetricsEndpoint(t *testing.T) {
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	require.NoError(t, err)
 
-	data, ok := response["data"].(map[string]any)
-	require.True(t, ok, responseDataMapMsg)
-
-	assert.Contains(t, data, "overallStatus")
-	assert.Contains(t, data, "services")
-	assert.Contains(t, data, "application")
+	assert.Contains(t, response, "overallStatus")
+	assert.Contains(t, response, "services")
+	assert.Contains(t, response, "application")
 }

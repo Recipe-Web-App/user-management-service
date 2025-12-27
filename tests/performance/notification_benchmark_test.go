@@ -155,7 +155,7 @@ func BenchmarkGetNotificationsCountOnly(b *testing.B) {
 	// Seed 50 notifications for this user
 	_ = seedBenchmarkNotifications(b, dbSvc.GetDB(), userID, 50)
 
-	reqPath := "/api/v1/user-management/notifications?count_only=true"
+	reqPath := "/api/v1/user-management/notifications?countOnly=true"
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
 	req.Header.Set("X-User-Id", userID.String())
 

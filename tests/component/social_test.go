@@ -235,20 +235,16 @@ func TestGetFollowingComponent_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var apiResp struct {
-		Success bool                         `json:"success"`
-		Data    dto.GetFollowedUsersResponse `json:"data"`
-	}
+	var apiResp dto.GetFollowedUsersResponse
 
 	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
 	require.NoError(t, err)
-	require.True(t, apiResp.Success)
-	assert.Equal(t, 2, apiResp.Data.TotalCount)
-	assert.Len(t, apiResp.Data.FollowedUsers, 2)
-	require.NotNil(t, apiResp.Data.Limit)
-	require.NotNil(t, apiResp.Data.Offset)
-	assert.Equal(t, 20, *apiResp.Data.Limit)
-	assert.Equal(t, 0, *apiResp.Data.Offset)
+	assert.Equal(t, 2, apiResp.TotalCount)
+	assert.Len(t, apiResp.FollowedUsers, 2)
+	require.NotNil(t, apiResp.Limit)
+	require.NotNil(t, apiResp.Offset)
+	assert.Equal(t, 20, *apiResp.Limit)
+	assert.Equal(t, 0, *apiResp.Offset)
 
 	mockUserRepo.AssertExpectations(t)
 	mockSocialRepo.AssertExpectations(t)
@@ -286,7 +282,7 @@ func TestGetFollowingComponent_CountOnly(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodGet,
-		"/api/v1/user-management/users/"+targetUserID.String()+"/following?count_only=true",
+		"/api/v1/user-management/users/"+targetUserID.String()+"/following?countOnly=true",
 		nil,
 	)
 	req.Header.Set("X-User-Id", requesterID.String())
@@ -297,7 +293,7 @@ func TestGetFollowingComponent_CountOnly(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"totalCount":42`)
-	// count_only mode should not include followedUsers, limit, offset
+	// countOnly mode should not include followedUsers, limit, offset
 	assert.NotContains(t, rr.Body.String(), `"followedUsers"`)
 
 	mockUserRepo.AssertExpectations(t)
@@ -720,20 +716,16 @@ func TestGetFollowersComponent_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var apiResp struct {
-		Success bool                         `json:"success"`
-		Data    dto.GetFollowedUsersResponse `json:"data"`
-	}
+	var apiResp dto.GetFollowedUsersResponse
 
 	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
 	require.NoError(t, err)
-	require.True(t, apiResp.Success)
-	assert.Equal(t, 2, apiResp.Data.TotalCount)
-	assert.Len(t, apiResp.Data.FollowedUsers, 2)
-	require.NotNil(t, apiResp.Data.Limit)
-	require.NotNil(t, apiResp.Data.Offset)
-	assert.Equal(t, 20, *apiResp.Data.Limit)
-	assert.Equal(t, 0, *apiResp.Data.Offset)
+	assert.Equal(t, 2, apiResp.TotalCount)
+	assert.Len(t, apiResp.FollowedUsers, 2)
+	require.NotNil(t, apiResp.Limit)
+	require.NotNil(t, apiResp.Offset)
+	assert.Equal(t, 20, *apiResp.Limit)
+	assert.Equal(t, 0, *apiResp.Offset)
 
 	mockUserRepo.AssertExpectations(t)
 	mockSocialRepo.AssertExpectations(t)
@@ -771,7 +763,7 @@ func TestGetFollowersComponent_CountOnly(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodGet,
-		"/api/v1/user-management/users/"+targetUserID.String()+"/followers?count_only=true",
+		"/api/v1/user-management/users/"+targetUserID.String()+"/followers?countOnly=true",
 		nil,
 	)
 	req.Header.Set("X-User-Id", requesterID.String())
@@ -782,7 +774,7 @@ func TestGetFollowersComponent_CountOnly(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"totalCount":42`)
-	// count_only mode should not include followedUsers, limit, offset
+	// countOnly mode should not include followedUsers, limit, offset
 	assert.NotContains(t, rr.Body.String(), `"followedUsers"`)
 
 	mockUserRepo.AssertExpectations(t)
@@ -2117,19 +2109,15 @@ func TestGetUserActivityComponent_Success_Authenticated(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var apiResp struct {
-		Success bool                     `json:"success"`
-		Data    dto.UserActivityResponse `json:"data"`
-	}
+	var apiResp dto.UserActivityResponse
 
 	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
 	require.NoError(t, err)
-	require.True(t, apiResp.Success)
-	assert.Equal(t, targetUserID.String(), apiResp.Data.UserID)
-	assert.Len(t, apiResp.Data.RecentRecipes, 2)
-	assert.Len(t, apiResp.Data.RecentFollows, 1)
-	assert.Len(t, apiResp.Data.RecentReviews, 1)
-	assert.Len(t, apiResp.Data.RecentFavorites, 1)
+	assert.Equal(t, targetUserID.String(), apiResp.UserID)
+	assert.Len(t, apiResp.RecentRecipes, 2)
+	assert.Len(t, apiResp.RecentFollows, 1)
+	assert.Len(t, apiResp.RecentReviews, 1)
+	assert.Len(t, apiResp.RecentFavorites, 1)
 
 	mockUserRepo.AssertExpectations(t)
 	mockSocialRepo.AssertExpectations(t)

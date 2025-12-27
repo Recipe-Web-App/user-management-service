@@ -22,38 +22,27 @@ func JSONResponse(w http.ResponseWriter, status int, data any) {
 	}
 }
 
-// SuccessResponse writes a successful JSON response.
 func SuccessResponse(w http.ResponseWriter, status int, data any) {
-	JSONResponse(w, status, dto.Response{
-		Success: true,
-		Data:    data,
-	})
+	JSONResponse(w, status, data)
 }
 
-// ErrorResponse writes an error JSON response.
 func ErrorResponse(w http.ResponseWriter, status int, code, message string) {
-	JSONResponse(w, status, dto.Response{
-		Success: false,
-		Error: &dto.Error{
-			Code:    code,
-			Message: message,
-		},
+	JSONResponse(w, status, dto.Error{
+		Code:    code,
+		Message: message,
 	})
 }
 
 // ValidationErrorResponse writes a validation error response.
 func ValidationErrorResponse(w http.ResponseWriter, err error) {
-	response := dto.Response{
-		Success: false,
-		Error: &dto.Error{
-			Code:    "VALIDATION_ERROR",
-			Message: "Request validation failed",
-		},
+	response := dto.Error{
+		Code:    "VALIDATION_ERROR",
+		Message: "Request validation failed",
 	}
 
 	var validationErrs validation.ValidationErrors
 	if errors.As(err, &validationErrs) {
-		response.Error.Details = validationErrs.ToMap()
+		response.Details = validationErrs.ToMap()
 	}
 
 	JSONResponse(w, http.StatusBadRequest, response)

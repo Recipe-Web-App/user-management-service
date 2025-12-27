@@ -323,16 +323,10 @@ func TestUserProfileComponent(t *testing.T) {
 	// Assert Response
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var apiResp struct {
-		Success bool                    `json:"success"`
-		Data    dto.UserProfileResponse `json:"data"`
-	}
+	var resp dto.UserProfileResponse
 
-	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
+	err := json.Unmarshal(rr.Body.Bytes(), &resp)
 	require.NoError(t, err)
-	require.True(t, apiResp.Success)
-
-	resp := apiResp.Data
 
 	assert.Equal(t, userID.String(), resp.UserID)
 	assert.NotNil(t, resp.FullName)
@@ -394,15 +388,11 @@ func TestUpdateUserProfileComponent_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var apiResp struct {
-		Success bool                    `json:"success"`
-		Data    dto.UserProfileResponse `json:"data"`
-	}
+	var apiResp dto.UserProfileResponse
 
 	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
 	require.NoError(t, err)
-	require.True(t, apiResp.Success)
-	assert.Equal(t, "newusername", apiResp.Data.Username)
+	assert.Equal(t, "newusername", apiResp.Username)
 }
 
 func TestUpdateUserProfileComponent_NotFound(t *testing.T) {
@@ -550,17 +540,13 @@ func TestRequestAccountDeletionComponent_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var apiResp struct {
-		Success bool                                 `json:"success"`
-		Data    dto.UserAccountDeleteRequestResponse `json:"data"`
-	}
+	var apiResp dto.UserAccountDeleteRequestResponse
 
 	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
 	require.NoError(t, err)
-	require.True(t, apiResp.Success)
-	assert.Equal(t, userID.String(), apiResp.Data.UserID)
-	assert.NotEmpty(t, apiResp.Data.ConfirmationToken)
-	assert.False(t, apiResp.Data.ExpiresAt.IsZero())
+	assert.Equal(t, userID.String(), apiResp.UserID)
+	assert.NotEmpty(t, apiResp.ConfirmationToken)
+	assert.False(t, apiResp.ExpiresAt.IsZero())
 }
 
 func TestRequestAccountDeletionComponent_Unauthorized(t *testing.T) {
@@ -692,16 +678,12 @@ func TestConfirmAccountDeletionComponent_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var apiResp struct {
-		Success bool                                 `json:"success"`
-		Data    dto.UserConfirmAccountDeleteResponse `json:"data"`
-	}
+	var apiResp dto.UserConfirmAccountDeleteResponse
 
 	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
 	require.NoError(t, err)
-	require.True(t, apiResp.Success)
-	assert.Equal(t, userID.String(), apiResp.Data.UserID)
-	assert.False(t, apiResp.Data.DeactivatedAt.IsZero())
+	assert.Equal(t, userID.String(), apiResp.UserID)
+	assert.False(t, apiResp.DeactivatedAt.IsZero())
 }
 
 func TestConfirmAccountDeletionComponent_InvalidToken(t *testing.T) {
@@ -843,12 +825,6 @@ func TestSearchUsersComponent_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var apiResp dto.Response
-
-	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
-	require.NoError(t, err)
-	assert.True(t, apiResp.Success)
-
 	// Verify response structure
 	assert.Contains(t, rr.Body.String(), "testuser1")
 	assert.Contains(t, rr.Body.String(), `"totalCount":1`)
@@ -872,10 +848,10 @@ func TestSearchUsersComponent_CountOnly(t *testing.T) {
 
 	userID := uuid.New()
 
-	// When count_only is true, service still calls repo but returns empty results
+	// When countOnly is true, service still calls repo but returns empty results
 	mockRepo.On("SearchUsers", mock.Anything, "test", 20, 0).Return([]dto.UserSearchResult{}, 5, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/search?query=test&count_only=true", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/search?query=test&countOnly=true", nil)
 	req.Header.Set("X-User-Id", userID.String())
 
 	rr := httptest.NewRecorder()
@@ -1021,16 +997,12 @@ func TestGetUserByIDComponent_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var apiResp struct {
-		Success bool                 `json:"success"`
-		Data    dto.UserSearchResult `json:"data"`
-	}
+	var apiResp dto.UserSearchResult
 
 	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
 	require.NoError(t, err)
-	require.True(t, apiResp.Success)
-	assert.Equal(t, userID.String(), apiResp.Data.UserID)
-	assert.Equal(t, "publicuser", apiResp.Data.Username)
+	assert.Equal(t, userID.String(), apiResp.UserID)
+	assert.Equal(t, "publicuser", apiResp.Username)
 }
 
 func TestGetUserByIDComponent_NotFound_UserDoesNotExist(t *testing.T) {

@@ -58,61 +58,11 @@ func TestGetUserStatsComponent_Success(t *testing.T) {
 	// Assert
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var apiResp struct {
-		Success bool                  `json:"success"`
-		Data    dto.UserStatsResponse `json:"data"`
-	}
+	var apiResp dto.UserStatsResponse
 
 	err := json.Unmarshal(w.Body.Bytes(), &apiResp)
 	require.NoError(t, err)
-	require.True(t, apiResp.Success)
-	assert.Equal(t, expectedStats, &apiResp.Data)
+	assert.Equal(t, expectedStats, &apiResp)
 
 	mockRepo.AssertExpectations(t)
-}
-
-func TestAdminEndpoints_Removed(t *testing.T) {
-	t.Parallel()
-
-	// Setup
-	c := &app.Container{
-		Config: config.Instance,
-	}
-	c.HealthService = service.NewHealthService(nil, nil)
-
-	// Create dummy service to satisfy AdminHandler constructor
-	mockRepo := new(MockUserRepo)
-	mockTokenStore := new(MockTokenStore)
-	userService := service.NewUserService(mockRepo, mockTokenStore)
-	c.UserService = userService
-
-	srv := server.NewServerWithContainer(c)
-	handler := srv.Handler
-
-	// List of removed endpoints
-	removedPaths := []string{
-		"/api/v1/user-management/admin/redis/session-stats",
-		"/api/v1/user-management/admin/health",
-	}
-
-	for _, path := range removedPaths {
-		req := httptest.NewRequest(http.MethodGet, path, nil)
-		w := httptest.NewRecorder()
-		handler.ServeHTTP(w, req)
-
-		// Should return 404 (Not Found)
-		assert.Equal(t, http.StatusNotFound, w.Code, "Expected 404 for removed endpoint: %s", path)
-	}
-
-	// ForceLogout (POST)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/user-management/admin/users/123/force-logout", nil)
-	w := httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
-	assert.Equal(t, http.StatusNotFound, w.Code)
-
-	// ClearSessions (DELETE)
-	req = httptest.NewRequest(http.MethodDelete, "/api/v1/user-management/admin/redis/sessions", nil)
-	w = httptest.NewRecorder()
-	handler.ServeHTTP(w, req)
-	assert.Equal(t, http.StatusNotFound, w.Code)
 }

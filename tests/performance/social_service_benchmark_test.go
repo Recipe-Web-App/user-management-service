@@ -206,7 +206,7 @@ func BenchmarkGetFollowingCountOnly(b *testing.B) {
 	requesterID := uuid.New()
 	seedBenchmarkUserForSocial(b, dbSvc.GetDB(), requesterID, "requester_count_"+requesterID.String()[:8])
 
-	reqPath := fmt.Sprintf("/api/v1/user-management/users/%s/following?count_only=true", targetUserID)
+	reqPath := fmt.Sprintf("/api/v1/user-management/users/%s/following?countOnly=true", targetUserID)
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
 	req.Header.Set("X-User-Id", requesterID.String())
 
@@ -382,7 +382,7 @@ func BenchmarkGetFollowersCountOnly(b *testing.B) {
 	requesterID := uuid.New()
 	seedBenchmarkUserForSocial(b, dbSvc.GetDB(), requesterID, "requester_followers_count_"+requesterID.String()[:8])
 
-	reqPath := fmt.Sprintf("/api/v1/user-management/users/%s/followers?count_only=true", targetUserID)
+	reqPath := fmt.Sprintf("/api/v1/user-management/users/%s/followers?countOnly=true", targetUserID)
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
 	req.Header.Set("X-User-Id", requesterID.String())
 

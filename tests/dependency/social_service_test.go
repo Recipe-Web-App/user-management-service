@@ -276,14 +276,10 @@ func TestGetFollowing(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                         `json:"success"`
-			Data    dto.GetFollowedUsersResponse `json:"data"`
-		}
+		var resp dto.GetFollowedUsersResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
-		assert.True(t, resp.Success)
-		assert.Equal(t, 2, resp.Data.TotalCount)
-		assert.Len(t, resp.Data.FollowedUsers, 2)
+		assert.Equal(t, 2, resp.TotalCount)
+		assert.Len(t, resp.FollowedUsers, 2)
 	})
 
 	t.Run("Success_OwnProfile_PrivateSettings", func(t *testing.T) {
@@ -314,13 +310,9 @@ func TestGetFollowing(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                         `json:"success"`
-			Data    dto.GetFollowedUsersResponse `json:"data"`
-		}
+		var resp dto.GetFollowedUsersResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
-		assert.True(t, resp.Success)
-		assert.Equal(t, 1, resp.Data.TotalCount)
+		assert.Equal(t, 1, resp.TotalCount)
 	})
 
 	t.Run("Success_FollowersOnly_WhenFollowing", func(t *testing.T) {
@@ -356,19 +348,15 @@ func TestGetFollowing(t *testing.T) {
 		fix.mockSocialRepo.On("GetFollowing", mock.Anything, targetUserID, 20, 0).Return(nil, 42, nil).Once()
 
 		rr := httptest.NewRecorder()
-		fix.handler.ServeHTTP(rr, newGetFollowingRequest(t, targetUserID, fix.requesterID, "count_only=true"))
+		fix.handler.ServeHTTP(rr, newGetFollowingRequest(t, targetUserID, fix.requesterID, "countOnly=true"))
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                         `json:"success"`
-			Data    dto.GetFollowedUsersResponse `json:"data"`
-		}
+		var resp dto.GetFollowedUsersResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
-		assert.True(t, resp.Success)
-		assert.Equal(t, 42, resp.Data.TotalCount)
-		assert.Nil(t, resp.Data.Limit)
-		assert.Nil(t, resp.Data.Offset)
+		assert.Equal(t, 42, resp.TotalCount)
+		assert.Nil(t, resp.Limit)
+		assert.Nil(t, resp.Offset)
 	})
 
 	t.Run("Success_WithPagination", func(t *testing.T) {
@@ -388,17 +376,13 @@ func TestGetFollowing(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                         `json:"success"`
-			Data    dto.GetFollowedUsersResponse `json:"data"`
-		}
+		var resp dto.GetFollowedUsersResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
-		assert.True(t, resp.Success)
-		assert.Equal(t, 100, resp.Data.TotalCount)
-		require.NotNil(t, resp.Data.Limit)
-		assert.Equal(t, 50, *resp.Data.Limit)
-		require.NotNil(t, resp.Data.Offset)
-		assert.Equal(t, 10, *resp.Data.Offset)
+		assert.Equal(t, 100, resp.TotalCount)
+		require.NotNil(t, resp.Limit)
+		assert.Equal(t, 50, *resp.Limit)
+		require.NotNil(t, resp.Offset)
+		assert.Equal(t, 10, *resp.Offset)
 	})
 
 	t.Run("Forbidden_PrivateProfile", func(t *testing.T) {
@@ -610,14 +594,10 @@ func TestGetFollowers(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                         `json:"success"`
-			Data    dto.GetFollowedUsersResponse `json:"data"`
-		}
+		var resp dto.GetFollowedUsersResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
-		assert.True(t, resp.Success)
-		assert.Equal(t, 2, resp.Data.TotalCount)
-		assert.Len(t, resp.Data.FollowedUsers, 2)
+		assert.Equal(t, 2, resp.TotalCount)
+		assert.Len(t, resp.FollowedUsers, 2)
 	})
 
 	t.Run("Success_OwnProfile_PrivateSettings", func(t *testing.T) {
@@ -646,13 +626,9 @@ func TestGetFollowers(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                         `json:"success"`
-			Data    dto.GetFollowedUsersResponse `json:"data"`
-		}
+		var resp dto.GetFollowedUsersResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
-		assert.True(t, resp.Success)
-		assert.Equal(t, 1, resp.Data.TotalCount)
+		assert.Equal(t, 1, resp.TotalCount)
 	})
 
 	t.Run("Success_FollowersOnly_WhenFollowing", func(t *testing.T) {
@@ -688,19 +664,15 @@ func TestGetFollowers(t *testing.T) {
 		fix.mockSocialRepo.On("GetFollowers", mock.Anything, targetUserID, 20, 0).Return(nil, 42, nil).Once()
 
 		rr := httptest.NewRecorder()
-		fix.handler.ServeHTTP(rr, newGetFollowersRequest(t, targetUserID, fix.requesterID, "count_only=true"))
+		fix.handler.ServeHTTP(rr, newGetFollowersRequest(t, targetUserID, fix.requesterID, "countOnly=true"))
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                         `json:"success"`
-			Data    dto.GetFollowedUsersResponse `json:"data"`
-		}
+		var resp dto.GetFollowedUsersResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
-		assert.True(t, resp.Success)
-		assert.Equal(t, 42, resp.Data.TotalCount)
-		assert.Nil(t, resp.Data.Limit)
-		assert.Nil(t, resp.Data.Offset)
+		assert.Equal(t, 42, resp.TotalCount)
+		assert.Nil(t, resp.Limit)
+		assert.Nil(t, resp.Offset)
 	})
 
 	t.Run("Success_WithPagination", func(t *testing.T) {
@@ -720,17 +692,13 @@ func TestGetFollowers(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                         `json:"success"`
-			Data    dto.GetFollowedUsersResponse `json:"data"`
-		}
+		var resp dto.GetFollowedUsersResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
-		assert.True(t, resp.Success)
-		assert.Equal(t, 100, resp.Data.TotalCount)
-		require.NotNil(t, resp.Data.Limit)
-		assert.Equal(t, 50, *resp.Data.Limit)
-		require.NotNil(t, resp.Data.Offset)
-		assert.Equal(t, 10, *resp.Data.Offset)
+		assert.Equal(t, 100, resp.TotalCount)
+		require.NotNil(t, resp.Limit)
+		assert.Equal(t, 50, *resp.Limit)
+		require.NotNil(t, resp.Offset)
+		assert.Equal(t, 10, *resp.Offset)
 	})
 
 	t.Run("Forbidden_PrivateProfile", func(t *testing.T) {
@@ -950,14 +918,10 @@ func TestFollowUser(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool               `json:"success"`
-			Data    dto.FollowResponse `json:"data"`
-		}
+		var resp dto.FollowResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
-		assert.True(t, resp.Success)
-		assert.True(t, resp.Data.IsFollowing)
-		assert.Contains(t, resp.Data.Message, "Successfully followed user")
+		assert.True(t, resp.IsFollowing)
+		assert.Contains(t, resp.Message, "Successfully followed user")
 	})
 
 	t.Run("Success_AdminOverride", func(t *testing.T) {
@@ -980,13 +944,9 @@ func TestFollowUser(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool               `json:"success"`
-			Data    dto.FollowResponse `json:"data"`
-		}
+		var resp dto.FollowResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
-		assert.True(t, resp.Success)
-		assert.True(t, resp.Data.IsFollowing)
+		assert.True(t, resp.IsFollowing)
 	})
 
 	t.Run("Success_Idempotent_AlreadyFollowing", func(t *testing.T) {
@@ -1193,14 +1153,10 @@ func TestUnfollowUser(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool               `json:"success"`
-			Data    dto.FollowResponse `json:"data"`
-		}
+		var resp dto.FollowResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
-		assert.True(t, resp.Success)
-		assert.False(t, resp.Data.IsFollowing)
-		assert.Contains(t, resp.Data.Message, "Successfully unfollowed user")
+		assert.False(t, resp.IsFollowing)
+		assert.Contains(t, resp.Message, "Successfully unfollowed user")
 	})
 
 	t.Run("Success_AdminOverride", func(t *testing.T) {
@@ -1221,13 +1177,9 @@ func TestUnfollowUser(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool               `json:"success"`
-			Data    dto.FollowResponse `json:"data"`
-		}
+		var resp dto.FollowResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
-		assert.True(t, resp.Success)
-		assert.False(t, resp.Data.IsFollowing)
+		assert.False(t, resp.IsFollowing)
 	})
 
 	t.Run("Success_Idempotent_NotFollowing", func(t *testing.T) {

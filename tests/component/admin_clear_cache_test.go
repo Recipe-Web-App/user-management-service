@@ -116,16 +116,12 @@ func TestClearCache_Success(t *testing.T) {
 	// Assert
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var apiResp struct {
-		Success bool                   `json:"success"`
-		Data    dto.CacheClearResponse `json:"data"`
-	}
+	var apiResp dto.CacheClearResponse
 
 	err := json.Unmarshal(w.Body.Bytes(), &apiResp)
 	require.NoError(t, err)
-	require.True(t, apiResp.Success)
-	assert.Equal(t, 42, apiResp.Data.ClearedCount)
-	assert.Equal(t, pattern, apiResp.Data.Pattern)
+	assert.Equal(t, 42, apiResp.ClearedCount)
+	assert.Equal(t, pattern, apiResp.Pattern)
 
 	mockAdminRedis.AssertExpectations(t)
 }
@@ -171,16 +167,12 @@ func TestClearCache_Success_EmptyBody(t *testing.T) {
 	// Assert
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var apiResp struct {
-		Success bool                   `json:"success"`
-		Data    dto.CacheClearResponse `json:"data"`
-	}
+	var apiResp dto.CacheClearResponse
 
 	err := json.Unmarshal(w.Body.Bytes(), &apiResp)
 	require.NoError(t, err)
-	require.True(t, apiResp.Success)
-	assert.Equal(t, 100, apiResp.Data.ClearedCount)
-	assert.Equal(t, pattern, apiResp.Data.Pattern)
+	assert.Equal(t, 100, apiResp.ClearedCount)
+	assert.Equal(t, pattern, apiResp.Pattern)
 
 	mockAdminRedis.AssertExpectations(t)
 }

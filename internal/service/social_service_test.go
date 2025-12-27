@@ -488,7 +488,7 @@ func TestSocialServiceGetFollowing(t *testing.T) {
 		mockSocialRepo.AssertExpectations(t)
 	})
 
-	t.Run("Success - count_only mode", func(t *testing.T) {
+	t.Run("Success - countOnly mode", func(t *testing.T) {
 		t.Parallel()
 
 		mockUserRepo := new(MockUserRepoForSocial)

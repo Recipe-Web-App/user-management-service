@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -305,6 +306,7 @@ func (h *UserHandler) handleBindError(w http.ResponseWriter, err error) {
 	case errors.Is(err, ErrValidationFailed):
 		ValidationErrorResponse(w, err)
 	default:
+		slog.Error("failed to bind request body", "error", err)
 		ErrorResponse(w, http.StatusBadRequest, "BAD_REQUEST", err.Error())
 	}
 }
@@ -316,6 +318,7 @@ func (h *UserHandler) handleUpdateProfileError(w http.ResponseWriter, err error)
 	case errors.Is(err, service.ErrDuplicateUsername):
 		ConflictResponse(w, "Username already taken")
 	default:
+		slog.Error("failed to update user profile", "error", err)
 		InternalErrorResponse(w)
 	}
 }
@@ -327,6 +330,7 @@ func (h *UserHandler) handleDeleteRequestError(w http.ResponseWriter, err error)
 	case errors.Is(err, service.ErrCacheUnavailable):
 		ServiceUnavailableResponse(w, "Service temporarily unavailable")
 	default:
+		slog.Error("failed to delete user request", "error", err)
 		InternalErrorResponse(w)
 	}
 }
@@ -340,6 +344,7 @@ func (h *UserHandler) handleConfirmDeletionError(w http.ResponseWriter, err erro
 	case errors.Is(err, service.ErrCacheUnavailable):
 		ServiceUnavailableResponse(w, "Service temporarily unavailable")
 	default:
+		slog.Error("failed to confirm user deletion", "error", err)
 		InternalErrorResponse(w)
 	}
 }

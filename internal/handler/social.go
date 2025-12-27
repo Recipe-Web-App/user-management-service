@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -300,6 +301,7 @@ func (h *SocialHandler) handleGetUserActivityError(w http.ResponseWriter, err er
 	case errors.Is(err, service.ErrAccessDenied):
 		ForbiddenResponse(w, "Access to this user's activity is restricted")
 	default:
+		slog.Error("failed to get user activity", "error", err)
 		InternalErrorResponse(w)
 	}
 }
@@ -367,6 +369,7 @@ func (h *SocialHandler) handleGetFollowingError(w http.ResponseWriter, err error
 	case errors.Is(err, service.ErrAccessDenied):
 		ForbiddenResponse(w, "Access to this user's following list is restricted")
 	default:
+		slog.Error("failed to get user following list", "error", err)
 		InternalErrorResponse(w)
 	}
 }
@@ -378,6 +381,7 @@ func (h *SocialHandler) handleGetFollowersError(w http.ResponseWriter, err error
 	case errors.Is(err, service.ErrAccessDenied):
 		ForbiddenResponse(w, "Access to this user's followers list is restricted")
 	default:
+		slog.Error("failed to get user followers list", "error", err)
 		InternalErrorResponse(w)
 	}
 }
@@ -415,6 +419,7 @@ func (h *SocialHandler) handleFollowUserError(w http.ResponseWriter, err error) 
 	case errors.Is(err, service.ErrFollowNotAllowed):
 		ForbiddenResponse(w, "This user does not allow follows")
 	default:
+		slog.Error("failed to follow user", "error", err)
 		InternalErrorResponse(w)
 	}
 }
@@ -426,6 +431,7 @@ func (h *SocialHandler) handleUnfollowUserError(w http.ResponseWriter, err error
 	case errors.Is(err, service.ErrUserNotFound):
 		ErrorResponse(w, http.StatusNotFound, "USER_NOT_FOUND", "User not found")
 	default:
+		slog.Error("failed to unfollow user", "error", err)
 		InternalErrorResponse(w)
 	}
 }

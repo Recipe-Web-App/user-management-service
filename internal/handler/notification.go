@@ -3,6 +3,7 @@ package handler
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -241,6 +242,7 @@ func (h *NotificationHandler) handleBindError(w http.ResponseWriter, err error) 
 	case errors.Is(err, ErrValidationFailed):
 		ValidationErrorResponse(w, err)
 	default:
+		slog.Error("failed to bind request body", "error", err)
 		ErrorResponse(w, http.StatusBadRequest, "BAD_REQUEST", err.Error())
 	}
 }

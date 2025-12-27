@@ -31,17 +31,10 @@ func TestClearCacheEndpoint(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var response map[string]any
+	var data map[string]any
 
-	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	err = json.Unmarshal(rr.Body.Bytes(), &data)
 	require.NoError(t, err)
-
-	success, ok := response["success"].(bool)
-	require.True(t, ok, "success field should be boolean")
-	require.True(t, success)
-
-	data, ok := response["data"].(map[string]any)
-	require.True(t, ok, responseDataMapMsg)
 
 	assert.Equal(t, "user:*", data["pattern"])
 	clearedCount, ok := data["clearedCount"].(float64)

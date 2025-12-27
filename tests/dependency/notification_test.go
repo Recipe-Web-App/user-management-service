@@ -183,18 +183,14 @@ func TestGetNotifications(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                         `json:"success"`
-			Data    dto.NotificationListResponse `json:"data"`
-		}
+		var resp dto.NotificationListResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
 
-		assert.True(t, resp.Success)
-		assert.Equal(t, 10, resp.Data.TotalCount)
-		assert.Equal(t, 20, resp.Data.Limit)
-		assert.Equal(t, 0, resp.Data.Offset)
-		require.Len(t, resp.Data.Notifications, 1)
-		assert.Equal(t, notification.Title, resp.Data.Notifications[0].Title)
+		assert.Equal(t, 10, resp.TotalCount)
+		assert.Equal(t, 20, resp.Limit)
+		assert.Equal(t, 0, resp.Offset)
+		require.Len(t, resp.Notifications, 1)
+		assert.Equal(t, notification.Title, resp.Notifications[0].Title)
 	})
 
 	t.Run("Success_CountOnly", func(t *testing.T) {
@@ -210,14 +206,10 @@ func TestGetNotifications(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                          `json:"success"`
-			Data    dto.NotificationCountResponse `json:"data"`
-		}
+		var resp dto.NotificationCountResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
 
-		assert.True(t, resp.Success)
-		assert.Equal(t, 42, resp.Data.TotalCount)
+		assert.Equal(t, 42, resp.TotalCount)
 	})
 
 	t.Run("Success_Pagination", func(t *testing.T) {
@@ -233,17 +225,13 @@ func TestGetNotifications(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                         `json:"success"`
-			Data    dto.NotificationListResponse `json:"data"`
-		}
+		var resp dto.NotificationListResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
 
-		assert.True(t, resp.Success)
-		assert.Equal(t, 50, resp.Data.TotalCount)
-		assert.Equal(t, 10, resp.Data.Limit)
-		assert.Equal(t, 5, resp.Data.Offset)
-		assert.Empty(t, resp.Data.Notifications)
+		assert.Equal(t, 50, resp.TotalCount)
+		assert.Equal(t, 10, resp.Limit)
+		assert.Equal(t, 5, resp.Offset)
+		assert.Empty(t, resp.Notifications)
 	})
 
 	t.Run("Success_EmptyNotifications", func(t *testing.T) {
@@ -278,14 +266,10 @@ func TestGetNotifications(t *testing.T) {
 
 		assert.Equal(t, http.StatusUnauthorized, rr.Code)
 
-		var resp struct {
-			Success bool      `json:"success"`
-			Error   dto.Error `json:"error"`
-		}
+		var resp dto.Error
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
 
-		assert.False(t, resp.Success)
-		assert.Equal(t, "UNAUTHORIZED", resp.Error.Code)
+		assert.Equal(t, "UNAUTHORIZED", resp.Code)
 	})
 
 	t.Run("Unauthorized_InvalidUUID", func(t *testing.T) {
@@ -313,14 +297,10 @@ func TestGetNotifications(t *testing.T) {
 
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
 
-		var resp struct {
-			Success bool      `json:"success"`
-			Error   dto.Error `json:"error"`
-		}
+		var resp dto.Error
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
 
-		assert.False(t, resp.Success)
-		assert.Equal(t, "VALIDATION_ERROR", resp.Error.Code)
+		assert.Equal(t, "VALIDATION_ERROR", resp.Code)
 	})
 
 	t.Run("BadRequest_LimitOutOfRange", func(t *testing.T) {
@@ -369,14 +349,10 @@ func TestGetNotifications(t *testing.T) {
 
 		assert.Equal(t, http.StatusInternalServerError, rr.Code)
 
-		var resp struct {
-			Success bool      `json:"success"`
-			Error   dto.Error `json:"error"`
-		}
+		var resp dto.Error
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
 
-		assert.False(t, resp.Success)
-		assert.Equal(t, "INTERNAL_ERROR", resp.Error.Code)
+		assert.Equal(t, "INTERNAL_ERROR", resp.Code)
 	})
 
 	t.Run("Success_BoundaryLimitMin", func(t *testing.T) {
@@ -444,15 +420,11 @@ func TestDeleteNotifications(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                           `json:"success"`
-			Data    dto.NotificationDeleteResponse `json:"data"`
-		}
+		var resp dto.NotificationDeleteResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
 
-		assert.True(t, resp.Success)
-		assert.Equal(t, "Notifications deleted successfully", resp.Data.Message)
-		assert.Len(t, resp.Data.DeletedNotificationIDs, 2)
+		assert.Equal(t, "Notifications deleted successfully", resp.Message)
+		assert.Len(t, resp.DeletedNotificationIDs, 2)
 	})
 
 	t.Run("PartialSuccess_SomeDeleted", func(t *testing.T) {
@@ -472,15 +444,11 @@ func TestDeleteNotifications(t *testing.T) {
 
 		require.Equal(t, http.StatusPartialContent, rr.Code)
 
-		var resp struct {
-			Success bool                           `json:"success"`
-			Data    dto.NotificationDeleteResponse `json:"data"`
-		}
+		var resp dto.NotificationDeleteResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
 
-		assert.True(t, resp.Success)
-		assert.Equal(t, "Some notifications deleted successfully", resp.Data.Message)
-		assert.Len(t, resp.Data.DeletedNotificationIDs, 1)
+		assert.Equal(t, "Some notifications deleted successfully", resp.Message)
+		assert.Len(t, resp.DeletedNotificationIDs, 1)
 	})
 
 	t.Run("NotFound_NoneDeleted", func(t *testing.T) {
@@ -498,14 +466,10 @@ func TestDeleteNotifications(t *testing.T) {
 
 		require.Equal(t, http.StatusNotFound, rr.Code)
 
-		var resp struct {
-			Success bool      `json:"success"`
-			Error   dto.Error `json:"error"`
-		}
+		var resp dto.Error
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
 
-		assert.False(t, resp.Success)
-		assert.Equal(t, "NOT_FOUND", resp.Error.Code)
+		assert.Equal(t, "NOT_FOUND", resp.Code)
 	})
 
 	t.Run("Unauthorized_MissingHeader", func(t *testing.T) {
@@ -579,14 +543,10 @@ func TestDeleteNotifications(t *testing.T) {
 
 		assert.Equal(t, http.StatusInternalServerError, rr.Code)
 
-		var resp struct {
-			Success bool      `json:"success"`
-			Error   dto.Error `json:"error"`
-		}
+		var resp dto.Error
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
 
-		assert.False(t, resp.Success)
-		assert.Equal(t, "INTERNAL_ERROR", resp.Error.Code)
+		assert.Equal(t, "INTERNAL_ERROR", resp.Code)
 	})
 }
 
@@ -619,14 +579,10 @@ func TestMarkNotificationRead(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                         `json:"success"`
-			Data    dto.NotificationReadResponse `json:"data"`
-		}
+		var resp dto.NotificationReadResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
 
-		assert.True(t, resp.Success)
-		assert.Equal(t, "Notification marked as read successfully", resp.Data.Message)
+		assert.Equal(t, "Notification marked as read successfully", resp.Message)
 	})
 
 	t.Run("NotFound_InvalidId", func(t *testing.T) {
@@ -643,14 +599,10 @@ func TestMarkNotificationRead(t *testing.T) {
 
 		require.Equal(t, http.StatusNotFound, rr.Code)
 
-		var resp struct {
-			Success bool      `json:"success"`
-			Error   dto.Error `json:"error"`
-		}
+		var resp dto.Error
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
 
-		assert.False(t, resp.Success)
-		assert.Equal(t, "NOT_FOUND", resp.Error.Code)
+		assert.Equal(t, "NOT_FOUND", resp.Code)
 	})
 
 	t.Run("Unauthorized_MissingHeader", func(t *testing.T) {
@@ -680,14 +632,10 @@ func TestMarkNotificationRead(t *testing.T) {
 
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
 
-		var resp struct {
-			Success bool      `json:"success"`
-			Error   dto.Error `json:"error"`
-		}
+		var resp dto.Error
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
 
-		assert.False(t, resp.Success)
-		assert.Equal(t, "VALIDATION_ERROR", resp.Error.Code)
+		assert.Equal(t, "VALIDATION_ERROR", resp.Code)
 	})
 
 	t.Run("InternalError_RepositoryFailure", func(t *testing.T) {
@@ -704,14 +652,10 @@ func TestMarkNotificationRead(t *testing.T) {
 
 		assert.Equal(t, http.StatusInternalServerError, rr.Code)
 
-		var resp struct {
-			Success bool      `json:"success"`
-			Error   dto.Error `json:"error"`
-		}
+		var resp dto.Error
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
 
-		assert.False(t, resp.Success)
-		assert.Equal(t, "INTERNAL_ERROR", resp.Error.Code)
+		assert.Equal(t, "INTERNAL_ERROR", resp.Code)
 	})
 }
 
@@ -746,18 +690,14 @@ func TestMarkAllNotificationsRead(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                            `json:"success"`
-			Data    dto.NotificationReadAllResponse `json:"data"`
-		}
+		var resp dto.NotificationReadAllResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
 
-		assert.True(t, resp.Success)
-		assert.Equal(t, "All notifications marked as read successfully", resp.Data.Message)
-		assert.Len(t, resp.Data.ReadNotificationIDs, 3)
-		assert.Contains(t, resp.Data.ReadNotificationIDs, notificationID1.String())
-		assert.Contains(t, resp.Data.ReadNotificationIDs, notificationID2.String())
-		assert.Contains(t, resp.Data.ReadNotificationIDs, notificationID3.String())
+		assert.Equal(t, "All notifications marked as read successfully", resp.Message)
+		assert.Len(t, resp.ReadNotificationIDs, 3)
+		assert.Contains(t, resp.ReadNotificationIDs, notificationID1.String())
+		assert.Contains(t, resp.ReadNotificationIDs, notificationID2.String())
+		assert.Contains(t, resp.ReadNotificationIDs, notificationID3.String())
 	})
 
 	t.Run("Success_EmptyResult", func(t *testing.T) {
@@ -774,7 +714,6 @@ func TestMarkAllNotificationsRead(t *testing.T) {
 		require.Equal(t, http.StatusOK, rr.Code)
 
 		body := rr.Body.String()
-		assert.Contains(t, body, `"success":true`)
 		assert.Contains(t, body, `"readNotificationIds":[]`)
 	})
 
@@ -793,14 +732,10 @@ func TestMarkAllNotificationsRead(t *testing.T) {
 
 		assert.Equal(t, http.StatusUnauthorized, rr.Code)
 
-		var resp struct {
-			Success bool      `json:"success"`
-			Error   dto.Error `json:"error"`
-		}
+		var resp dto.Error
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
 
-		assert.False(t, resp.Success)
-		assert.Equal(t, "UNAUTHORIZED", resp.Error.Code)
+		assert.Equal(t, "UNAUTHORIZED", resp.Code)
 	})
 
 	t.Run("Unauthorized_InvalidUUID", func(t *testing.T) {
@@ -832,13 +767,9 @@ func TestMarkAllNotificationsRead(t *testing.T) {
 
 		assert.Equal(t, http.StatusInternalServerError, rr.Code)
 
-		var resp struct {
-			Success bool      `json:"success"`
-			Error   dto.Error `json:"error"`
-		}
+		var resp dto.Error
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
 
-		assert.False(t, resp.Success)
-		assert.Equal(t, "INTERNAL_ERROR", resp.Error.Code)
+		assert.Equal(t, "INTERNAL_ERROR", resp.Code)
 	})
 }

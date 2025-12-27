@@ -201,7 +201,7 @@ func TestNotificationHandler_GetNotifications(t *testing.T) {
 					Return(sampleListResponse, nil)
 			},
 			expectedStatus: http.StatusOK,
-			expectedBody:   []string{`"success":true`, `"notifications"`, `"totalCount":10`, `"limit":20`},
+			expectedBody:   []string{`"notifications"`, `"totalCount":10`, `"limit":20`},
 		},
 		{
 			name:         "returns count only when countOnly is true",
@@ -212,7 +212,7 @@ func TestNotificationHandler_GetNotifications(t *testing.T) {
 					Return(sampleCountResponse, nil)
 			},
 			expectedStatus: http.StatusOK,
-			expectedBody:   []string{`"success":true`, `"totalCount":42`},
+			expectedBody:   []string{`"totalCount":42`},
 			notExpected:    []string{`"notifications"`, `"limit"`, `"offset"`},
 		},
 		{
@@ -224,7 +224,7 @@ func TestNotificationHandler_GetNotifications(t *testing.T) {
 					Return(sampleListResponse, nil)
 			},
 			expectedStatus: http.StatusOK,
-			expectedBody:   []string{`"success":true`},
+			expectedBody:   []string{},
 		},
 		{
 			name:           "returns 401 when X-User-Id header is missing",
@@ -232,7 +232,7 @@ func TestNotificationHandler_GetNotifications(t *testing.T) {
 			queryParams:    "",
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusUnauthorized,
-			expectedBody:   []string{`"success":false`, `"UNAUTHORIZED"`, `"User authentication required"`},
+			expectedBody:   []string{`"UNAUTHORIZED"`, `"User authentication required"`},
 		},
 		{
 			name:           "returns 401 when X-User-Id header is invalid UUID",
@@ -240,7 +240,7 @@ func TestNotificationHandler_GetNotifications(t *testing.T) {
 			queryParams:    "",
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusUnauthorized,
-			expectedBody:   []string{`"success":false`, `"UNAUTHORIZED"`, `"Invalid user ID in authentication header"`},
+			expectedBody:   []string{`"UNAUTHORIZED"`, `"Invalid user ID in authentication header"`},
 		},
 		{
 			name:           "returns 400 when limit is not an integer",
@@ -248,7 +248,7 @@ func TestNotificationHandler_GetNotifications(t *testing.T) {
 			queryParams:    "?limit=abc",
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   []string{`"success":false`, `"VALIDATION_ERROR"`, `"limit must be a valid integer"`},
+			expectedBody:   []string{`"VALIDATION_ERROR"`, `"limit must be a valid integer"`},
 		},
 		{
 			name:           "returns 400 when limit is below minimum",
@@ -256,7 +256,7 @@ func TestNotificationHandler_GetNotifications(t *testing.T) {
 			queryParams:    "?limit=0",
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   []string{`"success":false`, `"VALIDATION_ERROR"`, `"limit must be between 1 and 100"`},
+			expectedBody:   []string{`"VALIDATION_ERROR"`, `"limit must be between 1 and 100"`},
 		},
 		{
 			name:           "returns 400 when limit is above maximum",
@@ -264,7 +264,7 @@ func TestNotificationHandler_GetNotifications(t *testing.T) {
 			queryParams:    "?limit=101",
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   []string{`"success":false`, `"VALIDATION_ERROR"`, `"limit must be between 1 and 100"`},
+			expectedBody:   []string{`"VALIDATION_ERROR"`, `"limit must be between 1 and 100"`},
 		},
 		{
 			name:           "returns 400 when offset is not an integer",
@@ -272,7 +272,7 @@ func TestNotificationHandler_GetNotifications(t *testing.T) {
 			queryParams:    "?offset=abc",
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   []string{`"success":false`, `"VALIDATION_ERROR"`, `"offset must be a valid integer"`},
+			expectedBody:   []string{`"VALIDATION_ERROR"`, `"offset must be a valid integer"`},
 		},
 		{
 			name:           "returns 400 when offset is negative",
@@ -280,7 +280,7 @@ func TestNotificationHandler_GetNotifications(t *testing.T) {
 			queryParams:    "?offset=-1",
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   []string{`"success":false`, `"VALIDATION_ERROR"`, `"offset must be non-negative"`},
+			expectedBody:   []string{`"VALIDATION_ERROR"`, `"offset must be non-negative"`},
 		},
 		{
 			name:           "returns 400 when countOnly is not a boolean",
@@ -288,7 +288,7 @@ func TestNotificationHandler_GetNotifications(t *testing.T) {
 			queryParams:    "?countOnly=maybe",
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   []string{`"success":false`, `"VALIDATION_ERROR"`, `"countOnly must be a valid boolean"`},
+			expectedBody:   []string{`"VALIDATION_ERROR"`, `"countOnly must be a valid boolean"`},
 		},
 		{
 			name:         "returns 500 when service returns error",
@@ -299,7 +299,7 @@ func TestNotificationHandler_GetNotifications(t *testing.T) {
 					Return(nil, errTestDatabase)
 			},
 			expectedStatus: http.StatusInternalServerError,
-			expectedBody:   []string{`"success":false`, `"INTERNAL_ERROR"`},
+			expectedBody:   []string{`"INTERNAL_ERROR"`},
 		},
 		{
 			name:         "accepts limit at minimum boundary",
@@ -310,7 +310,7 @@ func TestNotificationHandler_GetNotifications(t *testing.T) {
 					Return(sampleListResponse, nil)
 			},
 			expectedStatus: http.StatusOK,
-			expectedBody:   []string{`"success":true`},
+			expectedBody:   []string{},
 		},
 		{
 			name:         "accepts limit at maximum boundary",
@@ -321,7 +321,7 @@ func TestNotificationHandler_GetNotifications(t *testing.T) {
 					Return(sampleListResponse, nil)
 			},
 			expectedStatus: http.StatusOK,
-			expectedBody:   []string{`"success":true`},
+			expectedBody:   []string{},
 		},
 		{
 			name:         "accepts offset at zero",
@@ -332,7 +332,7 @@ func TestNotificationHandler_GetNotifications(t *testing.T) {
 					Return(sampleListResponse, nil)
 			},
 			expectedStatus: http.StatusOK,
-			expectedBody:   []string{`"success":true`},
+			expectedBody:   []string{},
 		},
 	}
 
@@ -403,7 +403,7 @@ func TestNotificationHandler_DeleteNotifications(t *testing.T) {
 					}, nil)
 			},
 			expectedStatus: http.StatusOK,
-			expectedBody:   []string{`"success":true`, `"message":"Notifications deleted successfully"`},
+			expectedBody:   []string{`"message":"Notifications deleted successfully"`},
 		},
 		{
 			name:         "returns 206 when partial success",
@@ -419,7 +419,7 @@ func TestNotificationHandler_DeleteNotifications(t *testing.T) {
 					}, nil)
 			},
 			expectedStatus: http.StatusPartialContent,
-			expectedBody:   []string{`"success":true`, `"message":"Some notifications deleted successfully"`},
+			expectedBody:   []string{`"message":"Some notifications deleted successfully"`},
 		},
 		{
 			name:         "returns 404 when no notifications found",
@@ -435,7 +435,7 @@ func TestNotificationHandler_DeleteNotifications(t *testing.T) {
 					}, nil)
 			},
 			expectedStatus: http.StatusNotFound,
-			expectedBody:   []string{`"success":false`, `"NOT_FOUND"`},
+			expectedBody:   []string{`"NOT_FOUND"`},
 		},
 		{
 			name:           "returns 401 when X-User-Id header is missing",
@@ -443,7 +443,7 @@ func TestNotificationHandler_DeleteNotifications(t *testing.T) {
 			requestBody:    fmt.Sprintf(`{"notificationIds": ["%s"]}`, notificationID1.String()),
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusUnauthorized,
-			expectedBody:   []string{`"success":false`, `"UNAUTHORIZED"`, `"User authentication required"`},
+			expectedBody:   []string{`"UNAUTHORIZED"`, `"User authentication required"`},
 		},
 		{
 			name:           "returns 401 when X-User-Id header is invalid UUID",
@@ -451,7 +451,7 @@ func TestNotificationHandler_DeleteNotifications(t *testing.T) {
 			requestBody:    fmt.Sprintf(`{"notificationIds": ["%s"]}`, notificationID1.String()),
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusUnauthorized,
-			expectedBody:   []string{`"success":false`, `"UNAUTHORIZED"`, `"Invalid user ID in authentication header"`},
+			expectedBody:   []string{`"UNAUTHORIZED"`, `"Invalid user ID in authentication header"`},
 		},
 		{
 			name:           "returns 400 when request body is empty",
@@ -459,7 +459,7 @@ func TestNotificationHandler_DeleteNotifications(t *testing.T) {
 			requestBody:    "",
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   []string{`"success":false`, `"EMPTY_BODY"`},
+			expectedBody:   []string{`"EMPTY_BODY"`},
 		},
 		{
 			name:           "returns 400 when request body is invalid JSON",
@@ -467,7 +467,7 @@ func TestNotificationHandler_DeleteNotifications(t *testing.T) {
 			requestBody:    `{invalid json}`,
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   []string{`"success":false`, `"INVALID_JSON"`},
+			expectedBody:   []string{`"INVALID_JSON"`},
 		},
 		{
 			name:           "returns 400 when notificationIds is empty array",
@@ -475,7 +475,7 @@ func TestNotificationHandler_DeleteNotifications(t *testing.T) {
 			requestBody:    `{"notificationIds": []}`,
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   []string{`"success":false`, `"VALIDATION_ERROR"`},
+			expectedBody:   []string{`"VALIDATION_ERROR"`},
 		},
 		{
 			name:           "returns 400 when notificationIds contains invalid UUID",
@@ -483,7 +483,7 @@ func TestNotificationHandler_DeleteNotifications(t *testing.T) {
 			requestBody:    `{"notificationIds": ["not-a-uuid"]}`,
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   []string{`"success":false`, `"VALIDATION_ERROR"`},
+			expectedBody:   []string{`"VALIDATION_ERROR"`},
 		},
 		{
 			name:         "returns 500 when service returns error",
@@ -494,7 +494,7 @@ func TestNotificationHandler_DeleteNotifications(t *testing.T) {
 					Return(nil, errTestDatabase)
 			},
 			expectedStatus: http.StatusInternalServerError,
-			expectedBody:   []string{`"success":false`, `"INTERNAL_ERROR"`},
+			expectedBody:   []string{`"INTERNAL_ERROR"`},
 		},
 		{
 			name:         "handles single notification deletion",
@@ -510,7 +510,7 @@ func TestNotificationHandler_DeleteNotifications(t *testing.T) {
 					}, nil)
 			},
 			expectedStatus: http.StatusOK,
-			expectedBody:   []string{`"success":true`, `"message":"Notifications deleted successfully"`},
+			expectedBody:   []string{`"message":"Notifications deleted successfully"`},
 		},
 	}
 
@@ -583,7 +583,7 @@ func TestNotificationHandler_MarkNotificationRead(t *testing.T) {
 					Return(true, nil)
 			},
 			expectedStatus: http.StatusOK,
-			expectedBody:   []string{`"success":true`, `"message":"Notification marked as read successfully"`},
+			expectedBody:   []string{`"message":"Notification marked as read successfully"`},
 		},
 		{
 			name:           "returns 404 when notification not found",
@@ -594,7 +594,7 @@ func TestNotificationHandler_MarkNotificationRead(t *testing.T) {
 					Return(false, nil)
 			},
 			expectedStatus: http.StatusNotFound,
-			expectedBody:   []string{`"success":false`, `"NOT_FOUND"`},
+			expectedBody:   []string{`"NOT_FOUND"`},
 		},
 		{
 			name:           "returns 401 when X-User-Id header is missing",
@@ -602,7 +602,7 @@ func TestNotificationHandler_MarkNotificationRead(t *testing.T) {
 			notificationID: notificationID.String(),
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusUnauthorized,
-			expectedBody:   []string{`"success":false`, `"UNAUTHORIZED"`, `"User authentication required"`},
+			expectedBody:   []string{`"UNAUTHORIZED"`, `"User authentication required"`},
 		},
 		{
 			name:           "returns 401 when X-User-Id header is invalid UUID",
@@ -610,7 +610,7 @@ func TestNotificationHandler_MarkNotificationRead(t *testing.T) {
 			notificationID: notificationID.String(),
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusUnauthorized,
-			expectedBody:   []string{`"success":false`, `"UNAUTHORIZED"`, `"Invalid user ID in authentication header"`},
+			expectedBody:   []string{`"UNAUTHORIZED"`, `"Invalid user ID in authentication header"`},
 		},
 		{
 			name:           "returns 400 when notification_id is invalid UUID",
@@ -618,7 +618,7 @@ func TestNotificationHandler_MarkNotificationRead(t *testing.T) {
 			notificationID: "not-a-uuid",
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   []string{`"success":false`, `"VALIDATION_ERROR"`, `"notification_id must be a valid UUID"`},
+			expectedBody:   []string{`"VALIDATION_ERROR"`, `"notification_id must be a valid UUID"`},
 		},
 		{
 			name:           "returns 500 when service returns error",
@@ -629,7 +629,7 @@ func TestNotificationHandler_MarkNotificationRead(t *testing.T) {
 					Return(false, errTestDatabase)
 			},
 			expectedStatus: http.StatusInternalServerError,
-			expectedBody:   []string{`"success":false`, `"INTERNAL_ERROR"`},
+			expectedBody:   []string{`"INTERNAL_ERROR"`},
 		},
 	}
 
@@ -691,7 +691,6 @@ func TestNotificationHandler_MarkAllNotificationsRead(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 			expectedBody: []string{
-				`"success":true`,
 				`"message":"All notifications marked as read successfully"`,
 				`"readNotificationIds"`,
 				notificationID1.String(),
@@ -707,7 +706,6 @@ func TestNotificationHandler_MarkAllNotificationsRead(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 			expectedBody: []string{
-				`"success":true`,
 				`"message":"All notifications marked as read successfully"`,
 				`"readNotificationIds":[]`,
 			},
@@ -717,14 +715,14 @@ func TestNotificationHandler_MarkAllNotificationsRead(t *testing.T) {
 			userIDHeader:   "",
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusUnauthorized,
-			expectedBody:   []string{`"success":false`, `"UNAUTHORIZED"`, `"User authentication required"`},
+			expectedBody:   []string{`"UNAUTHORIZED"`, `"User authentication required"`},
 		},
 		{
 			name:           "returns 401 when X-User-Id header is invalid UUID",
 			userIDHeader:   "not-a-uuid",
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusUnauthorized,
-			expectedBody:   []string{`"success":false`, `"UNAUTHORIZED"`, `"Invalid user ID in authentication header"`},
+			expectedBody:   []string{`"UNAUTHORIZED"`, `"Invalid user ID in authentication header"`},
 		},
 		{
 			name:         "returns 500 when service returns error",
@@ -734,7 +732,7 @@ func TestNotificationHandler_MarkAllNotificationsRead(t *testing.T) {
 					Return(nil, errTestDatabase)
 			},
 			expectedStatus: http.StatusInternalServerError,
-			expectedBody:   []string{`"success":false`, `"INTERNAL_ERROR"`},
+			expectedBody:   []string{`"INTERNAL_ERROR"`},
 		},
 	}
 

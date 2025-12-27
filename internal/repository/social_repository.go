@@ -348,7 +348,7 @@ func (r *SQLSocialRepository) GetRecentReviews(
 ) ([]dto.ReviewSummary, error) {
 	query := `
 		SELECT review_id, recipe_id, rating, comment, created_at
-		FROM recipe_manager.reviews
+		FROM recipe_manager.recipe_reviews
 		WHERE user_id = $1
 		ORDER BY created_at DESC
 		LIMIT $2

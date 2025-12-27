@@ -148,16 +148,11 @@ func TestGetNotificationsComponent_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var apiResp struct {
-		Success bool                         `json:"success"`
-		Data    dto.NotificationListResponse `json:"data"`
-	}
+	var resp dto.NotificationListResponse
 
-	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
+	err := json.Unmarshal(rr.Body.Bytes(), &resp)
 	require.NoError(t, err)
-	require.True(t, apiResp.Success)
 
-	resp := apiResp.Data
 	assert.Equal(t, 5, resp.TotalCount)
 	assert.Equal(t, 20, resp.Limit)
 	assert.Equal(t, 0, resp.Offset)
@@ -194,16 +189,12 @@ func TestGetNotificationsComponent_CountOnly(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var apiResp struct {
-		Success bool                          `json:"success"`
-		Data    dto.NotificationCountResponse `json:"data"`
-	}
+	var apiResp dto.NotificationCountResponse
 
 	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
 	require.NoError(t, err)
-	require.True(t, apiResp.Success)
 
-	assert.Equal(t, 42, apiResp.Data.TotalCount)
+	assert.Equal(t, 42, apiResp.TotalCount)
 
 	// Verify that list-only fields are not present
 	body := rr.Body.String()
@@ -240,16 +231,11 @@ func TestGetNotificationsComponent_Pagination(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var apiResp struct {
-		Success bool                         `json:"success"`
-		Data    dto.NotificationListResponse `json:"data"`
-	}
+	var resp dto.NotificationListResponse
 
-	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
+	err := json.Unmarshal(rr.Body.Bytes(), &resp)
 	require.NoError(t, err)
-	require.True(t, apiResp.Success)
 
-	resp := apiResp.Data
 	assert.Equal(t, 50, resp.TotalCount)
 	assert.Equal(t, 10, resp.Limit)
 	assert.Equal(t, 5, resp.Offset)
@@ -280,16 +266,12 @@ func TestGetNotificationsComponent_Unauthorized(t *testing.T) {
 
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 
-	var apiResp struct {
-		Success bool      `json:"success"`
-		Error   dto.Error `json:"error"`
-	}
+	var apiResp dto.Error
 
 	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
 	require.NoError(t, err)
-	require.False(t, apiResp.Success)
 
-	assert.Equal(t, "UNAUTHORIZED", apiResp.Error.Code)
+	assert.Equal(t, "UNAUTHORIZED", apiResp.Code)
 }
 
 func TestGetNotificationsComponent_ValidationError(t *testing.T) {
@@ -318,16 +300,12 @@ func TestGetNotificationsComponent_ValidationError(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 
-	var apiResp struct {
-		Success bool      `json:"success"`
-		Error   dto.Error `json:"error"`
-	}
+	var apiResp dto.Error
 
 	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
 	require.NoError(t, err)
-	require.False(t, apiResp.Success)
 
-	assert.Equal(t, "VALIDATION_ERROR", apiResp.Error.Code)
+	assert.Equal(t, "VALIDATION_ERROR", apiResp.Code)
 }
 
 func TestGetNotificationsComponent_EmptyNotifications(t *testing.T) {
@@ -397,16 +375,11 @@ func TestDeleteNotificationsComponent_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var apiResp struct {
-		Success bool                           `json:"success"`
-		Data    dto.NotificationDeleteResponse `json:"data"`
-	}
+	var resp dto.NotificationDeleteResponse
 
-	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
+	err := json.Unmarshal(rr.Body.Bytes(), &resp)
 	require.NoError(t, err)
-	require.True(t, apiResp.Success)
 
-	resp := apiResp.Data
 	assert.Equal(t, "Notifications deleted successfully", resp.Message)
 	assert.Len(t, resp.DeletedNotificationIDs, 2)
 }
@@ -445,16 +418,11 @@ func TestDeleteNotificationsComponent_PartialSuccess(t *testing.T) {
 
 	assert.Equal(t, http.StatusPartialContent, rr.Code)
 
-	var apiResp struct {
-		Success bool                           `json:"success"`
-		Data    dto.NotificationDeleteResponse `json:"data"`
-	}
+	var resp dto.NotificationDeleteResponse
 
-	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
+	err := json.Unmarshal(rr.Body.Bytes(), &resp)
 	require.NoError(t, err)
-	require.True(t, apiResp.Success)
 
-	resp := apiResp.Data
 	assert.Equal(t, "Some notifications deleted successfully", resp.Message)
 	assert.Len(t, resp.DeletedNotificationIDs, 1)
 }
@@ -492,16 +460,12 @@ func TestDeleteNotificationsComponent_NotFound(t *testing.T) {
 
 	assert.Equal(t, http.StatusNotFound, rr.Code)
 
-	var apiResp struct {
-		Success bool      `json:"success"`
-		Error   dto.Error `json:"error"`
-	}
+	var apiResp dto.Error
 
 	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
 	require.NoError(t, err)
-	require.False(t, apiResp.Success)
 
-	assert.Equal(t, "NOT_FOUND", apiResp.Error.Code)
+	assert.Equal(t, "NOT_FOUND", apiResp.Code)
 }
 
 func TestDeleteNotificationsComponent_Unauthorized(t *testing.T) {
@@ -532,16 +496,12 @@ func TestDeleteNotificationsComponent_Unauthorized(t *testing.T) {
 
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 
-	var apiResp struct {
-		Success bool      `json:"success"`
-		Error   dto.Error `json:"error"`
-	}
+	var apiResp dto.Error
 
 	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
 	require.NoError(t, err)
-	require.False(t, apiResp.Success)
 
-	assert.Equal(t, "UNAUTHORIZED", apiResp.Error.Code)
+	assert.Equal(t, "UNAUTHORIZED", apiResp.Code)
 }
 
 //nolint:funlen // Table-driven test with multiple test cases
@@ -564,7 +524,7 @@ func TestMarkNotificationReadComponent(t *testing.T) {
 			userID:         func() *uuid.UUID { id := uuid.New(); return &id }(),
 			notificationID: uuid.New().String(),
 			expectedStatus: http.StatusOK,
-			expectedBody:   []string{`"success":true`, `"message":"Notification marked as read successfully"`},
+			expectedBody:   []string{`"message":"Notification marked as read successfully"`},
 		},
 		{
 			name: "NotFound",
@@ -574,7 +534,7 @@ func TestMarkNotificationReadComponent(t *testing.T) {
 			userID:         func() *uuid.UUID { id := uuid.New(); return &id }(),
 			notificationID: uuid.New().String(),
 			expectedStatus: http.StatusNotFound,
-			expectedBody:   []string{`"success":false`, `"NOT_FOUND"`},
+			expectedBody:   []string{`"NOT_FOUND"`},
 		},
 		{
 			name:           "Unauthorized",
@@ -582,7 +542,7 @@ func TestMarkNotificationReadComponent(t *testing.T) {
 			userID:         nil,
 			notificationID: uuid.New().String(),
 			expectedStatus: http.StatusUnauthorized,
-			expectedBody:   []string{`"success":false`, `"UNAUTHORIZED"`},
+			expectedBody:   []string{`"UNAUTHORIZED"`},
 		},
 		{
 			name:           "InvalidNotificationId",
@@ -590,7 +550,7 @@ func TestMarkNotificationReadComponent(t *testing.T) {
 			userID:         func() *uuid.UUID { id := uuid.New(); return &id }(),
 			notificationID: "not-a-uuid",
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   []string{`"success":false`, `"VALIDATION_ERROR"`},
+			expectedBody:   []string{`"VALIDATION_ERROR"`},
 		},
 	}
 
@@ -675,16 +635,11 @@ func TestMarkAllNotificationsReadComponent_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var apiResp struct {
-		Success bool                            `json:"success"`
-		Data    dto.NotificationReadAllResponse `json:"data"`
-	}
+	var resp dto.NotificationReadAllResponse
 
-	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
+	err := json.Unmarshal(rr.Body.Bytes(), &resp)
 	require.NoError(t, err)
-	require.True(t, apiResp.Success)
 
-	resp := apiResp.Data
 	assert.Equal(t, "All notifications marked as read successfully", resp.Message)
 	assert.Len(t, resp.ReadNotificationIDs, 3)
 	assert.Contains(t, resp.ReadNotificationIDs, notificationID1.String())
@@ -724,7 +679,6 @@ func TestMarkAllNotificationsReadComponent_EmptyResult(t *testing.T) {
 
 	// Verify response contains empty array
 	body := rr.Body.String()
-	assert.Contains(t, body, `"success":true`)
 	assert.Contains(t, body, `"readNotificationIds":[]`)
 }
 
@@ -753,16 +707,12 @@ func TestMarkAllNotificationsReadComponent_Unauthorized(t *testing.T) {
 
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 
-	var apiResp struct {
-		Success bool      `json:"success"`
-		Error   dto.Error `json:"error"`
-	}
+	var apiResp dto.Error
 
 	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
 	require.NoError(t, err)
-	require.False(t, apiResp.Success)
 
-	assert.Equal(t, "UNAUTHORIZED", apiResp.Error.Code)
+	assert.Equal(t, "UNAUTHORIZED", apiResp.Code)
 }
 
 func TestGetNotificationPreferencesComponent_Success(t *testing.T) {
@@ -798,23 +748,19 @@ func TestGetNotificationPreferencesComponent_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var apiResp struct {
-		Success bool                       `json:"success"`
-		Data    dto.UserPreferenceResponse `json:"data"`
-	}
+	var apiResp dto.UserPreferenceResponse
 
 	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
 	require.NoError(t, err)
-	require.True(t, apiResp.Success)
 
-	require.NotNil(t, apiResp.Data.Preferences.NotificationPreferences, "NotificationPreferences shouldn't be nil")
-	assert.True(t, apiResp.Data.Preferences.NotificationPreferences.EmailNotifications)
+	require.NotNil(t, apiResp.Preferences.NotificationPreferences, "NotificationPreferences shouldn't be nil")
+	assert.True(t, apiResp.Preferences.NotificationPreferences.EmailNotifications)
 
-	require.NotNil(t, apiResp.Data.Preferences.PrivacyPreferences, "PrivacyPreferences shouldn't be nil")
-	assert.Equal(t, "public", apiResp.Data.Preferences.PrivacyPreferences.ProfileVisibility)
+	require.NotNil(t, apiResp.Preferences.PrivacyPreferences, "PrivacyPreferences shouldn't be nil")
+	assert.Equal(t, "public", apiResp.Preferences.PrivacyPreferences.ProfileVisibility)
 
-	require.NotNil(t, apiResp.Data.Preferences.DisplayPreferences, "DisplayPreferences shouldn't be nil")
-	assert.Equal(t, "dark", apiResp.Data.Preferences.DisplayPreferences.Theme)
+	require.NotNil(t, apiResp.Preferences.DisplayPreferences, "DisplayPreferences shouldn't be nil")
+	assert.Equal(t, "dark", apiResp.Preferences.DisplayPreferences.Theme)
 }
 
 func TestUpdateNotificationPreferencesComponent_Success(t *testing.T) {
@@ -911,20 +857,16 @@ func TestUpdateNotificationPreferencesComponent_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var apiResp struct {
-		Success bool                       `json:"success"`
-		Data    dto.UserPreferenceResponse `json:"data"`
-	}
+	var apiResp dto.UserPreferenceResponse
 
 	err := json.Unmarshal(rr.Body.Bytes(), &apiResp)
 	require.NoError(t, err)
-	require.True(t, apiResp.Success)
 
 	// Assert response contains merged values
-	assert.True(t, apiResp.Data.Preferences.NotificationPreferences.EmailNotifications)
-	assert.False(t, apiResp.Data.Preferences.NotificationPreferences.PushNotifications)
-	assert.True(t, apiResp.Data.Preferences.NotificationPreferences.LikeNotifications)
-	assert.Equal(t, "followers_only", apiResp.Data.Preferences.PrivacyPreferences.ProfileVisibility)
-	assert.True(t, apiResp.Data.Preferences.PrivacyPreferences.ShowEmail)
-	assert.Equal(t, "light", apiResp.Data.Preferences.DisplayPreferences.Theme)
+	assert.True(t, apiResp.Preferences.NotificationPreferences.EmailNotifications)
+	assert.False(t, apiResp.Preferences.NotificationPreferences.PushNotifications)
+	assert.True(t, apiResp.Preferences.NotificationPreferences.LikeNotifications)
+	assert.Equal(t, "followers_only", apiResp.Preferences.PrivacyPreferences.ProfileVisibility)
+	assert.True(t, apiResp.Preferences.PrivacyPreferences.ShowEmail)
+	assert.Equal(t, "light", apiResp.Preferences.DisplayPreferences.Theme)
 }

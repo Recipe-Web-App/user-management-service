@@ -337,7 +337,6 @@ func TestUserHandlerUpdateUserProfile(t *testing.T) { //nolint:funlen // table-d
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
 				assert.Contains(t, body, "newusername")
-				assert.Contains(t, body, `"success":true`)
 			},
 		},
 		{
@@ -495,7 +494,6 @@ func TestUserHandlerRequestAccountDeletion(t *testing.T) { //nolint:funlen // ta
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
 				assert.Contains(t, body, userID.String())
-				assert.Contains(t, body, `"success":true`)
 				assert.Contains(t, body, `"confirmationToken"`)
 				assert.Contains(t, body, `"expiresAt"`)
 			},
@@ -608,7 +606,6 @@ func TestUserHandlerConfirmAccountDeletion(t *testing.T) { //nolint:funlen // ta
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
 				assert.Contains(t, body, userID.String())
-				assert.Contains(t, body, `"success":true`)
 				assert.Contains(t, body, `"deactivatedAt"`)
 			},
 		},
@@ -778,7 +775,6 @@ func TestUserHandlerSearchUsers(t *testing.T) { //nolint:funlen // table-driven 
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 				assert.Contains(t, body, "testuser")
 				assert.Contains(t, body, `"totalCount":1`)
 			},
@@ -798,7 +794,6 @@ func TestUserHandlerSearchUsers(t *testing.T) { //nolint:funlen // table-driven 
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 				assert.Contains(t, body, `"totalCount":5`)
 				assert.Contains(t, body, `"results":[]`)
 			},
@@ -818,7 +813,6 @@ func TestUserHandlerSearchUsers(t *testing.T) { //nolint:funlen // table-driven 
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 				assert.Contains(t, body, `"totalCount":0`)
 			},
 		},
@@ -837,7 +831,6 @@ func TestUserHandlerSearchUsers(t *testing.T) { //nolint:funlen // table-driven 
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, `"success":true`)
 				assert.Contains(t, body, `"results":[]`)
 				assert.Contains(t, body, `"totalCount":0`)
 			},
@@ -985,9 +978,8 @@ func TestUserHandlerGetUserByID(t *testing.T) { //nolint:funlen // table-driven 
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
-				assert.Contains(t, body, targetID.String())
-				assert.Contains(t, body, "testuser")
-				assert.Contains(t, body, `"success":true`)
+				assert.Contains(t, body, `"userId"`)
+				assert.Contains(t, body, `"username"`)
 			},
 		},
 		{

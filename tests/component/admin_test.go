@@ -58,15 +58,11 @@ func TestGetUserStatsComponent_Success(t *testing.T) {
 	// Assert
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var apiResp struct {
-		Success bool                  `json:"success"`
-		Data    dto.UserStatsResponse `json:"data"`
-	}
+	var apiResp dto.UserStatsResponse
 
 	err := json.Unmarshal(w.Body.Bytes(), &apiResp)
 	require.NoError(t, err)
-	require.True(t, apiResp.Success)
-	assert.Equal(t, expectedStats, &apiResp.Data)
+	assert.Equal(t, expectedStats, &apiResp)
 
 	mockRepo.AssertExpectations(t)
 }

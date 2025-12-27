@@ -312,13 +312,9 @@ func TestGetUserProfile(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                    `json:"success"`
-			Data    dto.UserProfileResponse `json:"data"`
-		}
+		var resp dto.UserProfileResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
-		assert.True(t, resp.Success)
-		assert.Equal(t, targetUser.Username, resp.Data.Username)
+		assert.Equal(t, targetUser.Username, resp.Username)
 	})
 
 	t.Run("NotFound_UserDoesNotExist", func(t *testing.T) {
@@ -399,13 +395,9 @@ func TestUpdateUserProfile(t *testing.T) { //nolint:funlen // table-driven test
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                    `json:"success"`
-			Data    dto.UserProfileResponse `json:"data"`
-		}
+		var resp dto.UserProfileResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
-		assert.True(t, resp.Success)
-		assert.Equal(t, "newusername", resp.Data.Username)
+		assert.Equal(t, "newusername", resp.Username)
 	})
 
 	t.Run("NotFound_UserDoesNotExist", func(t *testing.T) {
@@ -554,20 +546,16 @@ func TestRequestAccountDeletion(t *testing.T) { //nolint:funlen // table-driven 
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                                 `json:"success"`
-			Data    dto.UserAccountDeleteRequestResponse `json:"data"`
-		}
+		var resp dto.UserAccountDeleteRequestResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
-		assert.True(t, resp.Success)
-		assert.Equal(t, userID.String(), resp.Data.UserID)
-		assert.NotEmpty(t, resp.Data.ConfirmationToken)
-		assert.False(t, resp.Data.ExpiresAt.IsZero())
+		assert.Equal(t, userID.String(), resp.UserID)
+		assert.NotEmpty(t, resp.ConfirmationToken)
+		assert.False(t, resp.ExpiresAt.IsZero())
 
 		// Verify token is stored in Redis
 		storedToken, err := fix.redisServer.Get("delete-request:" + userID.String())
 		require.NoError(t, err)
-		assert.Equal(t, resp.Data.ConfirmationToken, storedToken)
+		assert.Equal(t, resp.ConfirmationToken, storedToken)
 
 		// Verify TTL is set (approximately 24 hours)
 		ttl := fix.redisServer.TTL("delete-request:" + userID.String())
@@ -599,22 +587,18 @@ func TestRequestAccountDeletion(t *testing.T) { //nolint:funlen // table-driven 
 		fix.handler.ServeHTTP(rr1, newDeleteRequestRequest(t, userID))
 		require.Equal(t, http.StatusOK, rr1.Code)
 
-		var resp1 struct {
-			Data dto.UserAccountDeleteRequestResponse `json:"data"`
-		}
+		var resp1 dto.UserAccountDeleteRequestResponse
 		require.NoError(t, json.Unmarshal(rr1.Body.Bytes(), &resp1))
-		firstToken := resp1.Data.ConfirmationToken
+		firstToken := resp1.ConfirmationToken
 
 		// Second request
 		rr2 := httptest.NewRecorder()
 		fix.handler.ServeHTTP(rr2, newDeleteRequestRequest(t, userID))
 		require.Equal(t, http.StatusOK, rr2.Code)
 
-		var resp2 struct {
-			Data dto.UserAccountDeleteRequestResponse `json:"data"`
-		}
+		var resp2 dto.UserAccountDeleteRequestResponse
 		require.NoError(t, json.Unmarshal(rr2.Body.Bytes(), &resp2))
-		secondToken := resp2.Data.ConfirmationToken
+		secondToken := resp2.ConfirmationToken
 
 		// Verify tokens are different
 		assert.NotEqual(t, firstToken, secondToken)
@@ -708,14 +692,10 @@ func TestConfirmAccountDeletion(t *testing.T) { //nolint:funlen // table-driven 
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                                 `json:"success"`
-			Data    dto.UserConfirmAccountDeleteResponse `json:"data"`
-		}
+		var resp dto.UserConfirmAccountDeleteResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
-		assert.True(t, resp.Success)
-		assert.Equal(t, userID.String(), resp.Data.UserID)
-		assert.False(t, resp.Data.DeactivatedAt.IsZero())
+		assert.Equal(t, userID.String(), resp.UserID)
+		assert.False(t, resp.DeactivatedAt.IsZero())
 
 		// Verify token is deleted from Redis
 		exists := fix.redisServer.Exists("delete-request:" + userID.String())
@@ -794,11 +774,9 @@ func TestConfirmAccountDeletion(t *testing.T) { //nolint:funlen // table-driven 
 		fix.handler.ServeHTTP(rr1, newDeleteRequestRequest(t, userID))
 		require.Equal(t, http.StatusOK, rr1.Code)
 
-		var requestResp struct {
-			Data dto.UserAccountDeleteRequestResponse `json:"data"`
-		}
+		var requestResp dto.UserAccountDeleteRequestResponse
 		require.NoError(t, json.Unmarshal(rr1.Body.Bytes(), &requestResp))
-		token := requestResp.Data.ConfirmationToken
+		token := requestResp.ConfirmationToken
 
 		// Step 2: Confirm deletion with the received token
 		reqBody := fmt.Sprintf(`{"confirmationToken": "%s"}`, token)
@@ -807,14 +785,10 @@ func TestConfirmAccountDeletion(t *testing.T) { //nolint:funlen // table-driven 
 
 		require.Equal(t, http.StatusOK, rr2.Code)
 
-		var confirmResp struct {
-			Success bool                                 `json:"success"`
-			Data    dto.UserConfirmAccountDeleteResponse `json:"data"`
-		}
+		var confirmResp dto.UserConfirmAccountDeleteResponse
 		require.NoError(t, json.Unmarshal(rr2.Body.Bytes(), &confirmResp))
-		assert.True(t, confirmResp.Success)
-		assert.Equal(t, userID.String(), confirmResp.Data.UserID)
-		assert.False(t, confirmResp.Data.DeactivatedAt.IsZero())
+		assert.Equal(t, userID.String(), confirmResp.UserID)
+		assert.False(t, confirmResp.DeactivatedAt.IsZero())
 
 		// Verify token is deleted
 		exists := fix.redisServer.Exists("delete-request:" + userID.String())
@@ -889,16 +863,12 @@ func TestSearchUsers(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                   `json:"success"`
-			Data    dto.UserSearchResponse `json:"data"`
-		}
+		var resp dto.UserSearchResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
 
-		assert.True(t, resp.Success)
-		assert.Equal(t, 1, resp.Data.TotalCount)
-		assert.Len(t, resp.Data.Results, 1)
-		assert.Equal(t, "testuser1", resp.Data.Results[0].Username)
+		assert.Equal(t, 1, resp.TotalCount)
+		assert.Len(t, resp.Results, 1)
+		assert.Equal(t, "testuser1", resp.Results[0].Username)
 	})
 
 	t.Run("Success_CountOnly", func(t *testing.T) {
@@ -913,15 +883,11 @@ func TestSearchUsers(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                   `json:"success"`
-			Data    dto.UserSearchResponse `json:"data"`
-		}
+		var resp dto.UserSearchResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
 
-		assert.True(t, resp.Success)
-		assert.Equal(t, 10, resp.Data.TotalCount)
-		assert.Empty(t, resp.Data.Results)
+		assert.Equal(t, 10, resp.TotalCount)
+		assert.Empty(t, resp.Results)
 	})
 
 	t.Run("Success_WithPagination", func(t *testing.T) {
@@ -936,16 +902,12 @@ func TestSearchUsers(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                   `json:"success"`
-			Data    dto.UserSearchResponse `json:"data"`
-		}
+		var resp dto.UserSearchResponse
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
 
-		assert.True(t, resp.Success)
-		assert.Equal(t, 25, resp.Data.TotalCount)
-		assert.Equal(t, 10, resp.Data.Limit)
-		assert.Equal(t, 5, resp.Data.Offset)
+		assert.Equal(t, 25, resp.TotalCount)
+		assert.Equal(t, 10, resp.Limit)
+		assert.Equal(t, 5, resp.Offset)
 	})
 
 	t.Run("Success_EmptyQuery", func(t *testing.T) {
@@ -1073,13 +1035,9 @@ func TestGetUserByID(t *testing.T) { //nolint:funlen // table-driven test
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var resp struct {
-			Success bool                 `json:"success"`
-			Data    dto.UserSearchResult `json:"data"`
-		}
+		var resp dto.UserSearchResult
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
-		assert.True(t, resp.Success)
-		assert.Equal(t, user.Username, resp.Data.Username)
+		assert.Equal(t, user.Username, resp.Username)
 	})
 
 	t.Run("NotFound_UserDoesNotExist", func(t *testing.T) {

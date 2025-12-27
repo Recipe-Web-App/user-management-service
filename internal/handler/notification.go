@@ -193,7 +193,7 @@ func (h *NotificationHandler) GetNotificationPreferences(w http.ResponseWriter, 
 	prefs, err := h.notificationService.GetNotificationPreferences(r.Context(), userID)
 	if err != nil {
 		InternalErrorResponse(w)
-
+		slog.Error("failed to get notification preferences", "error", err)
 		return
 	}
 

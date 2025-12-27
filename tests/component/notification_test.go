@@ -186,7 +186,7 @@ func TestGetNotificationsComponent_CountOnly(t *testing.T) {
 
 	mockRepo.On("CountNotifications", mock.Anything, userID).Return(42, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/notifications?count_only=true", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/notifications?countOnly=true", nil)
 	req.Header.Set("X-User-Id", userID.String())
 
 	rr := httptest.NewRecorder()

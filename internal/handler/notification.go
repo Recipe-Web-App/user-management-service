@@ -278,7 +278,7 @@ var (
 	ErrNotificationLimitOutOfRange  = errors.New("limit must be between 1 and 100")
 	ErrNotificationInvalidOffset    = errors.New("offset must be a valid integer")
 	ErrNotificationNegativeOffset   = errors.New("offset must be non-negative")
-	ErrNotificationInvalidCountOnly = errors.New("count_only must be a valid boolean")
+	ErrNotificationInvalidCountOnly = errors.New("countOnly must be a valid boolean")
 )
 
 //nolint:dupl // Intentionally mirrors parseFollowingParams pattern for consistency
@@ -317,8 +317,8 @@ func (h *NotificationHandler) parseNotificationParams(r *http.Request) (*notific
 		params.offset = offset
 	}
 
-	// Parse count_only
-	if countOnlyStr := r.URL.Query().Get("count_only"); countOnlyStr != "" {
+	// Parse countOnly
+	if countOnlyStr := r.URL.Query().Get("countOnly"); countOnlyStr != "" {
 		countOnly, err := strconv.ParseBool(countOnlyStr)
 		if err != nil {
 			return nil, ErrNotificationInvalidCountOnly

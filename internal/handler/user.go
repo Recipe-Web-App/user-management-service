@@ -26,7 +26,7 @@ var (
 	ErrLimitOutOfRange  = errors.New("limit must be between 1 and 100")
 	ErrInvalidOffset    = errors.New("offset must be a valid integer")
 	ErrNegativeOffset   = errors.New("offset must be non-negative")
-	ErrInvalidCountOnly = errors.New("count_only must be a valid boolean")
+	ErrInvalidCountOnly = errors.New("countOnly must be a valid boolean")
 )
 
 // UserHandler handles user-related HTTP endpoints.
@@ -251,8 +251,8 @@ func (h *UserHandler) parseSearchParams(r *http.Request) (*searchParams, error) 
 		params.offset = offset
 	}
 
-	// Parse count_only
-	if countOnlyStr := r.URL.Query().Get("count_only"); countOnlyStr != "" {
+	// Parse countOnly
+	if countOnlyStr := r.URL.Query().Get("countOnly"); countOnlyStr != "" {
 		countOnly, err := strconv.ParseBool(countOnlyStr)
 		if err != nil {
 			return nil, ErrInvalidCountOnly

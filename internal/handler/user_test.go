@@ -784,9 +784,9 @@ func TestUserHandlerSearchUsers(t *testing.T) { //nolint:funlen // table-driven 
 			},
 		},
 		{
-			name:           "Success - count_only returns only count",
+			name:           "Success - countOnly returns only count",
 			requesterIDHdr: userID.String(),
-			queryParams:    "?query=test&count_only=true",
+			queryParams:    "?query=test&countOnly=true",
 			mockRun: func(m *MockUserService) {
 				m.On("SearchUsers", mock.Anything, "test", 20, 0, true).Return(&dto.UserSearchResponse{
 					Results:    []dto.UserSearchResult{},
@@ -899,14 +899,14 @@ func TestUserHandlerSearchUsers(t *testing.T) { //nolint:funlen // table-driven 
 			},
 		},
 		{
-			name:           "Bad Request - Invalid count_only",
+			name:           "Bad Request - Invalid countOnly",
 			requesterIDHdr: userID.String(),
-			queryParams:    "?query=test&count_only=notabool",
+			queryParams:    "?query=test&countOnly=notabool",
 			expectedStatus: http.StatusBadRequest,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
 				assert.Contains(t, body, "VALIDATION_ERROR")
-				assert.Contains(t, body, "count_only")
+				assert.Contains(t, body, "countOnly")
 			},
 		},
 		{

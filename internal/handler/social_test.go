@@ -209,10 +209,10 @@ func TestSocialHandlerGetFollowing(t *testing.T) {
 			},
 		},
 		{
-			name:           "Success - count_only returns only totalCount",
+			name:           "Success - countOnly returns only totalCount",
 			targetIDPath:   targetID.String(),
 			requesterIDHdr: requesterID.String(),
-			queryParams:    "count_only=true",
+			queryParams:    "countOnly=true",
 			mockRun: func(m *MockSocialService) {
 				m.On("GetFollowing", mock.Anything, requesterID, targetID, 20, 0, true).Return(countOnlyResponse, nil)
 			},
@@ -373,16 +373,16 @@ func TestSocialHandlerGetFollowing(t *testing.T) {
 			},
 		},
 		{
-			name:           "Validation Error - invalid count_only",
+			name:           "Validation Error - invalid countOnly",
 			targetIDPath:   targetID.String(),
 			requesterIDHdr: requesterID.String(),
-			queryParams:    "count_only=maybe",
+			queryParams:    "countOnly=maybe",
 			mockRun:        func(_ *MockSocialService) {},
 			expectedStatus: http.StatusBadRequest,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
 				assert.Contains(t, body, "VALIDATION_ERROR")
-				assert.Contains(t, body, "count_only must be a valid boolean")
+				assert.Contains(t, body, "countOnly must be a valid boolean")
 			},
 		},
 		{
@@ -524,10 +524,10 @@ func TestSocialHandlerGetFollowers(t *testing.T) {
 			},
 		},
 		{
-			name:           "Success - count_only returns only totalCount",
+			name:           "Success - countOnly returns only totalCount",
 			targetIDPath:   targetID.String(),
 			requesterIDHdr: requesterID.String(),
-			queryParams:    "count_only=true",
+			queryParams:    "countOnly=true",
 			mockRun: func(m *MockSocialService) {
 				m.On("GetFollowers", mock.Anything, requesterID, targetID, 20, 0, true).Return(countOnlyResponse, nil)
 			},
@@ -688,16 +688,16 @@ func TestSocialHandlerGetFollowers(t *testing.T) {
 			},
 		},
 		{
-			name:           "Validation Error - invalid count_only",
+			name:           "Validation Error - invalid countOnly",
 			targetIDPath:   targetID.String(),
 			requesterIDHdr: requesterID.String(),
-			queryParams:    "count_only=maybe",
+			queryParams:    "countOnly=maybe",
 			mockRun:        func(_ *MockSocialService) {},
 			expectedStatus: http.StatusBadRequest,
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
 				assert.Contains(t, body, "VALIDATION_ERROR")
-				assert.Contains(t, body, "count_only must be a valid boolean")
+				assert.Contains(t, body, "countOnly must be a valid boolean")
 			},
 		},
 		{

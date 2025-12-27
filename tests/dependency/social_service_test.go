@@ -356,7 +356,7 @@ func TestGetFollowing(t *testing.T) {
 		fix.mockSocialRepo.On("GetFollowing", mock.Anything, targetUserID, 20, 0).Return(nil, 42, nil).Once()
 
 		rr := httptest.NewRecorder()
-		fix.handler.ServeHTTP(rr, newGetFollowingRequest(t, targetUserID, fix.requesterID, "count_only=true"))
+		fix.handler.ServeHTTP(rr, newGetFollowingRequest(t, targetUserID, fix.requesterID, "countOnly=true"))
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
@@ -688,7 +688,7 @@ func TestGetFollowers(t *testing.T) {
 		fix.mockSocialRepo.On("GetFollowers", mock.Anything, targetUserID, 20, 0).Return(nil, 42, nil).Once()
 
 		rr := httptest.NewRecorder()
-		fix.handler.ServeHTTP(rr, newGetFollowersRequest(t, targetUserID, fix.requesterID, "count_only=true"))
+		fix.handler.ServeHTTP(rr, newGetFollowersRequest(t, targetUserID, fix.requesterID, "countOnly=true"))
 
 		require.Equal(t, http.StatusOK, rr.Code)
 

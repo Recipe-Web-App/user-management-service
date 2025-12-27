@@ -204,9 +204,9 @@ func TestNotificationHandler_GetNotifications(t *testing.T) {
 			expectedBody:   []string{`"success":true`, `"notifications"`, `"totalCount":10`, `"limit":20`},
 		},
 		{
-			name:         "returns count only when count_only is true",
+			name:         "returns count only when countOnly is true",
 			userIDHeader: validUserID.String(),
-			queryParams:  "?count_only=true",
+			queryParams:  "?countOnly=true",
 			mockRun: func(m *MockNotificationService) {
 				m.On("GetNotifications", mock.Anything, validUserID, 20, 0, true).
 					Return(sampleCountResponse, nil)
@@ -283,12 +283,12 @@ func TestNotificationHandler_GetNotifications(t *testing.T) {
 			expectedBody:   []string{`"success":false`, `"VALIDATION_ERROR"`, `"offset must be non-negative"`},
 		},
 		{
-			name:           "returns 400 when count_only is not a boolean",
+			name:           "returns 400 when countOnly is not a boolean",
 			userIDHeader:   validUserID.String(),
-			queryParams:    "?count_only=maybe",
+			queryParams:    "?countOnly=maybe",
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody:   []string{`"success":false`, `"VALIDATION_ERROR"`, `"count_only must be a valid boolean"`},
+			expectedBody:   []string{`"success":false`, `"VALIDATION_ERROR"`, `"countOnly must be a valid boolean"`},
 		},
 		{
 			name:         "returns 500 when service returns error",

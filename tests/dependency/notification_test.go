@@ -206,7 +206,7 @@ func TestGetNotifications(t *testing.T) {
 			Return(42, nil).Once()
 
 		rr := httptest.NewRecorder()
-		fix.handler.ServeHTTP(rr, newNotificationRequest(t, fix.userID, "?count_only=true"))
+		fix.handler.ServeHTTP(rr, newNotificationRequest(t, fix.userID, "?countOnly=true"))
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
@@ -351,7 +351,7 @@ func TestGetNotifications(t *testing.T) {
 		fix := setupNotificationTest(t)
 
 		rr := httptest.NewRecorder()
-		fix.handler.ServeHTTP(rr, newNotificationRequest(t, fix.userID, "?count_only=maybe"))
+		fix.handler.ServeHTTP(rr, newNotificationRequest(t, fix.userID, "?countOnly=maybe"))
 
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
 	})

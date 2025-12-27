@@ -872,10 +872,10 @@ func TestSearchUsersComponent_CountOnly(t *testing.T) {
 
 	userID := uuid.New()
 
-	// When count_only is true, service still calls repo but returns empty results
+	// When countOnly is true, service still calls repo but returns empty results
 	mockRepo.On("SearchUsers", mock.Anything, "test", 20, 0).Return([]dto.UserSearchResult{}, 5, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/search?query=test&count_only=true", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/search?query=test&countOnly=true", nil)
 	req.Header.Set("X-User-Id", userID.String())
 
 	rr := httptest.NewRecorder()

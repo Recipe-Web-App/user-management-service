@@ -909,7 +909,7 @@ func TestSearchUsers(t *testing.T) {
 		fix.mockRepo.On("SearchUsers", mock.Anything, "test", 20, 0).Return([]dto.UserSearchResult{}, 10, nil)
 
 		rr := httptest.NewRecorder()
-		fix.handler.ServeHTTP(rr, newSearchRequest(t, fix.requesterID, "?query=test&count_only=true"))
+		fix.handler.ServeHTTP(rr, newSearchRequest(t, fix.requesterID, "?query=test&countOnly=true"))
 
 		require.Equal(t, http.StatusOK, rr.Code)
 

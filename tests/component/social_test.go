@@ -286,7 +286,7 @@ func TestGetFollowingComponent_CountOnly(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodGet,
-		"/api/v1/user-management/users/"+targetUserID.String()+"/following?count_only=true",
+		"/api/v1/user-management/users/"+targetUserID.String()+"/following?countOnly=true",
 		nil,
 	)
 	req.Header.Set("X-User-Id", requesterID.String())
@@ -297,7 +297,7 @@ func TestGetFollowingComponent_CountOnly(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"totalCount":42`)
-	// count_only mode should not include followedUsers, limit, offset
+	// countOnly mode should not include followedUsers, limit, offset
 	assert.NotContains(t, rr.Body.String(), `"followedUsers"`)
 
 	mockUserRepo.AssertExpectations(t)
@@ -771,7 +771,7 @@ func TestGetFollowersComponent_CountOnly(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodGet,
-		"/api/v1/user-management/users/"+targetUserID.String()+"/followers?count_only=true",
+		"/api/v1/user-management/users/"+targetUserID.String()+"/followers?countOnly=true",
 		nil,
 	)
 	req.Header.Set("X-User-Id", requesterID.String())
@@ -782,7 +782,7 @@ func TestGetFollowersComponent_CountOnly(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"totalCount":42`)
-	// count_only mode should not include followedUsers, limit, offset
+	// countOnly mode should not include followedUsers, limit, offset
 	assert.NotContains(t, rr.Body.String(), `"followedUsers"`)
 
 	mockUserRepo.AssertExpectations(t)

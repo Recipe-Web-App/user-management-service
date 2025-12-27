@@ -349,8 +349,8 @@ func (h *SocialHandler) parseFollowingParams(r *http.Request) (*followingParams,
 		params.offset = offset
 	}
 
-	// Parse count_only
-	if countOnlyStr := r.URL.Query().Get("count_only"); countOnlyStr != "" {
+	// Parse countOnly
+	if countOnlyStr := r.URL.Query().Get("countOnly"); countOnlyStr != "" {
 		countOnly, err := strconv.ParseBool(countOnlyStr)
 		if err != nil {
 			return nil, ErrInvalidCountOnly

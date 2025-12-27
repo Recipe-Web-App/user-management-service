@@ -62,9 +62,6 @@ tags:
     description: Service health checks
 
 paths:
-  # Note: Authentication endpoints are handled by external OAuth2 service
-  # This service only provides user management functionality
-
   # User Management Endpoints
   /users/{user_id}/profile:
     get:
@@ -582,28 +579,6 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
 
   # Admin Endpoints
-  /admin/redis/session-stats:
-    get:
-      tags:
-        - admin
-      summary: Get Redis session stats
-      description: Return Redis session statistics
-      responses:
-        "200":
-          description: Session stats returned
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RedisSessionStatsResponse"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-
   /admin/users/stats:
     get:
       tags:
@@ -617,72 +592,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserStatsResponse"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-  /admin/health:
-    get:
-      tags:
-        - admin
-      summary: System health check
-      description: Return system health status
-      responses:
-        "200":
-          description: System health returned
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SystemHealthResponse"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-  /admin/users/{user_id}/force-logout:
-    post:
-      tags:
-        - admin
-      summary: Force logout user
-      description: Force logout a user
-      parameters:
-        - $ref: "#/components/parameters/UserIdPath"
-      responses:
-        "200":
-          description: User force-logout triggered
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ForceLogoutResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-  /admin/redis/sessions:
-    delete:
-      tags:
-        - admin
-      summary: Clear all Redis sessions
-      description: Clear all Redis sessions
-      responses:
-        "200":
-          description: All sessions cleared
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ClearSessionsResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1561,19 +1470,6 @@ components:
           default: UTC
 
     # Admin Schemas
-    RedisSessionStatsResponse:
-      type: object
-      properties:
-        total_sessions:
-          type: integer
-        active_sessions:
-          type: integer
-        memory_usage:
-          type: string
-        ttl_info:
-          type: object
-          additionalProperties: true
-
     UserStatsResponse:
       type: object
       properties:
@@ -1588,45 +1484,6 @@ components:
         new_users_this_week:
           type: integer
         new_users_this_month:
-          type: integer
-
-    SystemHealthResponse:
-      type: object
-      properties:
-        status:
-          type: string
-          enum: [healthy, degraded, unhealthy]
-        database_status:
-          type: string
-          enum: [healthy, unhealthy]
-        redis_status:
-          type: string
-          enum: [healthy, unhealthy]
-        uptime_seconds:
-          type: integer
-        version:
-          type: string
-
-    ForceLogoutResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-        message:
-          type: string
-          example: User force-logout triggered
-        sessions_cleared:
-          type: integer
-
-    ClearSessionsResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-        message:
-          type: string
-          example: All sessions cleared
-        sessions_cleared:
           type: integer
 
     # Metrics Schemas

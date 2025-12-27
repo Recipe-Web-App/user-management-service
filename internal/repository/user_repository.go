@@ -627,7 +627,12 @@ func (r *SQLUserRepository) UpdateDisplayPreferences(
 ) error {
 	var colorScheme string
 
-	switch prefs.Theme {
+	// Normalize theme input: trim spaces, trim quotes, to lowercase
+	themeInput := strings.TrimSpace(prefs.Theme)
+	themeInput = strings.Trim(themeInput, "\"")
+	themeInput = strings.ToLower(themeInput)
+
+	switch themeInput {
 	case "light":
 		colorScheme = "LIGHT"
 	case "dark":

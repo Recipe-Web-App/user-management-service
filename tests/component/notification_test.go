@@ -835,22 +835,68 @@ func TestUpdateNotificationPreferencesComponent_Success(t *testing.T) {
 
 	userID := uuid.New()
 
+	// 1. Defined Initial State (Domain Objects)
+	initialNotif := &dto.NotificationPreferences{
+		EmailNotifications: false, // Will be updated to true
+		PushNotifications:  true,  // Will be updated to false
+		LikeNotifications:  true,  // Will stay true (not in request)
+	}
+	initialPrivacy := &dto.PrivacyPreferences{
+		ProfileVisibility: "public", // Will be updated
+		ShowEmail:         true,     // Will stay true
+	}
+	initialDisplay := &dto.DisplayPreferences{
+		Theme:    "dark", // Will be updated
+		Language: "en",
+	}
+
+	// 2. Define Request (Partial Update)
+	emailTrue := true
+	pushFalse := false
+	profileFollowers := "followers_only"
+	themeLight := "light"
+
 	reqBodyObj := dto.UpdateUserPreferenceRequest{
-		NotificationPreferences: &dto.NotificationPreferences{
-			EmailNotifications: true,
-			PushNotifications:  false,
+		NotificationPreferences: &dto.UpdateNotificationPreferencesRequest{
+			EmailNotifications: &emailTrue,
+			PushNotifications:  &pushFalse,
+			// LikeNotifications omitted, should remain true
 		},
-		PrivacyPreferences: &dto.PrivacyPreferences{
-			ProfileVisibility: "followers_only",
+		PrivacyPreferences: &dto.UpdatePrivacyPreferencesRequest{
+			ProfileVisibility: &profileFollowers,
 		},
-		DisplayPreferences: &dto.DisplayPreferences{
-			Theme: "light",
+		DisplayPreferences: &dto.UpdateDisplayPreferencesRequest{
+			Theme: &themeLight,
 		},
 	}
 	reqBytes, _ := json.Marshal(reqBodyObj)
 
-	// Use a helper to set up mocks
-	setupUpdateNotificationPreferencesMocks(mockUserRepo, userID, reqBodyObj)
+	// 3. Define Expected Merged State
+	expectedNotif := &dto.NotificationPreferences{
+		EmailNotifications: true,
+		PushNotifications:  false,
+		LikeNotifications:  true, // Preserved
+	}
+	expectedPrivacy := &dto.PrivacyPreferences{
+		ProfileVisibility: "followers_only",
+		ShowEmail:         true, // Preserved
+	}
+	expectedDisplay := &dto.DisplayPreferences{
+		Theme:    "light",
+		Language: "en", // Preserved
+	}
+
+	// 4. Setup Mocks
+	// Service first fetches current prefs
+	mockUserRepo.On("FindNotificationPreferencesByUserID", mock.Anything, userID).Return(initialNotif, nil)
+	mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, userID).Return(initialPrivacy, nil)
+	mockUserRepo.On("FindDisplayPreferencesByUserID", mock.Anything, userID).Return(initialDisplay, nil)
+
+	// Service then updates with merged prefs
+	// Check that correct merged objects are passed
+	mockUserRepo.On("UpdateNotificationPreferences", mock.Anything, userID, expectedNotif).Return(nil)
+	mockUserRepo.On("UpdatePrivacyPreferences", mock.Anything, userID, expectedPrivacy).Return(nil)
+	mockUserRepo.On("UpdateDisplayPreferences", mock.Anything, userID, expectedDisplay).Return(nil)
 
 	req := httptest.NewRequest(
 		http.MethodPut,
@@ -874,25 +920,11 @@ func TestUpdateNotificationPreferencesComponent_Success(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, apiResp.Success)
 
+	// Assert response contains merged values
 	assert.True(t, apiResp.Data.Preferences.NotificationPreferences.EmailNotifications)
 	assert.False(t, apiResp.Data.Preferences.NotificationPreferences.PushNotifications)
+	assert.True(t, apiResp.Data.Preferences.NotificationPreferences.LikeNotifications)
 	assert.Equal(t, "followers_only", apiResp.Data.Preferences.PrivacyPreferences.ProfileVisibility)
+	assert.True(t, apiResp.Data.Preferences.PrivacyPreferences.ShowEmail)
 	assert.Equal(t, "light", apiResp.Data.Preferences.DisplayPreferences.Theme)
-}
-
-func setupUpdateNotificationPreferencesMocks(
-	mockUserRepo *MockUserRepo,
-	userID uuid.UUID,
-	reqBodyObj dto.UpdateUserPreferenceRequest,
-) {
-	mockUserRepo.On("UpdateNotificationPreferences", mock.Anything, userID, reqBodyObj.NotificationPreferences).Return(nil)
-	mockUserRepo.On("UpdatePrivacyPreferences", mock.Anything, userID, reqBodyObj.PrivacyPreferences).Return(nil)
-	mockUserRepo.On("UpdateDisplayPreferences", mock.Anything, userID, reqBodyObj.DisplayPreferences).Return(nil)
-
-	mockUserRepo.On("FindNotificationPreferencesByUserID", mock.Anything, userID).
-		Return(reqBodyObj.NotificationPreferences, nil)
-	mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, userID).
-		Return(reqBodyObj.PrivacyPreferences, nil)
-	mockUserRepo.On("FindDisplayPreferencesByUserID", mock.Anything, userID).
-		Return(reqBodyObj.DisplayPreferences, nil)
 }

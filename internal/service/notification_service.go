@@ -234,22 +234,37 @@ func (s *NotificationServiceImpl) UpdateNotificationPreferences(
 	userID uuid.UUID,
 	req *dto.UpdateUserPreferenceRequest,
 ) (*dto.UserPreferences, error) {
+	// 1. Fetch current preferences to merge with
+	currentPrefs, err := s.GetNotificationPreferences(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Update Notification Preferences if present
 	if req.NotificationPreferences != nil {
-		err := s.userRepo.UpdateNotificationPreferences(ctx, userID, req.NotificationPreferences)
+		updated := mergeNotificationPreferences(currentPrefs.NotificationPreferences, req.NotificationPreferences)
+
+		err := s.userRepo.UpdateNotificationPreferences(ctx, userID, updated)
 		if err != nil {
 			return nil, fmt.Errorf("update notification preferences: %w", err)
 		}
 	}
 
+	// 3. Update Privacy Preferences if present
 	if req.PrivacyPreferences != nil {
-		err := s.userRepo.UpdatePrivacyPreferences(ctx, userID, req.PrivacyPreferences)
+		updated := mergePrivacyPreferences(currentPrefs.PrivacyPreferences, req.PrivacyPreferences)
+
+		err := s.userRepo.UpdatePrivacyPreferences(ctx, userID, updated)
 		if err != nil {
 			return nil, fmt.Errorf("update privacy preferences: %w", err)
 		}
 	}
 
+	// 4. Update Display Preferences if present
 	if req.DisplayPreferences != nil {
-		err := s.userRepo.UpdateDisplayPreferences(ctx, userID, req.DisplayPreferences)
+		updated := mergeDisplayPreferences(currentPrefs.DisplayPreferences, req.DisplayPreferences)
+
+		err := s.userRepo.UpdateDisplayPreferences(ctx, userID, updated)
 		if err != nil {
 			return nil, fmt.Errorf("update display preferences: %w", err)
 		}
@@ -257,4 +272,85 @@ func (s *NotificationServiceImpl) UpdateNotificationPreferences(
 
 	// Return the updated state
 	return s.GetNotificationPreferences(ctx, userID)
+}
+
+func mergeNotificationPreferences(
+	current *dto.NotificationPreferences,
+	update *dto.UpdateNotificationPreferencesRequest,
+) *dto.NotificationPreferences {
+	if update.EmailNotifications != nil {
+		current.EmailNotifications = *update.EmailNotifications
+	}
+
+	if update.PushNotifications != nil {
+		current.PushNotifications = *update.PushNotifications
+	}
+
+	if update.FollowNotifications != nil {
+		current.FollowNotifications = *update.FollowNotifications
+	}
+
+	if update.LikeNotifications != nil {
+		current.LikeNotifications = *update.LikeNotifications
+	}
+
+	if update.CommentNotifications != nil {
+		current.CommentNotifications = *update.CommentNotifications
+	}
+
+	if update.RecipeNotifications != nil {
+		current.RecipeNotifications = *update.RecipeNotifications
+	}
+
+	if update.SystemNotifications != nil {
+		current.SystemNotifications = *update.SystemNotifications
+	}
+
+	return current
+}
+
+func mergePrivacyPreferences(
+	current *dto.PrivacyPreferences,
+	update *dto.UpdatePrivacyPreferencesRequest,
+) *dto.PrivacyPreferences {
+	if update.ProfileVisibility != nil {
+		current.ProfileVisibility = *update.ProfileVisibility
+	}
+
+	if update.ShowEmail != nil {
+		current.ShowEmail = *update.ShowEmail
+	}
+
+	if update.ShowFullName != nil {
+		current.ShowFullName = *update.ShowFullName
+	}
+
+	if update.AllowFollows != nil {
+		current.AllowFollows = *update.AllowFollows
+	}
+
+	if update.AllowMessages != nil {
+		current.AllowMessages = *update.AllowMessages
+	}
+
+	return current
+}
+
+func mergeDisplayPreferences(
+	current *dto.DisplayPreferences,
+	update *dto.UpdateDisplayPreferencesRequest,
+) *dto.DisplayPreferences {
+	if update.Theme != nil {
+		current.Theme = *update.Theme
+	}
+
+	if update.Language != nil {
+		current.Language = *update.Language
+	}
+
+	if update.Timezone != nil {
+		current.Timezone = *update.Timezone
+	}
+
+	return current
 }

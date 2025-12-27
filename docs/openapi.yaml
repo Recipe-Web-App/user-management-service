@@ -1654,29 +1654,79 @@ components:
     ReadinessResponse:
       type: object
       properties:
-        ready:
-          type: boolean
         status:
           type: string
-          enum: [ready, degraded, notReady]
-        checks:
-          type: object
-          properties:
-            app:
-              $ref: "#/components/schemas/HealthCheck"
-            database:
-              $ref: "#/components/schemas/HealthCheck"
-            redis:
-              $ref: "#/components/schemas/HealthCheck"
+          example: "READY"
+        database:
+          $ref: "#/components/schemas/DatabaseHealth"
+        redis:
+          $ref: "#/components/schemas/RedisHealth"
+
+    DatabaseHealth:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "up"
+        message:
+          type: string
+          example: "database is healthy"
+        open_connections:
+          type: string
+          example: "1"
+        in_use:
+          type: string
+          example: "0"
+        idle:
+          type: string
+          example: "1"
+        wait_count:
+          type: string
+          example: "0"
+        wait_duration:
+          type: string
+          example: "0s"
+        max_idle_closed:
+          type: string
+          example: "0"
+        max_lifetime_closed:
+          type: string
+          example: "0"
+
+    RedisHealth:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "up"
+        message:
+          type: string
+          example: "redis is healthy"
+        total_conns:
+          type: string
+          example: "3"
+        idle_conns:
+          type: string
+          example: "3"
+        stale_conns:
+          type: string
+          example: "0"
+        hits:
+          type: string
+          example: "3"
+        misses:
+          type: string
+          example: "0"
+        timeouts:
+          type: string
+          example: "0"
 
     LivenessResponse:
       type: object
       properties:
-        alive:
-          type: boolean
-        timestamp:
+        status:
           type: string
-          format: date-time
+          example: "UP"
 
     HealthCheck:
       type: object

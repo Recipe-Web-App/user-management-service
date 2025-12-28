@@ -1,0 +1,5 @@
+oauth2:
+  baseAuthUrl: "http://auth-service.local/api/v1/auth"
+  getTokenPath: "/oauth2/token"
+  revokeTokenPath: "/oauth2/revoke"
+  introspectionPath: "/oauth2/introspect"

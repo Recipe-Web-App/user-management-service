@@ -286,7 +286,7 @@ func TestSocialHandlerGetFollowing(t *testing.T) {
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
 				assert.Contains(t, body, "UNAUTHORIZED")
-				assert.Contains(t, body, "Invalid user ID in authentication header")
+				assert.Contains(t, body, "User authentication required")
 			},
 		},
 		{
@@ -446,9 +446,7 @@ func TestSocialHandlerGetFollowing(t *testing.T) {
 			}
 
 			req := httptest.NewRequest(http.MethodGet, url, nil)
-			if tt.requesterIDHdr != "" {
-				req.Header.Set("X-User-Id", tt.requesterIDHdr)
-			}
+			req = setAuthenticatedUserFromString(req, tt.requesterIDHdr)
 
 			rr := httptest.NewRecorder()
 			r.ServeHTTP(rr, req)
@@ -596,7 +594,7 @@ func TestSocialHandlerGetFollowers(t *testing.T) {
 			validateBody: func(t *testing.T, body string) {
 				t.Helper()
 				assert.Contains(t, body, "UNAUTHORIZED")
-				assert.Contains(t, body, "Invalid user ID in authentication header")
+				assert.Contains(t, body, "User authentication required")
 			},
 		},
 		{
@@ -756,9 +754,7 @@ func TestSocialHandlerGetFollowers(t *testing.T) {
 			}
 
 			req := httptest.NewRequest(http.MethodGet, url, nil)
-			if tt.requesterIDHdr != "" {
-				req.Header.Set("X-User-Id", tt.requesterIDHdr)
-			}
+			req = setAuthenticatedUserFromString(req, tt.requesterIDHdr)
 
 			rr := httptest.NewRecorder()
 			r.ServeHTTP(rr, req)
@@ -977,9 +973,7 @@ func TestSocialHandlerFollowUser(t *testing.T) {
 			url := "/users/" + tt.userIDPath + "/follow/" + tt.targetIDPath
 
 			req := httptest.NewRequest(http.MethodPost, url, nil)
-			if tt.requesterIDHdr != "" {
-				req.Header.Set("X-User-Id", tt.requesterIDHdr)
-			}
+			req = setAuthenticatedUserFromString(req, tt.requesterIDHdr)
 
 			if tt.userRoleHdr != "" {
 				req.Header.Set("X-User-Role", tt.userRoleHdr)
@@ -1175,9 +1169,7 @@ func TestSocialHandlerUnfollowUser(t *testing.T) {
 			url := "/users/" + tt.userIDPath + "/follow/" + tt.targetIDPath
 
 			req := httptest.NewRequest(http.MethodDelete, url, nil)
-			if tt.requesterIDHdr != "" {
-				req.Header.Set("X-User-Id", tt.requesterIDHdr)
-			}
+			req = setAuthenticatedUserFromString(req, tt.requesterIDHdr)
 
 			if tt.userRoleHdr != "" {
 				req.Header.Set("X-User-Role", tt.userRoleHdr)
@@ -1430,9 +1422,7 @@ func TestSocialHandlerGetUserActivity(t *testing.T) {
 			}
 
 			req := httptest.NewRequest(http.MethodGet, url, nil)
-			if tt.requesterIDHdr != "" {
-				req.Header.Set("X-User-Id", tt.requesterIDHdr)
-			}
+			req = setAuthenticatedUserFromString(req, tt.requesterIDHdr)
 
 			rr := httptest.NewRecorder()
 			r.ServeHTTP(rr, req)

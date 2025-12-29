@@ -283,9 +283,10 @@ func BenchmarkGetUserByID(b *testing.B) {
 
 	seedBenchmarkUser(b, dbSvc.GetDB(), targetUserID)
 
+	requesterID := uuid.New()
 	reqPath := fmt.Sprintf("/api/v1/user-management/users/%s", targetUserID)
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
-	// No X-User-Id header - anonymous access
+	req.Header.Set("X-User-Id", requesterID.String())
 
 	for b.Loop() {
 		rr := httptest.NewRecorder()
@@ -314,12 +315,13 @@ func BenchmarkGetUserByIDConcurrent(b *testing.B) {
 
 	seedBenchmarkUser(b, dbSvc.GetDB(), targetUserID)
 
+	requesterID := uuid.New()
 	reqPath := fmt.Sprintf("/api/v1/user-management/users/%s", targetUserID)
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
-			// No X-User-Id header - anonymous access
+			req.Header.Set("X-User-Id", requesterID.String())
 
 			rr := httptest.NewRecorder()
 			benchmarkHandler.ServeHTTP(rr, req)

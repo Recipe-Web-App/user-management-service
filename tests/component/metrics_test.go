@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -45,6 +46,7 @@ func TestMetricsEndpoint(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
+	req.Header.Set("X-User-Id", uuid.New().String())
 
 	resp, err := ts.Client().Do(req)
 	require.NoError(t, err)
@@ -143,6 +145,7 @@ func TestMetricsEndpoint_System(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
+	req.Header.Set("X-User-Id", uuid.New().String())
 
 	resp, err := ts.Client().Do(req)
 	require.NoError(t, err)
@@ -188,6 +191,7 @@ func TestMetricsEndpointDetailedHealth(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
+	req.Header.Set("X-User-Id", uuid.New().String())
 
 	resp, err := ts.Client().Do(req)
 	require.NoError(t, err)

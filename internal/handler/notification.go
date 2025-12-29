@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/middleware"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/service"
 )
 
@@ -248,16 +249,9 @@ func (h *NotificationHandler) handleBindError(w http.ResponseWriter, err error) 
 }
 
 func (h *NotificationHandler) extractAuthenticatedUserID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
-	userIDStr := r.Header.Get("X-User-Id")
-	if userIDStr == "" {
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok {
 		UnauthorizedResponse(w, "User authentication required")
-
-		return uuid.Nil, false
-	}
-
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		UnauthorizedResponse(w, "Invalid user ID in authentication header")
 
 		return uuid.Nil, false
 	}

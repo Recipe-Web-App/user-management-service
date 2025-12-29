@@ -8,6 +8,7 @@ import (
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/config"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/database"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/handler"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/oauth2"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/redis"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/repository"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/service"
@@ -34,6 +35,10 @@ type Container struct {
 	NotificationHandler handler.NotificationHandler
 	AdminHandler        handler.AdminHandler
 	MetricsHandler      handler.MetricsHandler
+
+	// OAuth2
+	OAuth2Client oauth2.Client
+	TokenManager oauth2.TokenManager
 }
 
 // ContainerConfig holds options for building the container.
@@ -75,6 +80,7 @@ func NewContainer(cfg ContainerConfig) (*Container, error) {
 
 	initMetricsService(c)
 	initAdminService(c)
+	initOAuth2(c, cfg)
 
 	return c, nil
 }
@@ -169,6 +175,11 @@ func initMetricsService(c *Container) {
 func (c *Container) Close() error {
 	var errs []error
 
+	// Close TokenManager first (depends on OAuth2Client)
+	if c.TokenManager != nil {
+		c.TokenManager.Close()
+	}
+
 	if c.Database != nil {
 		err := c.Database.Close()
 		if err != nil {
@@ -193,4 +204,18 @@ func initAdminService(c *Container) {
 	}
 
 	c.AdminService = service.NewAdminService(redisClient)
+}
+
+func initOAuth2(c *Container, cfg ContainerConfig) {
+	if cfg.Config == nil || !cfg.Config.OAuth2.Enabled {
+		return
+	}
+
+	// Initialize OAuth2 client for token introspection
+	c.OAuth2Client = oauth2.NewOAuth2Client(&cfg.Config.OAuth2)
+
+	// Initialize TokenManager for service-to-service authentication
+	if cfg.Config.OAuth2.ServiceEnabled {
+		c.TokenManager = oauth2.NewTokenManager(c.OAuth2Client, []string{"user:read", "user:write"})
+	}
 }

@@ -224,10 +224,10 @@ func loadOauth2Config() {
 	_ = viper.BindEnv("oauth2.client_id", "OAUTH2_CLIENT_ID")
 	_ = viper.BindEnv("oauth2.client_secret", "OAUTH2_CLIENT_SECRET")
 	_ = viper.BindEnv("oauth2.jwt_secret", "OAUTH2_JWT_SECRET")
-	_ = viper.BindEnv("oauth2.authBaseUrl", "OAUTH2_AUTH_BASE_URL")
-	_ = viper.BindEnv("oauth2.getTokenPath", "OAUTH2_GET_TOKEN_PATH")
-	_ = viper.BindEnv("oauth2.revokeTokenPath", "OAUTH2_REVOKE_TOKEN_PATH")
-	_ = viper.BindEnv("oauth2.introspectionPath", "OAUTH2_INTROSPECTION_PATH")
+	_ = viper.BindEnv("oauth2.baseauthurl", "OAUTH2_AUTH_BASE_URL")
+	_ = viper.BindEnv("oauth2.gettokenpath", "OAUTH2_GET_TOKEN_PATH")
+	_ = viper.BindEnv("oauth2.revoketokenpath", "OAUTH2_REVOKE_TOKEN_PATH")
+	_ = viper.BindEnv("oauth2.introspectionpath", "OAUTH2_INTROSPECTION_PATH")
 }
 
 func loadPostgresConfig() {

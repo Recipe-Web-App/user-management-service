@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/app"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/config"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
@@ -52,6 +53,7 @@ func TestGetUserStatsComponent_Success(t *testing.T) {
 
 	// Execute
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/admin/users/stats", nil)
+	req.Header.Set("X-User-Id", uuid.New().String())
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 

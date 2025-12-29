@@ -30,8 +30,10 @@ func BenchmarkGetUserStats(b *testing.B) {
 		seedBenchmarkUser(b, dbSvc.GetDB(), userID)
 	}
 
+	requesterID := uuid.New()
 	reqPath := "/api/v1/user-management/admin/users/stats"
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
+	req.Header.Set("X-User-Id", requesterID.String())
 
 	for b.Loop() {
 		rr := httptest.NewRecorder()
@@ -62,11 +64,13 @@ func BenchmarkGetUserStatsConcurrent(b *testing.B) {
 		seedBenchmarkUser(b, dbSvc.GetDB(), userID)
 	}
 
+	requesterID := uuid.New()
 	reqPath := "/api/v1/user-management/admin/users/stats"
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
+			req.Header.Set("X-User-Id", requesterID.String())
 			rr := httptest.NewRecorder()
 			benchmarkHandler.ServeHTTP(rr, req)
 
@@ -84,10 +88,13 @@ func BenchmarkClearCache(b *testing.B) {
 
 	reqPath := "/api/v1/user-management/admin/cache/clear"
 
+	requesterID := uuid.New()
+
 	for b.Loop() {
 		reqBody := strings.NewReader(`{"keyPattern": "*"}`)
 		req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, reqPath, reqBody)
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-User-Id", requesterID.String())
 
 		rr := httptest.NewRecorder()
 		benchmarkHandler.ServeHTTP(rr, req)

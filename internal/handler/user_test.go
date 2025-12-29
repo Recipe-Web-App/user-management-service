@@ -29,7 +29,6 @@ var (
 	errSearchResultType    = errors.New("invalid type assertion for UserSearchResult")
 	errUserStatsType       = errors.New("invalid type assertion for UserStatsResponse")
 	internalErrorStr       = "Internal Error"
-	userIDHeaderStr        = "X-User-Id"
 	userNotFoundStr        = "Not Found - User does not exist"
 )
 
@@ -286,9 +285,7 @@ func runUserHandlerTest(t *testing.T, tests []userHandlerTestCase) {
 			r.Get("/users/{user_id}/profile", h.GetUserProfile)
 
 			req := httptest.NewRequest(http.MethodGet, "/users/"+tt.targetIDPath+"/profile", nil)
-			if tt.requesterIDHdr != "" {
-				req.Header.Set(userIDHeaderStr, tt.requesterIDHdr)
-			}
+			req = setAuthenticatedUserFromString(req, tt.requesterIDHdr)
 
 			rr := httptest.NewRecorder()
 			r.ServeHTTP(rr, req)
@@ -445,9 +442,7 @@ func TestUserHandlerUpdateUserProfile(t *testing.T) { //nolint:funlen // table-d
 			r.Put("/users/profile", h.UpdateUserProfile)
 
 			req := httptest.NewRequest(http.MethodPut, "/users/profile", strings.NewReader(tt.requestBody))
-			if tt.requesterIDHdr != "" {
-				req.Header.Set(userIDHeaderStr, tt.requesterIDHdr)
-			}
+			req = setAuthenticatedUserFromString(req, tt.requesterIDHdr)
 
 			if tt.contentType != "" {
 				req.Header.Set("Content-Type", tt.contentType)
@@ -557,9 +552,7 @@ func TestUserHandlerRequestAccountDeletion(t *testing.T) { //nolint:funlen // ta
 			r.Post("/users/account/delete-request", h.RequestAccountDeletion)
 
 			req := httptest.NewRequest(http.MethodPost, "/users/account/delete-request", nil)
-			if tt.requesterIDHdr != "" {
-				req.Header.Set(userIDHeaderStr, tt.requesterIDHdr)
-			}
+			req = setAuthenticatedUserFromString(req, tt.requesterIDHdr)
 
 			rr := httptest.NewRecorder()
 			r.ServeHTTP(rr, req)
@@ -714,9 +707,7 @@ func TestUserHandlerConfirmAccountDeletion(t *testing.T) { //nolint:funlen // ta
 			r.Delete("/users/account", h.ConfirmAccountDeletion)
 
 			req := httptest.NewRequest(http.MethodDelete, "/users/account", strings.NewReader(tt.requestBody))
-			if tt.requesterIDHdr != "" {
-				req.Header.Set(userIDHeaderStr, tt.requesterIDHdr)
-			}
+			req = setAuthenticatedUserFromString(req, tt.requesterIDHdr)
 
 			if tt.contentType != "" {
 				req.Header.Set("Content-Type", tt.contentType)
@@ -928,9 +919,7 @@ func TestUserHandlerSearchUsers(t *testing.T) { //nolint:funlen // table-driven 
 			r.Get("/users/search", h.SearchUsers)
 
 			req := httptest.NewRequest(http.MethodGet, "/users/search"+tt.queryParams, nil)
-			if tt.requesterIDHdr != "" {
-				req.Header.Set(userIDHeaderStr, tt.requesterIDHdr)
-			}
+			req = setAuthenticatedUserFromString(req, tt.requesterIDHdr)
 
 			rr := httptest.NewRecorder()
 			r.ServeHTTP(rr, req)

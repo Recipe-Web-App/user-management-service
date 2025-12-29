@@ -127,6 +127,12 @@ func TestLoadPanicOnInvalidOAuth2(t *testing.T) {
 
 	t.Chdir(tmpDir)
 
+	// Clear any OAuth2 env vars that might be set from .env.local
+	t.Setenv("OAUTH2_CLIENT_ID", "")
+	t.Setenv("OAUTH2_CLIENT_SECRET", "")
+	t.Setenv("OAUTH2_SERVICE_ENABLED", "")
+	t.Setenv("OAUTH2_INTROSPECTION_ENABLED", "")
+
 	// Enable OAuth2 but don't set required fields
 	t.Setenv("OAUTH2_ENABLED", "true")
 
@@ -188,6 +194,9 @@ func TestLoadEnvironmentDefaults(t *testing.T) {
 	createConfigFile(t, configDir, databaseConfigFileName, databaseConfigFileContents)
 
 	t.Chdir(tmpDir)
+
+	// Clear environment variables that might be set from .env.local
+	t.Setenv("ENVIRONMENT", "")
 
 	// Case 1: Default value
 	cfg := Load()

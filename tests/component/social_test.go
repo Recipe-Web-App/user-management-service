@@ -2123,20 +2123,11 @@ func TestGetUserActivityComponent_Success_Authenticated(t *testing.T) {
 	mockSocialRepo.AssertExpectations(t)
 }
 
-func TestGetUserActivityComponent_Success_Anonymous(t *testing.T) {
+func TestGetUserActivityComponent_Unauthorized_Anonymous(t *testing.T) {
 	t.Parallel()
 
-	mockUserRepo := new(MockUserRepo)
-	mockSocialRepo := new(MockSocialRepoComponent)
-	mockTokenStore := new(MockTokenStore)
-
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
-
 	c := &app.Container{
-		UserService:   userSvc,
-		SocialService: socialSvc,
-		Config:        config.Instance,
+		Config: config.Instance,
 	}
 	c.HealthService = service.NewHealthService(nil, nil)
 
@@ -2145,29 +2136,16 @@ func TestGetUserActivityComponent_Success_Anonymous(t *testing.T) {
 
 	targetUserID := uuid.New()
 
-	targetUser := createTestUserComponent(targetUserID, "targetuser")
-	publicPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "public"}
-	recipes, follows, reviews, favorites := createTestActivityDataComponent()
-
-	mockUserRepo.On("FindUserByID", mock.Anything, targetUserID).Return(targetUser, nil).Once()
-	mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetUserID).Return(publicPrivacy, nil).Once()
-	mockSocialRepo.On("GetRecentRecipes", mock.Anything, targetUserID, 15).Return(recipes, nil).Once()
-	mockSocialRepo.On("GetRecentFollows", mock.Anything, targetUserID, 15).Return(follows, nil).Once()
-	mockSocialRepo.On("GetRecentReviews", mock.Anything, targetUserID, 15).Return(reviews, nil).Once()
-	mockSocialRepo.On("GetRecentFavorites", mock.Anything, targetUserID, 15).Return(favorites, nil).Once()
-
-	// No X-User-Id header - anonymous access
+	// No X-User-Id header - requires authentication
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/"+targetUserID.String()+"/activity", nil)
 
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
 
-	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), targetUserID.String())
-
-	mockUserRepo.AssertExpectations(t)
-	mockSocialRepo.AssertExpectations(t)
+	// All protected routes now require authentication
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+	assert.Contains(t, rr.Body.String(), "UNAUTHORIZED")
 }
 
 func TestGetUserActivityComponent_Success_CustomLimit(t *testing.T) {
@@ -2346,20 +2324,11 @@ func TestGetUserActivityComponent_Forbidden_PrivateProfile(t *testing.T) {
 	mockUserRepo.AssertExpectations(t)
 }
 
-func TestGetUserActivityComponent_Forbidden_FollowersOnlyAnonymous(t *testing.T) {
+func TestGetUserActivityComponent_Unauthorized_FollowersOnlyAnonymous(t *testing.T) {
 	t.Parallel()
 
-	mockUserRepo := new(MockUserRepo)
-	mockSocialRepo := new(MockSocialRepoComponent)
-	mockTokenStore := new(MockTokenStore)
-
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
-
 	c := &app.Container{
-		UserService:   userSvc,
-		SocialService: socialSvc,
-		Config:        config.Instance,
+		Config: config.Instance,
 	}
 	c.HealthService = service.NewHealthService(nil, nil)
 
@@ -2368,23 +2337,16 @@ func TestGetUserActivityComponent_Forbidden_FollowersOnlyAnonymous(t *testing.T)
 
 	targetUserID := uuid.New()
 
-	targetUser := createTestUserComponent(targetUserID, "followersonly")
-	followersOnlyPrivacy := &dto.PrivacyPreferences{ProfileVisibility: "followers_only"}
-
-	mockUserRepo.On("FindUserByID", mock.Anything, targetUserID).Return(targetUser, nil).Once()
-	mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetUserID).Return(followersOnlyPrivacy, nil).Once()
-
-	// Anonymous request (no X-User-Id header)
+	// Anonymous request (no X-User-Id header) - auth check happens before profile visibility check
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/"+targetUserID.String()+"/activity", nil)
 
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
 
-	assert.Equal(t, http.StatusForbidden, rr.Code)
-	assert.Contains(t, rr.Body.String(), "FORBIDDEN")
-
-	mockUserRepo.AssertExpectations(t)
+	// Returns 401 because auth is required before any visibility check
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
+	assert.Contains(t, rr.Body.String(), "UNAUTHORIZED")
 }
 
 func TestGetUserActivityComponent_ValidationError_InvalidUUID(t *testing.T) {
@@ -2407,7 +2369,9 @@ func TestGetUserActivityComponent_ValidationError_InvalidUUID(t *testing.T) {
 	srv := server.NewServerWithContainer(c)
 	handler := srv.Handler
 
+	requesterID := uuid.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/invalid-uuid/activity", nil)
+	req.Header.Set("X-User-Id", requesterID.String())
 
 	rr := httptest.NewRecorder()
 
@@ -2438,12 +2402,14 @@ func TestGetUserActivityComponent_ValidationError_InvalidPerTypeLimit(t *testing
 	handler := srv.Handler
 
 	targetUserID := uuid.New()
+	requesterID := uuid.New()
 
 	req := httptest.NewRequest(
 		http.MethodGet,
 		"/api/v1/user-management/users/"+targetUserID.String()+"/activity?per_type_limit=0",
 		nil,
 	)
+	req.Header.Set("X-User-Id", requesterID.String())
 
 	rr := httptest.NewRecorder()
 
@@ -2474,12 +2440,14 @@ func TestGetUserActivityComponent_ValidationError_PerTypeLimitTooHigh(t *testing
 	handler := srv.Handler
 
 	targetUserID := uuid.New()
+	requesterID := uuid.New()
 
 	req := httptest.NewRequest(
 		http.MethodGet,
 		"/api/v1/user-management/users/"+targetUserID.String()+"/activity?per_type_limit=101",
 		nil,
 	)
+	req.Header.Set("X-User-Id", requesterID.String())
 
 	rr := httptest.NewRecorder()
 

@@ -315,7 +315,9 @@ func TestUserProfileComponent(t *testing.T) {
 	mockRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, userID).Return(privacy, nil)
 
 	// Perform Request
+	requesterID := uuid.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/"+userID.String()+"/profile", nil)
+	req.Header.Set("X-User-Id", requesterID.String())
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
@@ -990,7 +992,9 @@ func TestGetUserByIDComponent_Success(t *testing.T) {
 	mockRepo.On("FindUserByID", mock.Anything, userID).Return(user, nil)
 	mockRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, userID).Return(privacy, nil)
 
+	requesterID := uuid.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/"+userID.String(), nil)
+	req.Header.Set("X-User-Id", requesterID.String())
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
@@ -1025,7 +1029,9 @@ func TestGetUserByIDComponent_NotFound_UserDoesNotExist(t *testing.T) {
 
 	mockRepo.On("FindUserByID", mock.Anything, nonExistentID).Return(nil, repository.ErrUserNotFound)
 
+	requesterID := uuid.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/"+nonExistentID.String(), nil)
+	req.Header.Set("X-User-Id", requesterID.String())
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
@@ -1067,7 +1073,9 @@ func TestGetUserByIDComponent_NotFound_PrivateProfile(t *testing.T) {
 	mockRepo.On("FindUserByID", mock.Anything, userID).Return(user, nil)
 	mockRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, userID).Return(privacy, nil)
 
+	requesterID := uuid.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/"+userID.String(), nil)
+	req.Header.Set("X-User-Id", requesterID.String())
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
@@ -1110,12 +1118,14 @@ func TestGetUserByIDComponent_NotFound_FollowersOnlyProfile(t *testing.T) {
 	mockRepo.On("FindUserByID", mock.Anything, userID).Return(user, nil)
 	mockRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, userID).Return(privacy, nil)
 
+	requesterID := uuid.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/"+userID.String(), nil)
+	req.Header.Set("X-User-Id", requesterID.String())
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
 
-	// followers_only also returns 404 for anonymous access
+	// followers_only returns 404 for non-followers
 	assert.Equal(t, http.StatusNotFound, rr.Code)
 }
 
@@ -1148,7 +1158,9 @@ func TestGetUserByIDComponent_NotFound_InactiveUser(t *testing.T) {
 
 	mockRepo.On("FindUserByID", mock.Anything, userID).Return(user, nil)
 
+	requesterID := uuid.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/"+userID.String(), nil)
+	req.Header.Set("X-User-Id", requesterID.String())
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
@@ -1172,7 +1184,9 @@ func TestGetUserByIDComponent_ValidationError_InvalidUUID(t *testing.T) {
 	srv := server.NewServerWithContainer(c)
 	handler := srv.Handler
 
+	requesterID := uuid.New()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/user-management/users/not-a-uuid", nil)
+	req.Header.Set("X-User-Id", requesterID.String())
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)

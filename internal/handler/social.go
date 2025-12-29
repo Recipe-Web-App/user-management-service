@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/middleware"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/service"
 )
 
@@ -260,19 +261,14 @@ func (h *SocialHandler) GetUserActivity(w http.ResponseWriter, r *http.Request) 
 	SuccessResponse(w, http.StatusOK, response)
 }
 
-// extractOptionalUserID extracts user ID from header (nil if not provided or invalid).
+// extractOptionalUserID extracts user ID from context (nil if not authenticated).
 func (h *SocialHandler) extractOptionalUserID(r *http.Request) *uuid.UUID {
-	requesterIDStr := r.Header.Get("X-User-Id")
-	if requesterIDStr == "" {
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok || userID == uuid.Nil {
 		return nil
 	}
 
-	requesterID, err := uuid.Parse(requesterIDStr)
-	if err != nil {
-		return nil
-	}
-
-	return &requesterID
+	return &userID
 }
 
 func (h *SocialHandler) parseActivityParams(r *http.Request) (int, error) {
@@ -387,21 +383,14 @@ func (h *SocialHandler) handleGetFollowersError(w http.ResponseWriter, err error
 }
 
 func (h *SocialHandler) extractAuthenticatedUserID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
-	requesterIDStr := r.Header.Get("X-User-Id")
-	if requesterIDStr == "" {
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok {
 		UnauthorizedResponse(w, "User authentication required")
 
 		return uuid.Nil, false
 	}
 
-	requesterID, err := uuid.Parse(requesterIDStr)
-	if err != nil {
-		UnauthorizedResponse(w, "Invalid user ID in authentication header")
-
-		return uuid.Nil, false
-	}
-
-	return requesterID, true
+	return userID, true
 }
 
 func (h *SocialHandler) isAdminUser(r *http.Request) bool {

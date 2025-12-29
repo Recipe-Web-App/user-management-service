@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/middleware"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/service"
 )
 
@@ -54,19 +55,9 @@ func (h *UserHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. Identify Requester
-	// In a real scenario, this comes from context set by Auth Middleware.
-	// We check X-User-ID header or assume anonymous.
-	var requesterID uuid.UUID
-
-	requesterIDStr := r.Header.Get("X-User-Id")
-	if requesterIDStr != "" {
-		id, err := uuid.Parse(requesterIDStr)
-		if err == nil {
-			requesterID = id
-		}
-	}
-	// If empty, requesterID is zero-value UUID (Anonymous)
+	// 2. Identify Requester from context (set by Auth Middleware)
+	// If not authenticated, requesterID is zero-value UUID (Anonymous)
+	requesterID, _ := middleware.GetUserIDFromContext(r.Context())
 
 	// 3. Call Service
 	profile, err := h.userService.GetUserProfile(r.Context(), requesterID, targetUserID)
@@ -280,21 +271,14 @@ func (h *UserHandler) handleGetUserByIDError(w http.ResponseWriter, err error) {
 }
 
 func (h *UserHandler) extractAuthenticatedUserID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
-	requesterIDStr := r.Header.Get("X-User-Id")
-	if requesterIDStr == "" {
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok {
 		UnauthorizedResponse(w, "User authentication required")
 
 		return uuid.Nil, false
 	}
 
-	requesterID, err := uuid.Parse(requesterIDStr)
-	if err != nil {
-		UnauthorizedResponse(w, "Invalid user ID in authentication header")
-
-		return uuid.Nil, false
-	}
-
-	return requesterID, true
+	return userID, true
 }
 
 func (h *UserHandler) handleBindError(w http.ResponseWriter, err error) {

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,6 +24,7 @@ func TestPerformanceMetricsEndpoint(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
+	req.Header.Set("X-User-Id", uuid.New().String())
 
 	rr := httptest.NewRecorder()
 
@@ -49,6 +51,7 @@ func TestCacheMetricsEndpoint(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
+	req.Header.Set("X-User-Id", uuid.New().String())
 
 	rr := httptest.NewRecorder()
 
@@ -74,6 +77,7 @@ func TestSystemMetricsEndpoint(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
+	req.Header.Set("X-User-Id", uuid.New().String())
 
 	rr := httptest.NewRecorder()
 
@@ -100,6 +104,7 @@ func TestDetailedHealthMetricsEndpoint(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
+	req.Header.Set("X-User-Id", uuid.New().String())
 
 	rr := httptest.NewRecorder()
 

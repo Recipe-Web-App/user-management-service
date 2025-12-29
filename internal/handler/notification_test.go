@@ -240,7 +240,7 @@ func TestNotificationHandler_GetNotifications(t *testing.T) {
 			queryParams:    "",
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusUnauthorized,
-			expectedBody:   []string{`"UNAUTHORIZED"`, `"Invalid user ID in authentication header"`},
+			expectedBody:   []string{`"UNAUTHORIZED"`, `"User authentication required"`},
 		},
 		{
 			name:           "returns 400 when limit is not an integer",
@@ -349,9 +349,7 @@ func TestNotificationHandler_GetNotifications(t *testing.T) {
 			r.Get("/notifications", h.GetNotifications)
 
 			req := httptest.NewRequest(http.MethodGet, "/notifications"+tt.queryParams, nil)
-			if tt.userIDHeader != "" {
-				req.Header.Set("X-User-Id", tt.userIDHeader)
-			}
+			req = setAuthenticatedUserFromString(req, tt.userIDHeader)
 
 			rr := httptest.NewRecorder()
 			r.ServeHTTP(rr, req)
@@ -451,7 +449,7 @@ func TestNotificationHandler_DeleteNotifications(t *testing.T) {
 			requestBody:    fmt.Sprintf(`{"notificationIds": ["%s"]}`, notificationID1.String()),
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusUnauthorized,
-			expectedBody:   []string{`"UNAUTHORIZED"`, `"Invalid user ID in authentication header"`},
+			expectedBody:   []string{`"UNAUTHORIZED"`, `"User authentication required"`},
 		},
 		{
 			name:           "returns 400 when request body is empty",
@@ -535,10 +533,7 @@ func TestNotificationHandler_DeleteNotifications(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodDelete, "/notifications", body)
 			req.Header.Set("Content-Type", "application/json")
-
-			if tt.userIDHeader != "" {
-				req.Header.Set("X-User-Id", tt.userIDHeader)
-			}
+			req = setAuthenticatedUserFromString(req, tt.userIDHeader)
 
 			rr := httptest.NewRecorder()
 			r.ServeHTTP(rr, req)
@@ -610,7 +605,7 @@ func TestNotificationHandler_MarkNotificationRead(t *testing.T) {
 			notificationID: notificationID.String(),
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusUnauthorized,
-			expectedBody:   []string{`"UNAUTHORIZED"`, `"Invalid user ID in authentication header"`},
+			expectedBody:   []string{`"UNAUTHORIZED"`, `"User authentication required"`},
 		},
 		{
 			name:           "returns 400 when notification_id is invalid UUID",
@@ -647,10 +642,7 @@ func TestNotificationHandler_MarkNotificationRead(t *testing.T) {
 
 			reqPath := fmt.Sprintf("/notifications/%s/read", tt.notificationID)
 			req := httptest.NewRequest(http.MethodPut, reqPath, nil)
-
-			if tt.userIDHeader != "" {
-				req.Header.Set("X-User-Id", tt.userIDHeader)
-			}
+			req = setAuthenticatedUserFromString(req, tt.userIDHeader)
 
 			rr := httptest.NewRecorder()
 			r.ServeHTTP(rr, req)
@@ -722,7 +714,7 @@ func TestNotificationHandler_MarkAllNotificationsRead(t *testing.T) {
 			userIDHeader:   "not-a-uuid",
 			mockRun:        func(_ *MockNotificationService) {},
 			expectedStatus: http.StatusUnauthorized,
-			expectedBody:   []string{`"UNAUTHORIZED"`, `"Invalid user ID in authentication header"`},
+			expectedBody:   []string{`"UNAUTHORIZED"`, `"User authentication required"`},
 		},
 		{
 			name:         "returns 500 when service returns error",
@@ -749,10 +741,7 @@ func TestNotificationHandler_MarkAllNotificationsRead(t *testing.T) {
 			r.Put("/notifications/read-all", h.MarkAllNotificationsRead)
 
 			req := httptest.NewRequest(http.MethodPut, "/notifications/read-all", nil)
-
-			if tt.userIDHeader != "" {
-				req.Header.Set("X-User-Id", tt.userIDHeader)
-			}
+			req = setAuthenticatedUserFromString(req, tt.userIDHeader)
 
 			rr := httptest.NewRecorder()
 			r.ServeHTTP(rr, req)

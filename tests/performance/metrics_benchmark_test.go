@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 func BenchmarkPerformanceMetricsEndpoint(b *testing.B) {
@@ -14,6 +16,7 @@ func BenchmarkPerformanceMetricsEndpoint(b *testing.B) {
 		"/api/v1/user-management/metrics/performance",
 		nil,
 	)
+	req.Header.Set("X-User-Id", uuid.New().String())
 
 	for b.Loop() {
 		rr := httptest.NewRecorder()
@@ -28,6 +31,7 @@ func BenchmarkCacheMetricsEndpoint(b *testing.B) {
 		"/api/v1/user-management/metrics/cache",
 		nil,
 	)
+	req.Header.Set("X-User-Id", uuid.New().String())
 
 	for b.Loop() {
 		rr := httptest.NewRecorder()
@@ -42,6 +46,7 @@ func BenchmarkSystemMetricsEndpoint(b *testing.B) {
 		"/api/v1/user-management/metrics/system",
 		nil,
 	)
+	req.Header.Set("X-User-Id", uuid.New().String())
 
 	for b.Loop() {
 		rr := httptest.NewRecorder()
@@ -56,6 +61,7 @@ func BenchmarkDetailedHealthMetricsEndpoint(b *testing.B) {
 		"/api/v1/user-management/metrics/health/detailed",
 		nil,
 	)
+	req.Header.Set("X-User-Id", uuid.New().String())
 
 	for b.Loop() {
 		rr := httptest.NewRecorder()

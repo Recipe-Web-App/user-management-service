@@ -999,7 +999,8 @@ func newGetUserByIDRequest(t *testing.T, userID uuid.UUID) *http.Request {
 	reqPath := fmt.Sprintf("%s/%s", baseURL, userID)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, reqPath, nil)
 	require.NoError(t, err)
-	// No X-User-Id header needed - anonymous access
+	// Auth required for all protected routes
+	req.Header.Set(headerUserID, uuid.New().String())
 
 	return req
 }

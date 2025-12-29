@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,8 +23,9 @@ func TestClearCacheEndpoint(t *testing.T) {
 		"/api/v1/user-management/admin/cache/clear",
 		bytes.NewBufferString(reqBody),
 	)
-	req.Header.Set("Content-Type", "application/json")
 	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-Id", uuid.New().String())
 
 	rr := httptest.NewRecorder()
 

@@ -25,20 +25,26 @@ type Handlers struct {
 }
 
 // RegisterRoutesWithHandlers creates routes with injected handlers.
-func RegisterRoutesWithHandlers(h Handlers) http.Handler {
+func RegisterRoutesWithHandlers(h Handlers, authCfg customMiddleware.AuthConfig) http.Handler {
 	r := chi.NewRouter()
 
 	setupMiddleware(r)
 
-	// Prometheus metrics endpoint (outside /api to avoid auth middleware if added later)
+	// Prometheus metrics endpoint (public - no auth)
 	r.Handle("/metrics", promhttp.Handler())
 
 	r.Route("/api/v1/user-management", func(r chi.Router) {
+		// Health routes - public (kubernetes probes)
 		registerHealthRoutes(r, h)
-		registerUserRoutes(r, h)
-		registerNotificationRoutes(r, h)
-		registerAdminRoutes(r, h)
-		registerMetricsRoutes(r, h)
+
+		// Protected routes - require authentication
+		r.Group(func(r chi.Router) {
+			r.Use(customMiddleware.Auth(authCfg))
+			registerUserRoutes(r, h)
+			registerNotificationRoutes(r, h)
+			registerAdminRoutes(r, h)
+			registerMetricsRoutes(r, h)
+		})
 	})
 
 	return r

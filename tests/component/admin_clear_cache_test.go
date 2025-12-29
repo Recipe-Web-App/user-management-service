@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/app"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/config"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
@@ -109,6 +110,7 @@ func TestClearCache_Success(t *testing.T) {
 	reqBody := `{"keyPattern": "user:*"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/user-management/admin/cache/clear", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-Id", uuid.New().String())
 
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
@@ -157,6 +159,7 @@ func TestClearCache_Success_EmptyBody(t *testing.T) {
 
 	// Execute with NO body
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/user-management/admin/cache/clear", nil)
+	req.Header.Set("X-User-Id", uuid.New().String())
 	// Even without body, content-type is often not present, or maybe application/json
 	// If the binder checks header first, we might need to be careful.
 	// But binder.BindJSON check r.Body == nil first.

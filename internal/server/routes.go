@@ -16,12 +16,11 @@ import (
 
 // Handlers contains all HTTP handlers.
 type Handlers struct {
-	Health       *handler.HealthHandler
-	User         *handler.UserHandler
-	Social       *handler.SocialHandler
-	Notification *handler.NotificationHandler
-	Admin        *handler.AdminHandler
-	Metrics      *handler.MetricsHandler
+	Health  *handler.HealthHandler
+	User    *handler.UserHandler
+	Social  *handler.SocialHandler
+	Admin   *handler.AdminHandler
+	Metrics *handler.MetricsHandler
 }
 
 // RegisterRoutesWithHandlers creates routes with injected handlers.
@@ -41,7 +40,6 @@ func RegisterRoutesWithHandlers(h Handlers, authCfg customMiddleware.AuthConfig)
 		r.Group(func(r chi.Router) {
 			r.Use(customMiddleware.Auth(authCfg))
 			registerUserRoutes(r, h)
-			registerNotificationRoutes(r, h)
 			registerAdminRoutes(r, h)
 			registerMetricsRoutes(r, h)
 		})
@@ -100,17 +98,6 @@ func registerUserRoutes(r chi.Router, h Handlers) {
 			r.Post("/follow/{target_user_id}", h.Social.FollowUser)
 			r.Delete("/follow/{target_user_id}", h.Social.UnfollowUser)
 		})
-	})
-}
-
-func registerNotificationRoutes(r chi.Router, h Handlers) {
-	r.Route("/notifications", func(r chi.Router) {
-		r.Get("/", h.Notification.GetNotifications)
-		r.Delete("/", h.Notification.DeleteNotifications)
-		r.Put("/read-all", h.Notification.MarkAllNotificationsRead)
-		r.Get("/preferences", h.Notification.GetNotificationPreferences)
-		r.Put("/preferences", h.Notification.UpdateNotificationPreferences)
-		r.Put("/{notification_id}/read", h.Notification.MarkNotificationRead)
 	})
 }
 

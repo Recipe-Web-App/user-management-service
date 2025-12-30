@@ -20,12 +20,10 @@ import (
 const mockSocialErrorFmt = "mock error: %w"
 
 var (
-	errMockSocialArgs         = errors.New("mock: missing args")
-	errMockSocialUser         = errors.New("invalid type assertion for User")
-	errMockSocialPrivacy      = errors.New("invalid type assertion for PrivacyPreferences")
-	errRepoSocial             = errors.New("repository error")
-	errMockSocialNotifPrefs   = errors.New("invalid type assertion for NotificationPreferences")
-	errMockSocialDisplayPrefs = errors.New("invalid type assertion for DisplayPreferences")
+	errMockSocialArgs    = errors.New("mock: missing args")
+	errMockSocialUser    = errors.New("invalid type assertion for User")
+	errMockSocialPrivacy = errors.New("invalid type assertion for PrivacyPreferences")
+	errRepoSocial        = errors.New("repository error")
 )
 
 // MockUserRepoForSocial is a mock implementation of repository.UserRepository.
@@ -70,49 +68,6 @@ func (m *MockUserRepoForSocial) FindPrivacyPreferencesByUserID(
 	}
 
 	return nil, errMockSocialPrivacy
-}
-
-func (m *MockUserRepoForSocial) FindNotificationPreferencesByUserID(
-	ctx context.Context,
-	userID uuid.UUID,
-) (*dto.NotificationPreferences, error) {
-	args := m.Called(ctx, userID)
-	if args.Get(0) == nil {
-		err := args.Error(1)
-		if err != nil {
-			return nil, fmt.Errorf(mockSocialErrorFmt, err)
-		}
-
-		return nil, errMockSocialArgs
-	}
-
-	if val, ok := args.Get(0).(*dto.NotificationPreferences); ok {
-		return val, nil
-	}
-
-	// Assuming we might need a specific error for this, but reusing args error for now or a generic one
-	return nil, errMockSocialNotifPrefs
-}
-
-func (m *MockUserRepoForSocial) FindDisplayPreferencesByUserID(
-	ctx context.Context,
-	userID uuid.UUID,
-) (*dto.DisplayPreferences, error) {
-	args := m.Called(ctx, userID)
-	if args.Get(0) == nil {
-		err := args.Error(1)
-		if err != nil {
-			return nil, fmt.Errorf(mockSocialErrorFmt, err)
-		}
-
-		return nil, errMockSocialArgs
-	}
-
-	if val, ok := args.Get(0).(*dto.DisplayPreferences); ok {
-		return val, nil
-	}
-
-	return nil, errMockSocialDisplayPrefs
 }
 
 func (m *MockUserRepoForSocial) IsFollowing(
@@ -166,51 +121,6 @@ func (m *MockUserRepoForSocial) SearchUsers(
 	results, _ := args.Get(0).([]dto.UserSearchResult)
 
 	return results, args.Int(1), nil
-}
-
-func (m *MockUserRepoForSocial) UpdateNotificationPreferences(
-	ctx context.Context,
-	userID uuid.UUID,
-	prefs *dto.NotificationPreferences,
-) error {
-	args := m.Called(ctx, userID, prefs)
-
-	err := args.Error(0)
-	if err != nil {
-		return fmt.Errorf(mockSocialErrorFmt, err)
-	}
-
-	return nil
-}
-
-func (m *MockUserRepoForSocial) UpdatePrivacyPreferences(
-	ctx context.Context,
-	userID uuid.UUID,
-	prefs *dto.PrivacyPreferences,
-) error {
-	args := m.Called(ctx, userID, prefs)
-
-	err := args.Error(0)
-	if err != nil {
-		return fmt.Errorf(mockSocialErrorFmt, err)
-	}
-
-	return nil
-}
-
-func (m *MockUserRepoForSocial) UpdateDisplayPreferences(
-	ctx context.Context,
-	userID uuid.UUID,
-	prefs *dto.DisplayPreferences,
-) error {
-	args := m.Called(ctx, userID, prefs)
-
-	err := args.Error(0)
-	if err != nil {
-		return fmt.Errorf(mockSocialErrorFmt, err)
-	}
-
-	return nil
 }
 
 func (m *MockUserRepoForSocial) GetUserStats(ctx context.Context) (*dto.UserStatsResponse, error) {

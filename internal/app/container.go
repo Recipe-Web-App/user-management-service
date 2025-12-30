@@ -21,20 +21,18 @@ type Container struct {
 	Cache    repository.HealthChecker
 
 	// Services
-	HealthService       service.HealthServicer
-	UserService         service.UserService
-	SocialService       service.SocialService
-	NotificationService service.NotificationService
-	MetricsService      service.MetricsService
-	AdminService        service.AdminService
+	HealthService  service.HealthServicer
+	UserService    service.UserService
+	SocialService  service.SocialService
+	MetricsService service.MetricsService
+	AdminService   service.AdminService
 
 	// Handlers
-	HealthHandler       handler.HealthHandler
-	UserHandler         handler.UserHandler
-	SocialHandler       handler.SocialHandler
-	NotificationHandler handler.NotificationHandler
-	AdminHandler        handler.AdminHandler
-	MetricsHandler      handler.MetricsHandler
+	HealthHandler  handler.HealthHandler
+	UserHandler    handler.UserHandler
+	SocialHandler  handler.SocialHandler
+	AdminHandler   handler.AdminHandler
+	MetricsHandler handler.MetricsHandler
 
 	// OAuth2
 	OAuth2Client oauth2.Client
@@ -43,13 +41,12 @@ type Container struct {
 
 // ContainerConfig holds options for building the container.
 type ContainerConfig struct {
-	Config           *config.Config
-	Database         repository.HealthChecker          // Optional override for testing
-	Cache            repository.HealthChecker          // Optional override for testing
-	UserRepo         repository.UserRepository         // Optional override for testing
-	SocialRepo       repository.SocialRepository       // Optional override for testing
-	NotificationRepo repository.NotificationRepository // Optional override for testing
-	TokenStore       repository.TokenStore             // Optional override for testing
+	Config     *config.Config
+	Database   repository.HealthChecker  // Optional override for testing
+	Cache      repository.HealthChecker  // Optional override for testing
+	UserRepo   repository.UserRepository // Optional override for testing
+	SocialRepo repository.SocialRepository
+	TokenStore repository.TokenStore // Optional override for testing
 }
 
 // NewContainer creates a new dependency container.
@@ -64,7 +61,7 @@ func NewContainer(cfg ContainerConfig) (*Container, error) {
 	c.HealthService = service.NewHealthService(c.Database, c.Cache)
 
 	// Initialize repositories and domain services
-	userRepo, socialRepo, notificationRepo, tokenStore := initRepositories(c, cfg)
+	userRepo, socialRepo, tokenStore := initRepositories(c, cfg)
 
 	if userRepo != nil {
 		c.UserService = service.NewUserService(userRepo, tokenStore)
@@ -72,10 +69,6 @@ func NewContainer(cfg ContainerConfig) (*Container, error) {
 
 	if userRepo != nil && socialRepo != nil {
 		c.SocialService = service.NewSocialService(userRepo, socialRepo)
-	}
-
-	if notificationRepo != nil {
-		c.NotificationService = service.NewNotificationService(notificationRepo, userRepo)
 	}
 
 	initMetricsService(c)
@@ -110,15 +103,13 @@ func initInfrastructure(c *Container, cfg ContainerConfig) {
 func initRepositories(c *Container, cfg ContainerConfig) (
 	repository.UserRepository,
 	repository.SocialRepository,
-	repository.NotificationRepository,
 	repository.TokenStore,
 ) {
 	var (
-		dbService        *database.Service
-		userRepo         repository.UserRepository
-		socialRepo       repository.SocialRepository
-		notificationRepo repository.NotificationRepository
-		tokenStore       repository.TokenStore
+		dbService  *database.Service
+		userRepo   repository.UserRepository
+		socialRepo repository.SocialRepository
+		tokenStore repository.TokenStore
 	)
 
 	if svc, ok := c.Database.(*database.Service); ok {
@@ -139,13 +130,6 @@ func initRepositories(c *Container, cfg ContainerConfig) (
 		socialRepo = repository.NewSocialRepository(dbService.GetDB())
 	}
 
-	// Notification Repo
-	if cfg.NotificationRepo != nil {
-		notificationRepo = cfg.NotificationRepo
-	} else if dbService != nil {
-		notificationRepo = repository.NewNotificationRepository(dbService.GetDB())
-	}
-
 	// Token Store
 	if cfg.TokenStore != nil {
 		tokenStore = cfg.TokenStore
@@ -153,7 +137,7 @@ func initRepositories(c *Container, cfg ContainerConfig) (
 		tokenStore = redisService
 	}
 
-	return userRepo, socialRepo, notificationRepo, tokenStore
+	return userRepo, socialRepo, tokenStore
 }
 
 func initMetricsService(c *Container) {

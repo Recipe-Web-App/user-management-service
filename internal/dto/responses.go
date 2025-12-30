@@ -119,93 +119,16 @@ type UserActivityResponse struct {
 }
 
 // ============================================================================
-// Notification Responses
+// Privacy Preferences (used for access control)
 // ============================================================================
 
-// Notification represents a notification.
-type Notification struct {
-	NotificationID   string    `json:"notificationId"`
-	UserID           string    `json:"userId"`
-	Title            string    `json:"title"`
-	Message          string    `json:"message"`
-	NotificationType string    `json:"notificationType"`
-	IsRead           bool      `json:"isRead"`
-	IsDeleted        bool      `json:"isDeleted"`
-	CreatedAt        time.Time `json:"createdAt"`
-	UpdatedAt        time.Time `json:"updatedAt"`
-}
-
-// NotificationListResponse represents a list of notifications.
-type NotificationListResponse struct {
-	Notifications []Notification `json:"notifications"`
-	TotalCount    int            `json:"totalCount"`
-	Limit         int            `json:"limit"`
-	Offset        int            `json:"offset"`
-}
-
-// NotificationCountResponse represents notification count.
-type NotificationCountResponse struct {
-	TotalCount int `json:"totalCount"`
-}
-
-// NotificationReadResponse represents the response for marking a notification read.
-type NotificationReadResponse struct {
-	Message string `json:"message"`
-}
-
-// NotificationReadAllResponse represents the response for marking all notifications read.
-type NotificationReadAllResponse struct {
-	Message             string   `json:"message"`
-	ReadNotificationIDs []string `json:"readNotificationIds"`
-}
-
-// NotificationDeleteResponse represents the response for deleting notifications.
-type NotificationDeleteResponse struct {
-	Message                string   `json:"message"`
-	DeletedNotificationIDs []string `json:"deletedNotificationIds"`
-}
-
-// ============================================================================
-// User Preferences Responses
-// ============================================================================
-
-// NotificationPreferences represents notification settings.
-type NotificationPreferences struct {
-	EmailNotifications   bool `json:"emailNotifications"`
-	PushNotifications    bool `json:"pushNotifications"`
-	FollowNotifications  bool `json:"followNotifications"`
-	LikeNotifications    bool `json:"likeNotifications"`
-	CommentNotifications bool `json:"commentNotifications"`
-	RecipeNotifications  bool `json:"recipeNotifications"`
-	SystemNotifications  bool `json:"systemNotifications"`
-}
-
-// PrivacyPreferences represents privacy settings.
+// PrivacyPreferences represents privacy settings used for access control.
 type PrivacyPreferences struct {
 	ProfileVisibility string `json:"profileVisibility"`
 	ShowEmail         bool   `json:"showEmail"`
 	ShowFullName      bool   `json:"showFullName"`
 	AllowFollows      bool   `json:"allowFollows"`
 	AllowMessages     bool   `json:"allowMessages"`
-}
-
-// DisplayPreferences represents display settings.
-type DisplayPreferences struct {
-	Theme    string `json:"theme"`
-	Language string `json:"language"`
-	Timezone string `json:"timezone"`
-}
-
-// UserPreferences represents all user preferences.
-type UserPreferences struct {
-	NotificationPreferences *NotificationPreferences `json:"notificationPreferences,omitempty"`
-	PrivacyPreferences      *PrivacyPreferences      `json:"privacyPreferences,omitempty"`
-	DisplayPreferences      *DisplayPreferences      `json:"displayPreferences,omitempty"`
-}
-
-// UserPreferenceResponse represents the response for user preferences.
-type UserPreferenceResponse struct {
-	Preferences UserPreferences `json:"preferences"`
 }
 
 // ============================================================================

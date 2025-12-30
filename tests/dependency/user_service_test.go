@@ -34,11 +34,9 @@ const (
 )
 
 var (
-	errUnexpectedUserType         = errors.New("unexpected type for User")
-	errUnexpectedPrefsType        = errors.New("unexpected type for PrivacyPreferences")
-	errMockReturnedNilResult      = errors.New("mock returned nil result")
-	errMockUnexpectedNotifPrefs   = errors.New("unexpected type for NotificationPreferences")
-	errMockUnexpectedDisplayPrefs = errors.New("unexpected type for DisplayPreferences")
+	errUnexpectedUserType    = errors.New("unexpected type for User")
+	errUnexpectedPrefsType   = errors.New("unexpected type for PrivacyPreferences")
+	errMockReturnedNilResult = errors.New("mock returned nil result")
 )
 
 // MockUserRepository is a mock implementation of repository.UserRepository.
@@ -97,60 +95,6 @@ func (m *MockUserRepository) FindPrivacyPreferencesByUserID(
 	return prefs, nil
 }
 
-func (m *MockUserRepository) FindNotificationPreferencesByUserID(
-	ctx context.Context,
-	userID uuid.UUID,
-) (*dto.NotificationPreferences, error) {
-	args := m.Called(ctx, userID)
-	if args.Get(0) == nil {
-		err := args.Error(1)
-		if err != nil {
-			return nil, fmt.Errorf("find notification preferences: %w", err)
-		}
-
-		return nil, errMockReturnedNilResult
-	}
-
-	prefs, ok := args.Get(0).(*dto.NotificationPreferences)
-	if !ok {
-		return nil, errMockUnexpectedNotifPrefs
-	}
-
-	err := args.Error(1)
-	if err != nil {
-		return prefs, fmt.Errorf(mockErrorFmt, err)
-	}
-
-	return prefs, nil
-}
-
-func (m *MockUserRepository) FindDisplayPreferencesByUserID(
-	ctx context.Context,
-	userID uuid.UUID,
-) (*dto.DisplayPreferences, error) {
-	args := m.Called(ctx, userID)
-	if args.Get(0) == nil {
-		err := args.Error(1)
-		if err != nil {
-			return nil, fmt.Errorf("find display preferences: %w", err)
-		}
-
-		return nil, errMockReturnedNilResult
-	}
-
-	prefs, ok := args.Get(0).(*dto.DisplayPreferences)
-	if !ok {
-		return nil, errMockUnexpectedDisplayPrefs
-	}
-
-	err := args.Error(1)
-	if err != nil {
-		return prefs, fmt.Errorf(mockErrorFmt, err)
-	}
-
-	return prefs, nil
-}
-
 func (m *MockUserRepository) IsFollowing(ctx context.Context, followerID, followedID uuid.UUID) (bool, error) {
 	args := m.Called(ctx, followerID, followedID)
 	return args.Bool(0), args.Error(1)
@@ -199,51 +143,6 @@ func (m *MockUserRepository) SearchUsers(
 	results, _ := args.Get(0).([]dto.UserSearchResult)
 
 	return results, args.Int(1), nil
-}
-
-func (m *MockUserRepository) UpdateNotificationPreferences(
-	ctx context.Context,
-	userID uuid.UUID,
-	prefs *dto.NotificationPreferences,
-) error {
-	args := m.Called(ctx, userID, prefs)
-
-	err := args.Error(0)
-	if err != nil {
-		return fmt.Errorf(mockErrorFmt, err)
-	}
-
-	return nil
-}
-
-func (m *MockUserRepository) UpdatePrivacyPreferences(
-	ctx context.Context,
-	userID uuid.UUID,
-	prefs *dto.PrivacyPreferences,
-) error {
-	args := m.Called(ctx, userID, prefs)
-
-	err := args.Error(0)
-	if err != nil {
-		return fmt.Errorf(mockErrorFmt, err)
-	}
-
-	return nil
-}
-
-func (m *MockUserRepository) UpdateDisplayPreferences(
-	ctx context.Context,
-	userID uuid.UUID,
-	prefs *dto.DisplayPreferences,
-) error {
-	args := m.Called(ctx, userID, prefs)
-
-	err := args.Error(0)
-	if err != nil {
-		return fmt.Errorf(mockErrorFmt, err)
-	}
-
-	return nil
 }
 
 func (m *MockUserRepository) GetUserStats(ctx context.Context) (*dto.UserStatsResponse, error) {

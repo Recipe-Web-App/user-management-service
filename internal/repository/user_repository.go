@@ -22,14 +22,9 @@ var ErrDuplicateUsername = errors.New("username already exists")
 type UserRepository interface {
 	FindUserByID(ctx context.Context, userID uuid.UUID) (*dto.User, error)
 	FindPrivacyPreferencesByUserID(ctx context.Context, userID uuid.UUID) (*dto.PrivacyPreferences, error)
-	FindNotificationPreferencesByUserID(ctx context.Context, userID uuid.UUID) (*dto.NotificationPreferences, error)
-	FindDisplayPreferencesByUserID(ctx context.Context, userID uuid.UUID) (*dto.DisplayPreferences, error)
 	IsFollowing(ctx context.Context, followerID, followedID uuid.UUID) (bool, error)
 	UpdateUser(ctx context.Context, userID uuid.UUID, update *dto.UserProfileUpdateRequest) (*dto.User, error)
 	SearchUsers(ctx context.Context, query string, limit, offset int) ([]dto.UserSearchResult, int, error)
-	UpdateNotificationPreferences(ctx context.Context, userID uuid.UUID, prefs *dto.NotificationPreferences) error
-	UpdatePrivacyPreferences(ctx context.Context, userID uuid.UUID, prefs *dto.PrivacyPreferences) error
-	UpdateDisplayPreferences(ctx context.Context, userID uuid.UUID, prefs *dto.DisplayPreferences) error
 	GetUserStats(ctx context.Context) (*dto.UserStatsResponse, error)
 }
 
@@ -123,24 +118,18 @@ func (r *SQLUserRepository) FindPrivacyPreferencesByUserID(
 	ctx context.Context,
 	userID uuid.UUID,
 ) (*dto.PrivacyPreferences, error) {
-	// Note: The PrivacyPreferences DTO expects booleans (ShowEmail, etc.) but the DB schema
-	// uses enums (contact_info_visibility, etc.). We map best-effort here.
-	// We map contact_info_visibility='PUBLIC' -> ShowEmail=true.
-	// We map FRIENDS_ONLY to DTO's followers_only (implied equivalent in specific context).
 	query := `
 		SELECT profile_visibility, contact_info_visibility
 		FROM recipe_manager.user_privacy_preferences
 		WHERE user_id = $1
 	`
 
-	// Default values matching typical "Public" profile expectation if row missing
-	// (Schema defaults are PUBLIC/PRIVATE for contact)
 	prefs := &dto.PrivacyPreferences{
 		ProfileVisibility: "public",
 		ShowEmail:         false,
-		ShowFullName:      true, // No DB column, default true
-		AllowFollows:      true, // No DB column, default true
-		AllowMessages:     true, // No DB column, default true
+		ShowFullName:      true,
+		AllowFollows:      true,
+		AllowMessages:     true,
 	}
 
 	var profileVisibility, contactVisibility string
@@ -151,16 +140,12 @@ func (r *SQLUserRepository) FindPrivacyPreferencesByUserID(
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			// If no preferences found, return defaults
 			return prefs, nil
 		}
 
 		return nil, fmt.Errorf("failed to query privacy preferences: %w", err)
 	}
 
-	// Map DB Enum to DTO String
-	// DB: PUBLIC, FRIENDS_ONLY, PRIVATE
-	// DTO: public, followers_only, private
 	switch profileVisibility {
 	case "FRIENDS_ONLY":
 		prefs.ProfileVisibility = "followers_only"
@@ -170,117 +155,10 @@ func (r *SQLUserRepository) FindPrivacyPreferencesByUserID(
 		prefs.ProfileVisibility = "public"
 	}
 
-	// Map Contact Visibility to ShowEmail
 	if contactVisibility == "PUBLIC" {
 		prefs.ShowEmail = true
 	} else {
 		prefs.ShowEmail = false
-	}
-
-	return prefs, nil
-}
-
-// FindNotificationPreferencesByUserID retrieves notification preferences for a user.
-func (r *SQLUserRepository) FindNotificationPreferencesByUserID(
-	ctx context.Context,
-	userID uuid.UUID,
-) (*dto.NotificationPreferences, error) {
-	query := `
-		SELECT
-			email_notifications,
-			push_notifications,
-			social_interactions,
-			recipe_recommendations,
-			activity_summaries,
-			security_alerts
-		FROM recipe_manager.user_notification_preferences
-		WHERE user_id = $1
-	`
-
-	// Default values matching typical expectations if row missing
-	// (Schema defaults are mostly true)
-	prefs := &dto.NotificationPreferences{
-		EmailNotifications:   true,
-		PushNotifications:    true,
-		FollowNotifications:  true, // Mapped from social_interactions
-		LikeNotifications:    true, // Mapped from social_interactions
-		CommentNotifications: true, // Mapped from social_interactions
-		RecipeNotifications:  true, // Mapped from recipe_recommendations
-		SystemNotifications:  true, // Mapped from security_alerts
-	}
-
-	var email, push, social, recipe, activity, security bool
-
-	err := r.db.QueryRowContext(ctx, query, userID).Scan(
-		&email,
-		&push,
-		&social,
-		&recipe,
-		&activity,
-		&security,
-	)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return prefs, nil
-		}
-
-		return nil, fmt.Errorf("failed to query notification preferences: %w", err)
-	}
-
-	prefs.EmailNotifications = email
-	prefs.PushNotifications = push
-	prefs.FollowNotifications = social
-	prefs.LikeNotifications = social
-	prefs.CommentNotifications = social
-	prefs.RecipeNotifications = recipe
-	prefs.SystemNotifications = security
-
-	return prefs, nil
-}
-
-// FindDisplayPreferencesByUserID retrieves display preferences for a user.
-func (r *SQLUserRepository) FindDisplayPreferencesByUserID(
-	ctx context.Context,
-	userID uuid.UUID,
-) (*dto.DisplayPreferences, error) {
-	query := `
-		SELECT color_scheme, layout_density
-		FROM recipe_manager.user_display_preferences
-		WHERE user_id = $1
-	`
-
-	// Default values
-	prefs := &dto.DisplayPreferences{
-		Theme:    "auto",
-		Language: "en",  // Not in DB yet
-		Timezone: "UTC", // Not in DB yet
-	}
-
-	var colorScheme, density string
-
-	err := r.db.QueryRowContext(ctx, query, userID).Scan(
-		&colorScheme,
-		&density,
-	)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return prefs, nil
-		}
-
-		return nil, fmt.Errorf("failed to query display preferences: %w", err)
-	}
-
-	// Map DB values to DTO
-	// DB Color Scheme: LIGHT, DARK, AUTO, HIGH_CONTRAST
-	// DTO Theme: light, dark, auto
-	switch colorScheme {
-	case "LIGHT":
-		prefs.Theme = "light"
-	case "DARK":
-		prefs.Theme = "dark"
-	default:
-		// AUTO and HIGH_CONTRAST map to auto for now
-		prefs.Theme = "auto"
 	}
 
 	return prefs, nil
@@ -521,146 +399,4 @@ func scanSearchResults(rows *sql.Rows) ([]dto.UserSearchResult, error) {
 	}
 
 	return results, nil
-}
-
-// UpdateNotificationPreferences updates notification preferences for a user.
-func (r *SQLUserRepository) UpdateNotificationPreferences(
-	ctx context.Context,
-	userID uuid.UUID,
-	prefs *dto.NotificationPreferences,
-) error {
-	query := `
-		INSERT INTO recipe_manager.user_notification_preferences (
-			user_id,
-			email_notifications,
-			push_notifications,
-			social_interactions,
-			recipe_recommendations,
-			activity_summaries,
-			security_alerts,
-			updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-		ON CONFLICT (user_id) DO UPDATE SET
-			email_notifications = EXCLUDED.email_notifications,
-			push_notifications = EXCLUDED.push_notifications,
-			social_interactions = EXCLUDED.social_interactions,
-			recipe_recommendations = EXCLUDED.recipe_recommendations,
-			activity_summaries = EXCLUDED.activity_summaries,
-			security_alerts = EXCLUDED.security_alerts,
-			updated_at = NOW()
-	`
-
-	_, err := r.db.ExecContext(
-		ctx,
-		query,
-		userID,
-		prefs.EmailNotifications,
-		prefs.PushNotifications,
-		// Mapping DTO fields back to DB fields logic:
-		// Follow/Like/Comment -> social_interactions
-		// In Find, we mapped one DB field to multiple DTO fields.
-		// Writing back is lossy if we don't change DB schema.
-		// For now, let's assume if any social pref is true, we enable social_interactions.
-		prefs.FollowNotifications || prefs.LikeNotifications || prefs.CommentNotifications,
-		prefs.RecipeNotifications,
-		false, // Activity summaries not exposing in DTO yet, default false
-		prefs.SystemNotifications,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to update notification preferences: %w", err)
-	}
-
-	return nil
-}
-
-// UpdatePrivacyPreferences updates privacy preferences for a user.
-func (r *SQLUserRepository) UpdatePrivacyPreferences(
-	ctx context.Context,
-	userID uuid.UUID,
-	prefs *dto.PrivacyPreferences,
-) error {
-	// Map DTO values to DB enums
-	var profileVisibility string
-
-	switch prefs.ProfileVisibility {
-	case "followers_only":
-		profileVisibility = "FRIENDS_ONLY"
-	case "private":
-		profileVisibility = "PRIVATE"
-	default: // public
-		profileVisibility = "PUBLIC"
-	}
-
-	var contactVisibility string
-	if prefs.ShowEmail {
-		contactVisibility = "PUBLIC"
-	} else {
-		contactVisibility = "PRIVATE"
-	}
-
-	query := `
-		INSERT INTO recipe_manager.user_privacy_preferences (
-			user_id,
-			profile_visibility,
-			contact_info_visibility,
-			updated_at
-		) VALUES ($1, $2, $3, NOW())
-		ON CONFLICT (user_id) DO UPDATE SET
-			profile_visibility = EXCLUDED.profile_visibility,
-			contact_info_visibility = EXCLUDED.contact_info_visibility,
-			updated_at = NOW()
-	`
-
-	_, err := r.db.ExecContext(ctx, query, userID, profileVisibility, contactVisibility)
-	if err != nil {
-		return fmt.Errorf("failed to update privacy preferences: %w", err)
-	}
-
-	return nil
-}
-
-// UpdateDisplayPreferences updates display preferences for a user.
-func (r *SQLUserRepository) UpdateDisplayPreferences(
-	ctx context.Context,
-	userID uuid.UUID,
-	prefs *dto.DisplayPreferences,
-) error {
-	var colorScheme string
-
-	// Normalize theme input: trim spaces, trim quotes, to lowercase
-	themeInput := strings.TrimSpace(prefs.Theme)
-	themeInput = strings.Trim(themeInput, "\"")
-	themeInput = strings.ToLower(themeInput)
-
-	switch themeInput {
-	case "light":
-		colorScheme = "LIGHT"
-	case "dark":
-		colorScheme = "DARK"
-	default:
-		colorScheme = "AUTO"
-	}
-
-	// Layout density not in DTO, using default 'COMFORTABLE'
-	layoutDensity := "COMFORTABLE"
-
-	query := `
-		INSERT INTO recipe_manager.user_display_preferences (
-			user_id,
-			color_scheme,
-			layout_density,
-			updated_at
-		) VALUES ($1, $2, $3, NOW())
-		ON CONFLICT (user_id) DO UPDATE SET
-			color_scheme = EXCLUDED.color_scheme,
-			layout_density = EXCLUDED.layout_density,
-			updated_at = NOW()
-	`
-
-	_, err := r.db.ExecContext(ctx, query, userID, colorScheme, layoutDensity)
-	if err != nil {
-		return fmt.Errorf("failed to update display preferences: %w", err)
-	}
-
-	return nil
 }

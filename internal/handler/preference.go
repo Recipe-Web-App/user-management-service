@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -21,6 +22,9 @@ const (
 	scopeUserWrite = "user:write"
 	scopeAdmin     = "admin"
 )
+
+// ErrInvalidPreferenceCategory is returned when an invalid preference category is provided.
+var ErrInvalidPreferenceCategory = errors.New("invalid preference category")
 
 // PreferenceHandler handles preference-related HTTP endpoints.
 type PreferenceHandler struct {
@@ -51,7 +55,12 @@ func (h *PreferenceHandler) GetAllPreferences(w http.ResponseWriter, r *http.Req
 	}
 
 	// 3. Parse optional categories filter
-	categories := h.parseCategoriesParam(r)
+	categories, err := h.parseCategoriesParam(r)
+	if err != nil {
+		ErrorResponse(w, http.StatusBadRequest, "INVALID_CATEGORY", err.Error())
+
+		return
+	}
 
 	// 4. Call service
 	response, err := h.preferenceService.GetAllPreferences(
@@ -239,23 +248,32 @@ func (h *PreferenceHandler) extractAuthInfo(
 	return requesterID, isAdmin, hasServiceScope, true
 }
 
-func (h *PreferenceHandler) parseCategoriesParam(r *http.Request) []dto.PreferenceCategory {
-	categoriesParam := r.URL.Query().Get("categories")
-	if categoriesParam == "" {
-		return nil
+func (h *PreferenceHandler) parseCategoriesParam(r *http.Request) ([]dto.PreferenceCategory, error) {
+	values := r.URL.Query()["categories"]
+	if len(values) == 0 {
+		return nil, nil
 	}
 
-	parts := strings.Split(categoriesParam, ",")
-	categories := make([]dto.PreferenceCategory, 0, len(parts))
+	categories := make([]dto.PreferenceCategory, 0)
 
-	for _, part := range parts {
-		cat := strings.TrimSpace(part)
-		if dto.IsValidPreferenceCategory(cat) {
+	for _, value := range values {
+		parts := strings.SplitSeq(value, ",")
+
+		for part := range parts {
+			cat := strings.TrimSpace(part)
+			if cat == "" {
+				continue
+			}
+
+			if !dto.IsValidPreferenceCategory(cat) {
+				return nil, fmt.Errorf("%w: %s", ErrInvalidPreferenceCategory, cat)
+			}
+
 			categories = append(categories, dto.PreferenceCategory(cat))
 		}
 	}
 
-	return categories
+	return categories, nil
 }
 
 //nolint:cyclop,funlen // Switch over 9 categories is inherent to domain design.

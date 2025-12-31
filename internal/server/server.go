@@ -28,11 +28,12 @@ func NewServerWithContainer(container *app.Container) *http.Server {
 
 	// Create handlers with dependencies
 	handlers := Handlers{
-		Health:  handler.NewHealthHandler(container.HealthService),
-		User:    handler.NewUserHandler(container.UserService),
-		Social:  handler.NewSocialHandler(container.SocialService),
-		Admin:   handler.NewAdminHandler(container.UserService, container.AdminService),
-		Metrics: handler.NewMetricsHandler(container.MetricsService),
+		Health:     handler.NewHealthHandler(container.HealthService),
+		User:       handler.NewUserHandler(container.UserService),
+		Social:     handler.NewSocialHandler(container.SocialService),
+		Admin:      handler.NewAdminHandler(container.UserService, container.AdminService),
+		Metrics:    handler.NewMetricsHandler(container.MetricsService),
+		Preference: handler.NewPreferenceHandler(container.PreferenceService),
 	}
 
 	// Build auth middleware config

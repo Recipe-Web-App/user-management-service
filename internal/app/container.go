@@ -21,11 +21,12 @@ type Container struct {
 	Cache    repository.HealthChecker
 
 	// Services
-	HealthService  service.HealthServicer
-	UserService    service.UserService
-	SocialService  service.SocialService
-	MetricsService service.MetricsService
-	AdminService   service.AdminService
+	HealthService     service.HealthServicer
+	UserService       service.UserService
+	SocialService     service.SocialService
+	MetricsService    service.MetricsService
+	AdminService      service.AdminService
+	PreferenceService service.PreferenceService
 
 	// Handlers
 	HealthHandler  handler.HealthHandler
@@ -41,12 +42,13 @@ type Container struct {
 
 // ContainerConfig holds options for building the container.
 type ContainerConfig struct {
-	Config     *config.Config
-	Database   repository.HealthChecker  // Optional override for testing
-	Cache      repository.HealthChecker  // Optional override for testing
-	UserRepo   repository.UserRepository // Optional override for testing
-	SocialRepo repository.SocialRepository
-	TokenStore repository.TokenStore // Optional override for testing
+	Config         *config.Config
+	Database       repository.HealthChecker        // Optional override for testing
+	Cache          repository.HealthChecker        // Optional override for testing
+	UserRepo       repository.UserRepository       // Optional override for testing
+	SocialRepo     repository.SocialRepository     // Optional override for testing
+	TokenStore     repository.TokenStore           // Optional override for testing
+	PreferenceRepo repository.PreferenceRepository // Optional override for testing
 }
 
 // NewContainer creates a new dependency container.
@@ -61,7 +63,7 @@ func NewContainer(cfg ContainerConfig) (*Container, error) {
 	c.HealthService = service.NewHealthService(c.Database, c.Cache)
 
 	// Initialize repositories and domain services
-	userRepo, socialRepo, tokenStore := initRepositories(c, cfg)
+	userRepo, socialRepo, tokenStore, preferenceRepo := initRepositories(c, cfg)
 
 	if userRepo != nil {
 		c.UserService = service.NewUserService(userRepo, tokenStore)
@@ -69,6 +71,10 @@ func NewContainer(cfg ContainerConfig) (*Container, error) {
 
 	if userRepo != nil && socialRepo != nil {
 		c.SocialService = service.NewSocialService(userRepo, socialRepo)
+	}
+
+	if preferenceRepo != nil {
+		c.PreferenceService = service.NewPreferenceService(preferenceRepo)
 	}
 
 	initMetricsService(c)
@@ -104,12 +110,14 @@ func initRepositories(c *Container, cfg ContainerConfig) (
 	repository.UserRepository,
 	repository.SocialRepository,
 	repository.TokenStore,
+	repository.PreferenceRepository,
 ) {
 	var (
-		dbService  *database.Service
-		userRepo   repository.UserRepository
-		socialRepo repository.SocialRepository
-		tokenStore repository.TokenStore
+		dbService      *database.Service
+		userRepo       repository.UserRepository
+		socialRepo     repository.SocialRepository
+		tokenStore     repository.TokenStore
+		preferenceRepo repository.PreferenceRepository
 	)
 
 	if svc, ok := c.Database.(*database.Service); ok {
@@ -137,7 +145,14 @@ func initRepositories(c *Container, cfg ContainerConfig) (
 		tokenStore = redisService
 	}
 
-	return userRepo, socialRepo, tokenStore
+	// Preference Repo
+	if cfg.PreferenceRepo != nil {
+		preferenceRepo = cfg.PreferenceRepo
+	} else if dbService != nil {
+		preferenceRepo = repository.NewPreferenceRepository(dbService.GetDB())
+	}
+
+	return userRepo, socialRepo, tokenStore, preferenceRepo
 }
 
 func initMetricsService(c *Container) {

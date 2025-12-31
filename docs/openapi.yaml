@@ -49,6 +49,8 @@ security:
 tags:
   - name: users
     description: User profile and account operations
+  - name: preferences
+    description: User preference management (notification, display, privacy, etc.)
   - name: social
     description: Social features including following and activity
   - name: admin
@@ -235,6 +237,149 @@ paths:
           $ref: "#/components/responses/InternalServerError"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
+
+  # User Preference Endpoints
+  /users/{userId}/preferences:
+    get:
+      tags:
+        - preferences
+      summary: Get user preferences
+      description: >-
+        Retrieve all or filtered user preferences. Users can access their own
+        preferences, admins can access any user's preferences, and services
+        with user:read scope can also access preferences.
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+        - name: categories
+          in: query
+          description: >-
+            Comma-separated list of preference categories to retrieve.
+            If not specified, all categories are returned.
+          schema:
+            type: string
+            example: "notification,display,privacy"
+      responses:
+        "200":
+          description: User preferences retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPreferencesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    put:
+      tags:
+        - preferences
+      summary: Update multiple preference categories
+      description: >-
+        Update multiple preference categories at once. Only provided categories
+        will be updated. Users can update their own preferences, admins can
+        update any user's preferences, and services with user:write scope can
+        also update preferences.
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserPreferencesUpdateRequest"
+      responses:
+        "200":
+          description: User preferences updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPreferencesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /users/{userId}/preferences/{category}:
+    get:
+      tags:
+        - preferences
+      summary: Get specific preference category
+      description: Retrieve a specific preference category for a user.
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+        - $ref: "#/components/parameters/PreferenceCategoryPath"
+      responses:
+        "200":
+          description: Preference category retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreferenceCategoryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    put:
+      tags:
+        - preferences
+      summary: Update specific preference category
+      description: >-
+        Update a specific preference category. Supports partial updates -
+        only provided fields will be updated.
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+        - $ref: "#/components/parameters/PreferenceCategoryPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/NotificationPreferencesUpdate"
+                - $ref: "#/components/schemas/DisplayPreferencesUpdate"
+                - $ref: "#/components/schemas/PrivacyPreferencesUpdate"
+                - $ref: "#/components/schemas/AccessibilityPreferencesUpdate"
+                - $ref: "#/components/schemas/LanguagePreferencesUpdate"
+                - $ref: "#/components/schemas/SecurityPreferencesUpdate"
+                - $ref: "#/components/schemas/SocialPreferencesUpdate"
+                - $ref: "#/components/schemas/SoundPreferencesUpdate"
+                - $ref: "#/components/schemas/ThemePreferencesUpdate"
+      responses:
+        "200":
+          description: Preference category updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreferenceCategoryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   # Social Features Endpoints
   /users/{userId}/following:
@@ -604,6 +749,24 @@ components:
       schema:
         type: boolean
         default: false
+
+    PreferenceCategoryPath:
+      name: category
+      in: path
+      required: true
+      description: Preference category name
+      schema:
+        type: string
+        enum:
+          - notification
+          - display
+          - privacy
+          - accessibility
+          - language
+          - security
+          - social
+          - sound
+          - theme
 
   responses:
     BadRequest:
@@ -1357,3 +1520,452 @@ components:
             type: string
           description: List of scopes available in the current token
           example: ["user:read", "profile"]
+
+    # Preference Enums
+    FontSizeEnum:
+      type: string
+      enum:
+        - SMALL
+        - MEDIUM
+        - LARGE
+        - EXTRA_LARGE
+      description: Font size preference
+
+    ColorSchemeEnum:
+      type: string
+      enum:
+        - LIGHT
+        - DARK
+        - AUTO
+        - HIGH_CONTRAST
+      description: Color scheme preference
+
+    LayoutDensityEnum:
+      type: string
+      enum:
+        - COMPACT
+        - COMFORTABLE
+        - SPACIOUS
+      description: Layout density preference
+
+    ProfileVisibilityEnum:
+      type: string
+      enum:
+        - PUBLIC
+        - FRIENDS_ONLY
+        - PRIVATE
+      description: Profile visibility setting
+
+    LanguageEnum:
+      type: string
+      enum:
+        - EN
+        - ES
+        - FR
+        - DE
+        - IT
+        - PT
+        - ZH
+        - JA
+        - KO
+        - RU
+      description: Language preference
+
+    ThemeEnum:
+      type: string
+      enum:
+        - LIGHT
+        - DARK
+        - AUTO
+        - CUSTOM
+      description: Theme preference
+
+    # Preference Response Schemas
+    UserPreferencesResponse:
+      type: object
+      required:
+        - userId
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: User ID
+        notification:
+          $ref: "#/components/schemas/NotificationPreferences"
+        display:
+          $ref: "#/components/schemas/DisplayPreferences"
+        privacy:
+          $ref: "#/components/schemas/PrivacyPreferences"
+        accessibility:
+          $ref: "#/components/schemas/AccessibilityPreferences"
+        language:
+          $ref: "#/components/schemas/LanguagePreferences"
+        security:
+          $ref: "#/components/schemas/SecurityPreferences"
+        social:
+          $ref: "#/components/schemas/SocialPreferences"
+        sound:
+          $ref: "#/components/schemas/SoundPreferences"
+        theme:
+          $ref: "#/components/schemas/ThemePreferences"
+
+    PreferenceCategoryResponse:
+      type: object
+      required:
+        - userId
+        - category
+        - preferences
+        - updatedAt
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: User ID
+        category:
+          type: string
+          description: Preference category name
+        preferences:
+          type: object
+          description: Category-specific preferences object
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    # Category-specific preference schemas
+    NotificationPreferences:
+      type: object
+      properties:
+        emailNotifications:
+          type: boolean
+          description: Enable email notifications
+        pushNotifications:
+          type: boolean
+          description: Enable push notifications
+        smsNotifications:
+          type: boolean
+          description: Enable SMS notifications
+        marketingEmails:
+          type: boolean
+          description: Enable marketing emails
+        securityAlerts:
+          type: boolean
+          description: Enable security alerts
+        activitySummaries:
+          type: boolean
+          description: Enable activity summaries
+        recipeRecommendations:
+          type: boolean
+          description: Enable recipe recommendations
+        socialInteractions:
+          type: boolean
+          description: Enable social interaction notifications
+        updatedAt:
+          type: string
+          format: date-time
+
+    DisplayPreferences:
+      type: object
+      properties:
+        fontSize:
+          $ref: "#/components/schemas/FontSizeEnum"
+        colorScheme:
+          $ref: "#/components/schemas/ColorSchemeEnum"
+        layoutDensity:
+          $ref: "#/components/schemas/LayoutDensityEnum"
+        showImages:
+          type: boolean
+          description: Show images in listings
+        compactMode:
+          type: boolean
+          description: Enable compact display mode
+        updatedAt:
+          type: string
+          format: date-time
+
+    PrivacyPreferences:
+      type: object
+      properties:
+        profileVisibility:
+          $ref: "#/components/schemas/ProfileVisibilityEnum"
+        recipeVisibility:
+          $ref: "#/components/schemas/ProfileVisibilityEnum"
+        activityVisibility:
+          $ref: "#/components/schemas/ProfileVisibilityEnum"
+        contactInfoVisibility:
+          $ref: "#/components/schemas/ProfileVisibilityEnum"
+        dataSharing:
+          type: boolean
+          description: Allow data sharing with partners
+        analyticsTracking:
+          type: boolean
+          description: Allow analytics tracking
+        updatedAt:
+          type: string
+          format: date-time
+
+    AccessibilityPreferences:
+      type: object
+      properties:
+        screenReader:
+          type: boolean
+          description: Optimize for screen readers
+        highContrast:
+          type: boolean
+          description: Enable high contrast mode
+        reducedMotion:
+          type: boolean
+          description: Reduce motion and animations
+        largeText:
+          type: boolean
+          description: Use larger text
+        keyboardNavigation:
+          type: boolean
+          description: Enable keyboard navigation
+        updatedAt:
+          type: string
+          format: date-time
+
+    LanguagePreferences:
+      type: object
+      properties:
+        primaryLanguage:
+          $ref: "#/components/schemas/LanguageEnum"
+        secondaryLanguage:
+          $ref: "#/components/schemas/LanguageEnum"
+        translationEnabled:
+          type: boolean
+          description: Enable automatic translation
+        updatedAt:
+          type: string
+          format: date-time
+
+    SecurityPreferences:
+      type: object
+      properties:
+        twoFactorAuth:
+          type: boolean
+          description: Enable two-factor authentication
+        loginNotifications:
+          type: boolean
+          description: Notify on new logins
+        sessionTimeout:
+          type: boolean
+          description: Enable session timeout
+        passwordRequirements:
+          type: boolean
+          description: Enable strict password requirements
+        updatedAt:
+          type: string
+          format: date-time
+
+    SocialPreferences:
+      type: object
+      properties:
+        friendRequests:
+          type: boolean
+          description: Allow friend requests
+        messageNotifications:
+          type: boolean
+          description: Enable message notifications
+        groupInvites:
+          type: boolean
+          description: Allow group invites
+        shareActivity:
+          type: boolean
+          description: Share activity with followers
+        updatedAt:
+          type: string
+          format: date-time
+
+    SoundPreferences:
+      type: object
+      properties:
+        notificationSounds:
+          type: boolean
+          description: Enable notification sounds
+        systemSounds:
+          type: boolean
+          description: Enable system sounds
+        volumeLevel:
+          type: boolean
+          description: Enable volume control
+        muteNotifications:
+          type: boolean
+          description: Mute all notifications
+        updatedAt:
+          type: string
+          format: date-time
+
+    ThemePreferences:
+      type: object
+      properties:
+        darkMode:
+          type: boolean
+          description: Enable dark mode
+        lightMode:
+          type: boolean
+          description: Enable light mode
+        autoTheme:
+          type: boolean
+          description: Auto-switch based on system
+        customTheme:
+          $ref: "#/components/schemas/ThemeEnum"
+        updatedAt:
+          type: string
+          format: date-time
+
+    # Preference Update Request Schemas
+    UserPreferencesUpdateRequest:
+      type: object
+      description: Update multiple preference categories at once
+      properties:
+        notification:
+          $ref: "#/components/schemas/NotificationPreferencesUpdate"
+        display:
+          $ref: "#/components/schemas/DisplayPreferencesUpdate"
+        privacy:
+          $ref: "#/components/schemas/PrivacyPreferencesUpdate"
+        accessibility:
+          $ref: "#/components/schemas/AccessibilityPreferencesUpdate"
+        language:
+          $ref: "#/components/schemas/LanguagePreferencesUpdate"
+        security:
+          $ref: "#/components/schemas/SecurityPreferencesUpdate"
+        social:
+          $ref: "#/components/schemas/SocialPreferencesUpdate"
+        sound:
+          $ref: "#/components/schemas/SoundPreferencesUpdate"
+        theme:
+          $ref: "#/components/schemas/ThemePreferencesUpdate"
+
+    NotificationPreferencesUpdate:
+      type: object
+      description: Partial update for notification preferences
+      properties:
+        emailNotifications:
+          type: boolean
+        pushNotifications:
+          type: boolean
+        smsNotifications:
+          type: boolean
+        marketingEmails:
+          type: boolean
+        securityAlerts:
+          type: boolean
+        activitySummaries:
+          type: boolean
+        recipeRecommendations:
+          type: boolean
+        socialInteractions:
+          type: boolean
+
+    DisplayPreferencesUpdate:
+      type: object
+      description: Partial update for display preferences
+      properties:
+        fontSize:
+          $ref: "#/components/schemas/FontSizeEnum"
+        colorScheme:
+          $ref: "#/components/schemas/ColorSchemeEnum"
+        layoutDensity:
+          $ref: "#/components/schemas/LayoutDensityEnum"
+        showImages:
+          type: boolean
+        compactMode:
+          type: boolean
+
+    PrivacyPreferencesUpdate:
+      type: object
+      description: Partial update for privacy preferences
+      properties:
+        profileVisibility:
+          $ref: "#/components/schemas/ProfileVisibilityEnum"
+        recipeVisibility:
+          $ref: "#/components/schemas/ProfileVisibilityEnum"
+        activityVisibility:
+          $ref: "#/components/schemas/ProfileVisibilityEnum"
+        contactInfoVisibility:
+          $ref: "#/components/schemas/ProfileVisibilityEnum"
+        dataSharing:
+          type: boolean
+        analyticsTracking:
+          type: boolean
+
+    AccessibilityPreferencesUpdate:
+      type: object
+      description: Partial update for accessibility preferences
+      properties:
+        screenReader:
+          type: boolean
+        highContrast:
+          type: boolean
+        reducedMotion:
+          type: boolean
+        largeText:
+          type: boolean
+        keyboardNavigation:
+          type: boolean
+
+    LanguagePreferencesUpdate:
+      type: object
+      description: Partial update for language preferences
+      properties:
+        primaryLanguage:
+          $ref: "#/components/schemas/LanguageEnum"
+        secondaryLanguage:
+          $ref: "#/components/schemas/LanguageEnum"
+        translationEnabled:
+          type: boolean
+
+    SecurityPreferencesUpdate:
+      type: object
+      description: Partial update for security preferences
+      properties:
+        twoFactorAuth:
+          type: boolean
+        loginNotifications:
+          type: boolean
+        sessionTimeout:
+          type: boolean
+        passwordRequirements:
+          type: boolean
+
+    SocialPreferencesUpdate:
+      type: object
+      description: Partial update for social preferences
+      properties:
+        friendRequests:
+          type: boolean
+        messageNotifications:
+          type: boolean
+        groupInvites:
+          type: boolean
+        shareActivity:
+          type: boolean
+
+    SoundPreferencesUpdate:
+      type: object
+      description: Partial update for sound preferences
+      properties:
+        notificationSounds:
+          type: boolean
+        systemSounds:
+          type: boolean
+        volumeLevel:
+          type: boolean
+        muteNotifications:
+          type: boolean
+
+    ThemePreferencesUpdate:
+      type: object
+      description: Partial update for theme preferences
+      properties:
+        darkMode:
+          type: boolean
+        lightMode:
+          type: boolean
+        autoTheme:
+          type: boolean
+        customTheme:
+          $ref: "#/components/schemas/ThemeEnum"

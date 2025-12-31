@@ -16,11 +16,12 @@ import (
 
 // Handlers contains all HTTP handlers.
 type Handlers struct {
-	Health  *handler.HealthHandler
-	User    *handler.UserHandler
-	Social  *handler.SocialHandler
-	Admin   *handler.AdminHandler
-	Metrics *handler.MetricsHandler
+	Health     *handler.HealthHandler
+	User       *handler.UserHandler
+	Social     *handler.SocialHandler
+	Admin      *handler.AdminHandler
+	Metrics    *handler.MetricsHandler
+	Preference *handler.PreferenceHandler
 }
 
 // RegisterRoutesWithHandlers creates routes with injected handlers.
@@ -97,6 +98,14 @@ func registerUserRoutes(r chi.Router, h Handlers) {
 			r.Get("/activity", h.Social.GetUserActivity)
 			r.Post("/follow/{target_user_id}", h.Social.FollowUser)
 			r.Delete("/follow/{target_user_id}", h.Social.UnfollowUser)
+
+			// Preference routes
+			r.Route("/preferences", func(r chi.Router) {
+				r.Get("/", h.Preference.GetAllPreferences)
+				r.Put("/", h.Preference.UpdateAllPreferences)
+				r.Get("/{category}", h.Preference.GetCategoryPreferences)
+				r.Put("/{category}", h.Preference.UpdateCategoryPreferences)
+			})
 		})
 	})
 }

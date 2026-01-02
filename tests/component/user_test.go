@@ -189,7 +189,7 @@ func TestUserProfileComponent(t *testing.T) {
 	mockTokenStore := new(MockTokenStore)
 
 	// Create Service using Mock Repo
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	// Create Container
 	c := &app.Container{
@@ -253,7 +253,7 @@ func TestUpdateUserProfileComponent_Success(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -313,7 +313,7 @@ func TestUpdateUserProfileComponent_NotFound(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -345,7 +345,7 @@ func TestUpdateUserProfileComponent_DuplicateUsername(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -387,7 +387,7 @@ func TestUpdateUserProfileComponent_ValidationError(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -419,7 +419,7 @@ func TestRequestAccountDeletionComponent_Success(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -467,7 +467,7 @@ func TestRequestAccountDeletionComponent_Unauthorized(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -493,7 +493,7 @@ func TestRequestAccountDeletionComponent_NotFound(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -524,7 +524,7 @@ func TestRequestAccountDeletionComponent_ServiceUnavailable(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	// Use nil token store to simulate cache unavailable
-	svc := service.NewUserService(mockRepo, nil)
+	svc := service.NewUserService(mockRepo, nil, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -553,7 +553,7 @@ func TestConfirmAccountDeletionComponent_Success(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -604,7 +604,7 @@ func TestConfirmAccountDeletionComponent_InvalidToken(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -638,7 +638,7 @@ func TestConfirmAccountDeletionComponent_Unauthorized(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -666,7 +666,7 @@ func TestConfirmAccountDeletionComponent_ServiceUnavailable(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	// Use nil token store to simulate cache unavailable
-	svc := service.NewUserService(mockRepo, nil)
+	svc := service.NewUserService(mockRepo, nil, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -701,7 +701,7 @@ func TestSearchUsersComponent_Success(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -748,7 +748,7 @@ func TestSearchUsersComponent_CountOnly(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -781,7 +781,7 @@ func TestSearchUsersComponent_WithPagination(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -814,7 +814,7 @@ func TestSearchUsersComponent_Unauthorized(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -840,7 +840,7 @@ func TestSearchUsersComponent_InvalidLimit(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -873,7 +873,7 @@ func TestGetUserByIDComponent_Success(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -925,7 +925,7 @@ func TestGetUserByIDComponent_NotFound_UserDoesNotExist(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -956,7 +956,7 @@ func TestGetUserByIDComponent_NotFound_PrivateProfile(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -1001,7 +1001,7 @@ func TestGetUserByIDComponent_NotFound_FollowersOnlyProfile(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -1045,7 +1045,7 @@ func TestGetUserByIDComponent_NotFound_InactiveUser(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,
@@ -1084,7 +1084,7 @@ func TestGetUserByIDComponent_ValidationError_InvalidUUID(t *testing.T) {
 
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
-	svc := service.NewUserService(mockRepo, mockTokenStore)
+	svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService: svc,

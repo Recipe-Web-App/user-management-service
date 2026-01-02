@@ -202,8 +202,8 @@ func TestGetFollowingComponent_Success(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -257,8 +257,8 @@ func TestGetFollowingComponent_CountOnly(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -307,8 +307,8 @@ func TestGetFollowingComponent_WithPagination(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -358,8 +358,8 @@ func TestGetFollowingComponent_OwnProfile(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -403,8 +403,8 @@ func TestGetFollowingComponent_NotFound(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -442,8 +442,8 @@ func TestGetFollowingComponent_Forbidden_PrivateProfile(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -485,8 +485,8 @@ func TestGetFollowingComponent_Forbidden_FollowersOnlyNotFollowing(t *testing.T)
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -529,8 +529,8 @@ func TestGetFollowingComponent_Success_FollowersOnlyWhenFollowing(t *testing.T) 
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -575,8 +575,8 @@ func TestGetFollowingComponent_Unauthorized(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -608,8 +608,8 @@ func TestGetFollowingComponent_ValidationError_InvalidUUID(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -641,8 +641,8 @@ func TestGetFollowingComponent_ValidationError_InvalidLimit(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -683,8 +683,8 @@ func TestGetFollowersComponent_Success(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -738,8 +738,8 @@ func TestGetFollowersComponent_CountOnly(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -788,8 +788,8 @@ func TestGetFollowersComponent_WithPagination(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -839,8 +839,8 @@ func TestGetFollowersComponent_OwnProfile(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -884,8 +884,8 @@ func TestGetFollowersComponent_NotFound(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -923,8 +923,8 @@ func TestGetFollowersComponent_Forbidden_PrivateProfile(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -966,8 +966,8 @@ func TestGetFollowersComponent_Forbidden_FollowersOnlyNotFollowing(t *testing.T)
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1010,8 +1010,8 @@ func TestGetFollowersComponent_Success_FollowersOnlyWhenFollowing(t *testing.T) 
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1056,8 +1056,8 @@ func TestGetFollowersComponent_Unauthorized(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1090,8 +1090,8 @@ func TestGetFollowersComponent_ValidationError_InvalidUUID(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1123,8 +1123,8 @@ func TestGetFollowersComponent_ValidationError_InvalidLimit(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1171,8 +1171,8 @@ func TestFollowUserComponent_Success(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1226,8 +1226,8 @@ func TestFollowUserComponent_Success_AdminOverride(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1283,8 +1283,8 @@ func TestFollowUserComponent_BadRequest_SelfFollow(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1322,8 +1322,8 @@ func TestFollowUserComponent_NotFound_TargetDoesNotExist(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1363,8 +1363,8 @@ func TestFollowUserComponent_NotFound_TargetInactive(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1409,8 +1409,8 @@ func TestFollowUserComponent_Forbidden_UserDoesNotAllowFollows(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1460,8 +1460,8 @@ func TestFollowUserComponent_Forbidden_UserIdMismatch(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1500,8 +1500,8 @@ func TestFollowUserComponent_Unauthorized_MissingHeader(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1538,8 +1538,8 @@ func TestFollowUserComponent_ValidationError_InvalidUserUUID(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1576,8 +1576,8 @@ func TestFollowUserComponent_ValidationError_InvalidTargetUUID(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1616,8 +1616,8 @@ func TestUnfollowUserComponent_Success(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1665,8 +1665,8 @@ func TestUnfollowUserComponent_Success_AdminOverride(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1717,8 +1717,8 @@ func TestUnfollowUserComponent_Success_Idempotent(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1767,8 +1767,8 @@ func TestUnfollowUserComponent_BadRequest_SelfUnfollow(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1804,8 +1804,8 @@ func TestUnfollowUserComponent_NotFound_TargetDoesNotExist(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1845,8 +1845,8 @@ func TestUnfollowUserComponent_NotFound_TargetInactive(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1892,8 +1892,8 @@ func TestUnfollowUserComponent_Forbidden_UserIdMismatch(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1931,8 +1931,8 @@ func TestUnfollowUserComponent_Unauthorized_MissingHeader(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -1968,8 +1968,8 @@ func TestUnfollowUserComponent_ValidationError_InvalidUserUUID(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -2006,8 +2006,8 @@ func TestUnfollowUserComponent_ValidationError_InvalidTargetUUID(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -2073,8 +2073,8 @@ func TestGetUserActivityComponent_Success_Authenticated(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -2155,8 +2155,8 @@ func TestGetUserActivityComponent_Success_CustomLimit(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -2205,8 +2205,8 @@ func TestGetUserActivityComponent_Success_OwnProfile(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -2251,8 +2251,8 @@ func TestGetUserActivityComponent_NotFound(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -2289,8 +2289,8 @@ func TestGetUserActivityComponent_Forbidden_PrivateProfile(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -2356,8 +2356,8 @@ func TestGetUserActivityComponent_ValidationError_InvalidUUID(t *testing.T) {
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -2388,8 +2388,8 @@ func TestGetUserActivityComponent_ValidationError_InvalidPerTypeLimit(t *testing
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,
@@ -2426,8 +2426,8 @@ func TestGetUserActivityComponent_ValidationError_PerTypeLimitTooHigh(t *testing
 	mockSocialRepo := new(MockSocialRepoComponent)
 	mockTokenStore := new(MockTokenStore)
 
-	userSvc := service.NewUserService(mockUserRepo, mockTokenStore)
-	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+	userSvc := service.NewUserService(mockUserRepo, mockTokenStore, nil)
+	socialSvc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 
 	c := &app.Container{
 		UserService:   userSvc,

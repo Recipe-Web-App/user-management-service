@@ -25,7 +25,7 @@ func TestGetUserStatsComponent_Success(t *testing.T) {
 	mockTokenStore := new(MockTokenStore)
 
 	// Create Service
-	userService := service.NewUserService(mockRepo, mockTokenStore)
+	userService := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	// Create Container
 	c := &app.Container{

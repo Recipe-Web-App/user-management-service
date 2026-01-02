@@ -89,7 +89,7 @@ func TestAuthMiddleware_ProtectedRoutes_RequireAuth(t *testing.T) {
 	mockRepo := new(MockUserRepo)
 	mockTokenStore := new(MockTokenStore)
 
-	userService := service.NewUserService(mockRepo, mockTokenStore)
+	userService := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService:   userService,
@@ -146,7 +146,7 @@ func TestAuthMiddleware_ProtectedRoutes_WithValidAuth(t *testing.T) {
 	mockTokenStore := new(MockTokenStore)
 	mockMetrics := &authMockMetricsService{}
 
-	userService := service.NewUserService(mockRepo, mockTokenStore)
+	userService := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 	c := &app.Container{
 		UserService:    userService,

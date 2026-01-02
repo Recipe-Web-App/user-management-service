@@ -1,0 +1,4 @@
+---
+downstreamServices:
+  notification:
+    base_url: "http://sous-chef-proxy.local/api/v1/notification"

@@ -162,6 +162,7 @@ func TestLoadFromEnv(t *testing.T) {
 	setPostgresEnv(t)
 	setRedisEnv(t)
 	setOAuth2Env(t)
+	setDownstreamServicesEnv(t)
 
 	cfg := Load()
 
@@ -169,6 +170,7 @@ func TestLoadFromEnv(t *testing.T) {
 	assertPostgresConfig(t, cfg)
 	assertRedisConfig(t, cfg)
 	assertOAuth2Config(t, cfg)
+	assertDownstreamServicesConfig(t, cfg)
 }
 
 func createConfigFile(t *testing.T, dir, name, content string) {
@@ -201,6 +203,35 @@ func TestLoadEnvironmentDefaults(t *testing.T) {
 	// Case 1: Default value
 	cfg := Load()
 	assert.Equal(t, "development", cfg.Environment)
+}
+
+func TestLoadDownstreamServicesDefaults(t *testing.T) {
+	viper.Reset()
+
+	tmpDir := t.TempDir()
+	configDir := filepath.Join(tmpDir, "config")
+	err := os.Mkdir(configDir, 0750)
+	require.NoError(t, err)
+
+	// Create minimal config files
+	createConfigFile(t, configDir, serverConfigFileName, serverConfigFileContents)
+	createConfigFile(t, configDir, corsConfigFileName, corsConfigFileContents)
+	createConfigFile(t, configDir, loggingConfigFileName, loggingConfigFileContents)
+	createConfigFile(t, configDir, databaseConfigFileName, databaseConfigFileContents)
+
+	t.Chdir(tmpDir)
+
+	// Clear downstream services env vars
+	t.Setenv("DOWNSTREAM_SERVICES_NOTIFICATION_ENABLED", "")
+	t.Setenv("DOWNSTREAM_SERVICES_NOTIFICATION_BASE_URL", "")
+	t.Setenv("DOWNSTREAM_SERVICES_NOTIFICATION_TIMEOUT", "")
+
+	cfg := Load()
+
+	// Verify defaults
+	assert.False(t, cfg.DownstreamServices.Notification.Enabled)
+	assert.Empty(t, cfg.DownstreamServices.Notification.BaseURL)
+	assert.Equal(t, 30*time.Second, cfg.DownstreamServices.Notification.Timeout)
 }
 
 func TestLoadEnvironmentVariableBinding(t *testing.T) {
@@ -260,6 +291,13 @@ func setOAuth2Env(t *testing.T) {
 	t.Setenv("OAUTH2_INTROSPECTION_PATH", "/env/introspect")
 }
 
+func setDownstreamServicesEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("DOWNSTREAM_SERVICES_NOTIFICATION_ENABLED", "true")
+	t.Setenv("DOWNSTREAM_SERVICES_NOTIFICATION_BASE_URL", "http://notification.example.com/api/v1")
+	t.Setenv("DOWNSTREAM_SERVICES_NOTIFICATION_TIMEOUT", "45s")
+}
+
 func assertPostgresConfig(t *testing.T, cfg *Config) {
 	t.Helper()
 	assert.Equal(t, "db.example.com", cfg.Postgres.Host)
@@ -290,4 +328,11 @@ func assertOAuth2Config(t *testing.T, cfg *Config) {
 	assert.Equal(t, "/env/token", cfg.OAuth2.GetTokenPath)
 	assert.Equal(t, "/env/revoke", cfg.OAuth2.RevokeTokenPath)
 	assert.Equal(t, "/env/introspect", cfg.OAuth2.IntrospectionPath)
+}
+
+func assertDownstreamServicesConfig(t *testing.T, cfg *Config) {
+	t.Helper()
+	assert.True(t, cfg.DownstreamServices.Notification.Enabled)
+	assert.Equal(t, "http://notification.example.com/api/v1", cfg.DownstreamServices.Notification.BaseURL)
+	assert.Equal(t, 45*time.Second, cfg.DownstreamServices.Notification.Timeout)
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/notification"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/repository"
 )
 
@@ -61,18 +62,21 @@ const (
 
 // SocialServiceImpl implements SocialService.
 type SocialServiceImpl struct {
-	userRepo   repository.UserRepository
-	socialRepo repository.SocialRepository
+	userRepo           repository.UserRepository
+	socialRepo         repository.SocialRepository
+	notificationClient notification.Client
 }
 
 // NewSocialService creates a new SocialService.
 func NewSocialService(
 	userRepo repository.UserRepository,
 	socialRepo repository.SocialRepository,
+	notificationClient notification.Client,
 ) *SocialServiceImpl {
 	return &SocialServiceImpl{
-		userRepo:   userRepo,
-		socialRepo: socialRepo,
+		userRepo:           userRepo,
+		socialRepo:         socialRepo,
+		notificationClient: notificationClient,
 	}
 }
 
@@ -200,7 +204,14 @@ func (s *SocialServiceImpl) FollowUser(
 		return nil, fmt.Errorf("failed to follow user: %w", err)
 	}
 
-	// 5. Return success response
+	// 5. Send notification (fire-and-forget)
+	// Use context.Background() to decouple from request context so notification
+	// continues even if the request is cancelled.
+	if s.notificationClient != nil {
+		go s.notificationClient.NotifyNewFollower(context.Background(), targetUserID, followerID) //nolint:contextcheck
+	}
+
+	// 6. Return success response
 	return &dto.FollowResponse{
 		Message:     "Successfully followed user",
 		IsFollowing: true,

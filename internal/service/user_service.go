@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/dto"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/notification"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/redis"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/repository"
 )
@@ -56,15 +57,21 @@ var ErrInvalidToken = errors.New("invalid or expired token")
 
 // UserServiceImpl implements UserService.
 type UserServiceImpl struct {
-	repo       repository.UserRepository
-	tokenStore repository.TokenStore
+	repo               repository.UserRepository
+	tokenStore         repository.TokenStore
+	notificationClient notification.Client
 }
 
 // NewUserService creates a new UserService.
-func NewUserService(repo repository.UserRepository, tokenStore repository.TokenStore) *UserServiceImpl {
+func NewUserService(
+	repo repository.UserRepository,
+	tokenStore repository.TokenStore,
+	notificationClient notification.Client,
+) *UserServiceImpl {
 	return &UserServiceImpl{
-		repo:       repo,
-		tokenStore: tokenStore,
+		repo:               repo,
+		tokenStore:         tokenStore,
+		notificationClient: notificationClient,
 	}
 }
 
@@ -229,7 +236,17 @@ func (s *UserServiceImpl) UpdateUserProfile(
 		}, nil
 	}
 
-	// 3. Perform the update
+	// 3. Track email change for notification
+	var oldEmail string
+
+	isEmailChanging := update.Email != nil &&
+		existingUser.Email != nil &&
+		*update.Email != *existingUser.Email
+	if isEmailChanging {
+		oldEmail = *existingUser.Email
+	}
+
+	// 4. Perform the update
 	updatedUser, err := s.repo.UpdateUser(ctx, userID, update)
 	if err != nil {
 		if errors.Is(err, repository.ErrUserNotFound) {
@@ -243,7 +260,19 @@ func (s *UserServiceImpl) UpdateUserProfile(
 		return nil, fmt.Errorf("failed to update user profile: %w", err)
 	}
 
-	// 4. Build response
+	// 5. Send email changed notification (fire-and-forget)
+	// Use context.Background() to decouple from request context so notification
+	// continues even if the request is cancelled.
+	if isEmailChanging && s.notificationClient != nil && updatedUser.Email != nil {
+		go s.notificationClient.NotifyEmailChanged( //nolint:contextcheck
+			context.Background(),
+			userID,
+			oldEmail,
+			*updatedUser.Email,
+		)
+	}
+
+	// 6. Build response
 	return &dto.UserProfileResponse{
 		UserID:    updatedUser.UserID,
 		Username:  updatedUser.Username,

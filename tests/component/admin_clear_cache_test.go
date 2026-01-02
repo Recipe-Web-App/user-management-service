@@ -86,7 +86,7 @@ func TestClearCache_Success(t *testing.T) {
 	mockAdminRedis := new(MockRedisCacheClient)
 
 	// Create Service
-	userService := service.NewUserService(mockRepo, mockTokenStore)
+	userService := service.NewUserService(mockRepo, mockTokenStore, nil)
 	adminService := service.NewAdminService(mockAdminRedis)
 
 	// Create Container
@@ -137,7 +137,7 @@ func TestClearCache_Success_EmptyBody(t *testing.T) {
 	mockAdminRedis := new(MockRedisCacheClient)
 
 	// Create Service
-	userService := service.NewUserService(mockRepo, mockTokenStore)
+	userService := service.NewUserService(mockRepo, mockTokenStore, nil)
 	adminService := service.NewAdminService(mockAdminRedis)
 
 	// Create Container

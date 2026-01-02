@@ -318,7 +318,7 @@ func runUserServiceTest(t *testing.T, tests []userServiceTestCase, targetID uuid
 
 			mockRepo := new(MockUserRepository)
 			mockTokenStore := new(MockTokenStore)
-			svc := service.NewUserService(mockRepo, mockTokenStore)
+			svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 			ctx := context.Background()
 
@@ -494,7 +494,7 @@ func TestUserServiceUpdateUserProfile(t *testing.T) { //nolint:funlen // table-d
 
 			mockRepo := new(MockUserRepository)
 			mockTokenStore := new(MockTokenStore)
-			svc := service.NewUserService(mockRepo, mockTokenStore)
+			svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 			tt.setupMock(mockRepo)
 
@@ -588,9 +588,9 @@ func TestUserServiceRequestAccountDeletion(t *testing.T) { //nolint:funlen // ta
 
 			var svc *service.UserServiceImpl
 			if tt.tokenStoreNil {
-				svc = service.NewUserService(mockRepo, nil)
+				svc = service.NewUserService(mockRepo, nil, nil)
 			} else {
-				svc = service.NewUserService(mockRepo, tokenStore)
+				svc = service.NewUserService(mockRepo, tokenStore, nil)
 			}
 
 			if tt.setupMock != nil && tokenStore != nil {
@@ -723,9 +723,9 @@ func TestUserServiceConfirmAccountDeletion(t *testing.T) { //nolint:funlen // ta
 
 			var svc *service.UserServiceImpl
 			if tt.tokenStoreNil {
-				svc = service.NewUserService(mockRepo, nil)
+				svc = service.NewUserService(mockRepo, nil, nil)
 			} else {
-				svc = service.NewUserService(mockRepo, tokenStore)
+				svc = service.NewUserService(mockRepo, tokenStore, nil)
 			}
 
 			if tt.setupMock != nil && tokenStore != nil {
@@ -790,7 +790,7 @@ func TestUserServiceGetUserStats(t *testing.T) {
 
 			mockRepo := new(MockUserRepository)
 			mockTokenStore := new(MockTokenStore)
-			svc := service.NewUserService(mockRepo, mockTokenStore)
+			svc := service.NewUserService(mockRepo, mockTokenStore, nil)
 
 			tt.setupMock(mockRepo)
 

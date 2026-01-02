@@ -9,14 +9,18 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Default timeout for downstream service HTTP clients.
+const defaultDownstreamTimeout = 30 * time.Second
+
 type Config struct {
-	Environment string
-	Server      ServerConfig
-	Logging     LoggingConfig
-	Cors        CorsConfig
-	Postgres    PostgresConfig
-	Redis       RedisConfig
-	OAuth2      OAuth2Config
+	Environment        string
+	Server             ServerConfig
+	Logging            LoggingConfig
+	Cors               CorsConfig
+	Postgres           PostgresConfig
+	Redis              RedisConfig
+	OAuth2             OAuth2Config
+	DownstreamServices DownstreamServicesConfig
 }
 
 type ServerConfig struct {
@@ -86,6 +90,16 @@ type OAuth2Config struct {
 	IntrospectionPath    string `mapstructure:"introspectionpath"`
 }
 
+type DownstreamServicesConfig struct {
+	Notification NotificationServiceConfig `mapstructure:"notification"`
+}
+
+type NotificationServiceConfig struct {
+	Enabled bool          `mapstructure:"enabled"`
+	BaseURL string        `mapstructure:"base_url"`
+	Timeout time.Duration `mapstructure:"timeout"`
+}
+
 const (
 	fatalConfigErr       = "fatal error config file: %w"
 	defaultPostgresPort  = 5432
@@ -109,12 +123,14 @@ func Load() *Config {
 	loadServerConfig()
 	mergeDatabaseConfig()
 	mergeOauth2Config()
+	mergeDownstreamServicesConfig()
 	loadCorsConfig()
 	loadLoggingConfig()
 	loadEnvironmentConfig()
 	loadPostgresConfig()
 	loadRedisConfig()
 	loadOauth2Config()
+	loadDownstreamServicesConfig()
 
 	var cfg Config
 
@@ -270,4 +286,29 @@ func loadServerConfig() {
 			panic(fmt.Errorf(fatalConfigErr, err))
 		}
 	}
+}
+
+func mergeDownstreamServicesConfig() {
+	viper.SetConfigName("downstreamServices")
+	viper.SetConfigType("yaml")
+
+	err := viper.MergeInConfig()
+	if err != nil {
+		var configFileNotFoundError viper.ConfigFileNotFoundError
+		if errors.As(err, &configFileNotFoundError) {
+			// Config file not found; ignore - downstream services are optional
+			return
+		} else {
+			panic(fmt.Errorf(fatalConfigErr, err))
+		}
+	}
+}
+
+func loadDownstreamServicesConfig() {
+	viper.SetDefault("downstreamservices.notification.enabled", false)
+	viper.SetDefault("downstreamservices.notification.timeout", defaultDownstreamTimeout)
+
+	_ = viper.BindEnv("downstreamservices.notification.enabled", "DOWNSTREAM_SERVICES_NOTIFICATION_ENABLED")
+	_ = viper.BindEnv("downstreamservices.notification.base_url", "DOWNSTREAM_SERVICES_NOTIFICATION_BASE_URL")
+	_ = viper.BindEnv("downstreamservices.notification.timeout", "DOWNSTREAM_SERVICES_NOTIFICATION_TIMEOUT")
 }

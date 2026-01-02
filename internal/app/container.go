@@ -8,6 +8,7 @@ import (
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/config"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/database"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/handler"
+	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/notification"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/oauth2"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/redis"
 	"github.com/jsamuelsen/recipe-web-app/user-management-service/internal/repository"
@@ -38,6 +39,9 @@ type Container struct {
 	// OAuth2
 	OAuth2Client oauth2.Client
 	TokenManager oauth2.TokenManager
+
+	// Notification
+	NotificationClient notification.Client
 }
 
 // ContainerConfig holds options for building the container.
@@ -59,6 +63,10 @@ func NewContainer(cfg ContainerConfig) (*Container, error) {
 
 	initInfrastructure(c, cfg)
 
+	// Initialize OAuth2 and notification client early (needed by services)
+	initOAuth2(c, cfg)
+	initNotification(c, cfg)
+
 	// Initialize services
 	c.HealthService = service.NewHealthService(c.Database, c.Cache)
 
@@ -66,11 +74,11 @@ func NewContainer(cfg ContainerConfig) (*Container, error) {
 	userRepo, socialRepo, tokenStore, preferenceRepo := initRepositories(c, cfg)
 
 	if userRepo != nil {
-		c.UserService = service.NewUserService(userRepo, tokenStore)
+		c.UserService = service.NewUserService(userRepo, tokenStore, c.NotificationClient)
 	}
 
 	if userRepo != nil && socialRepo != nil {
-		c.SocialService = service.NewSocialService(userRepo, socialRepo)
+		c.SocialService = service.NewSocialService(userRepo, socialRepo, c.NotificationClient)
 	}
 
 	if preferenceRepo != nil {
@@ -79,7 +87,6 @@ func NewContainer(cfg ContainerConfig) (*Container, error) {
 
 	initMetricsService(c)
 	initAdminService(c)
-	initOAuth2(c, cfg)
 
 	return c, nil
 }
@@ -214,7 +221,28 @@ func initOAuth2(c *Container, cfg ContainerConfig) {
 	c.OAuth2Client = oauth2.NewOAuth2Client(&cfg.Config.OAuth2)
 
 	// Initialize TokenManager for service-to-service authentication
+	// Include notification:admin scope for notification service calls
 	if cfg.Config.OAuth2.ServiceEnabled {
-		c.TokenManager = oauth2.NewTokenManager(c.OAuth2Client, []string{"user:read", "user:write"})
+		c.TokenManager = oauth2.NewTokenManager(c.OAuth2Client, []string{
+			"user:read",
+			"user:write",
+			"notification:admin",
+		})
 	}
+}
+
+func initNotification(c *Container, cfg ContainerConfig) {
+	if cfg.Config == nil || !cfg.Config.DownstreamServices.Notification.Enabled {
+		c.NotificationClient = &notification.NoopClient{}
+
+		return
+	}
+
+	notifCfg := cfg.Config.DownstreamServices.Notification
+	baseClient := notification.NewBaseClient(
+		notifCfg.BaseURL,
+		c.TokenManager,
+		notifCfg.Timeout,
+	)
+	c.NotificationClient = notification.NewNotificationClient(baseClient)
 }

@@ -327,7 +327,7 @@ func TestSocialServiceGetFollowing(t *testing.T) {
 		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(publicPrivacy, nil).Once()
 		mockSocialRepo.On("GetFollowing", mock.Anything, targetID, 20, 0).Return(followedUsers, 2, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetFollowing(context.Background(), requesterID, targetID, 20, 0, false)
 
 		require.NoError(t, err)
@@ -357,7 +357,7 @@ func TestSocialServiceGetFollowing(t *testing.T) {
 		mockUserRepo.On("FindUserByID", mock.Anything, requesterID).Return(ownUser, nil).Once()
 		mockSocialRepo.On("GetFollowing", mock.Anything, requesterID, 20, 0).Return(followedUsers, 1, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetFollowing(context.Background(), requesterID, requesterID, 20, 0, false)
 
 		require.NoError(t, err)
@@ -387,7 +387,7 @@ func TestSocialServiceGetFollowing(t *testing.T) {
 		mockUserRepo.On("IsFollowing", mock.Anything, requesterID, targetID).Return(true, nil).Once()
 		mockSocialRepo.On("GetFollowing", mock.Anything, targetID, 20, 0).Return(followedUsers, 3, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetFollowing(context.Background(), requesterID, targetID, 20, 0, false)
 
 		require.NoError(t, err)
@@ -411,7 +411,7 @@ func TestSocialServiceGetFollowing(t *testing.T) {
 		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(publicPrivacy, nil).Once()
 		mockSocialRepo.On("GetFollowing", mock.Anything, targetID, 20, 0).Return([]dto.User{}, 42, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetFollowing(context.Background(), requesterID, targetID, 20, 0, true)
 
 		require.NoError(t, err)
@@ -438,7 +438,7 @@ func TestSocialServiceGetFollowing(t *testing.T) {
 		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(publicPrivacy, nil).Once()
 		mockSocialRepo.On("GetFollowing", mock.Anything, targetID, 20, 0).Return([]dto.User{}, 0, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetFollowing(context.Background(), requesterID, targetID, 20, 0, false)
 
 		require.NoError(t, err)
@@ -458,7 +458,7 @@ func TestSocialServiceGetFollowing(t *testing.T) {
 
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(nil, repository.ErrUserNotFound).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetFollowing(context.Background(), requesterID, targetID, 20, 0, false)
 
 		require.Error(t, err)
@@ -479,7 +479,7 @@ func TestSocialServiceGetFollowing(t *testing.T) {
 
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(inactiveUser, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetFollowing(context.Background(), requesterID, targetID, 20, 0, false)
 
 		require.Error(t, err)
@@ -502,7 +502,7 @@ func TestSocialServiceGetFollowing(t *testing.T) {
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
 		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(privatePrivacy, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetFollowing(context.Background(), requesterID, targetID, 20, 0, false)
 
 		require.Error(t, err)
@@ -526,7 +526,7 @@ func TestSocialServiceGetFollowing(t *testing.T) {
 		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(followersOnlyPrivacy, nil).Once()
 		mockUserRepo.On("IsFollowing", mock.Anything, requesterID, targetID).Return(false, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetFollowing(context.Background(), requesterID, targetID, 20, 0, false)
 
 		require.Error(t, err)
@@ -550,7 +550,7 @@ func TestSocialServiceGetFollowing(t *testing.T) {
 		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(publicPrivacy, nil).Once()
 		mockSocialRepo.On("GetFollowing", mock.Anything, targetID, 20, 0).Return(nil, 0, errRepoSocial).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetFollowing(context.Background(), requesterID, targetID, 20, 0, false)
 
 		require.Error(t, err)
@@ -569,7 +569,7 @@ func TestSocialServiceGetFollowing(t *testing.T) {
 
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(nil, errRepoSocial).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetFollowing(context.Background(), requesterID, targetID, 20, 0, false)
 
 		require.Error(t, err)
@@ -590,7 +590,7 @@ func TestSocialServiceGetFollowing(t *testing.T) {
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
 		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(nil, errRepoSocial).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetFollowing(context.Background(), requesterID, targetID, 20, 0, false)
 
 		require.Error(t, err)
@@ -613,7 +613,7 @@ func TestSocialServiceGetFollowing(t *testing.T) {
 		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(followersOnlyPrivacy, nil).Once()
 		mockUserRepo.On("IsFollowing", mock.Anything, requesterID, targetID).Return(false, errRepoSocial).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetFollowing(context.Background(), requesterID, targetID, 20, 0, false)
 
 		require.Error(t, err)
@@ -644,7 +644,7 @@ func TestSocialServiceFollowUser(t *testing.T) {
 		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(publicPrivacy, nil).Once()
 		mockSocialRepo.On("FollowUser", mock.Anything, requesterID, targetID).Return(nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.FollowUser(context.Background(), requesterID, targetID)
 
 		require.NoError(t, err)
@@ -670,7 +670,7 @@ func TestSocialServiceFollowUser(t *testing.T) {
 		// FollowUser still succeeds due to ON CONFLICT DO NOTHING
 		mockSocialRepo.On("FollowUser", mock.Anything, requesterID, targetID).Return(nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.FollowUser(context.Background(), requesterID, targetID)
 
 		require.NoError(t, err)
@@ -687,7 +687,7 @@ func TestSocialServiceFollowUser(t *testing.T) {
 		mockUserRepo := new(MockUserRepoForSocial)
 		mockSocialRepo := new(MockSocialRepo)
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.FollowUser(context.Background(), requesterID, requesterID)
 
 		require.Error(t, err)
@@ -707,7 +707,7 @@ func TestSocialServiceFollowUser(t *testing.T) {
 
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(nil, repository.ErrUserNotFound).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.FollowUser(context.Background(), requesterID, targetID)
 
 		require.Error(t, err)
@@ -728,7 +728,7 @@ func TestSocialServiceFollowUser(t *testing.T) {
 
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(inactiveUser, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.FollowUser(context.Background(), requesterID, targetID)
 
 		require.Error(t, err)
@@ -751,7 +751,7 @@ func TestSocialServiceFollowUser(t *testing.T) {
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
 		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(noFollowsPrivacy, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.FollowUser(context.Background(), requesterID, targetID)
 
 		require.Error(t, err)
@@ -770,7 +770,7 @@ func TestSocialServiceFollowUser(t *testing.T) {
 
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(nil, errRepoSocial).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.FollowUser(context.Background(), requesterID, targetID)
 
 		require.Error(t, err)
@@ -791,7 +791,7 @@ func TestSocialServiceFollowUser(t *testing.T) {
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
 		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(nil, errRepoSocial).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.FollowUser(context.Background(), requesterID, targetID)
 
 		require.Error(t, err)
@@ -814,7 +814,7 @@ func TestSocialServiceFollowUser(t *testing.T) {
 		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(publicPrivacy, nil).Once()
 		mockSocialRepo.On("FollowUser", mock.Anything, requesterID, targetID).Return(errRepoSocial).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.FollowUser(context.Background(), requesterID, targetID)
 
 		require.Error(t, err)
@@ -844,7 +844,7 @@ func TestSocialServiceUnfollowUser(t *testing.T) {
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
 		mockSocialRepo.On("UnfollowUser", mock.Anything, requesterID, targetID).Return(nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.UnfollowUser(context.Background(), requesterID, targetID)
 
 		require.NoError(t, err)
@@ -868,7 +868,7 @@ func TestSocialServiceUnfollowUser(t *testing.T) {
 		// UnfollowUser still succeeds due to DELETE being naturally idempotent
 		mockSocialRepo.On("UnfollowUser", mock.Anything, requesterID, targetID).Return(nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.UnfollowUser(context.Background(), requesterID, targetID)
 
 		require.NoError(t, err)
@@ -885,7 +885,7 @@ func TestSocialServiceUnfollowUser(t *testing.T) {
 		mockUserRepo := new(MockUserRepoForSocial)
 		mockSocialRepo := new(MockSocialRepo)
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.UnfollowUser(context.Background(), requesterID, requesterID)
 
 		require.Error(t, err)
@@ -905,7 +905,7 @@ func TestSocialServiceUnfollowUser(t *testing.T) {
 
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(nil, repository.ErrUserNotFound).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.UnfollowUser(context.Background(), requesterID, targetID)
 
 		require.Error(t, err)
@@ -926,7 +926,7 @@ func TestSocialServiceUnfollowUser(t *testing.T) {
 
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(inactiveUser, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.UnfollowUser(context.Background(), requesterID, targetID)
 
 		require.Error(t, err)
@@ -945,7 +945,7 @@ func TestSocialServiceUnfollowUser(t *testing.T) {
 
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(nil, errRepoSocial).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.UnfollowUser(context.Background(), requesterID, targetID)
 
 		require.Error(t, err)
@@ -966,7 +966,7 @@ func TestSocialServiceUnfollowUser(t *testing.T) {
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
 		mockSocialRepo.On("UnfollowUser", mock.Anything, requesterID, targetID).Return(errRepoSocial).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.UnfollowUser(context.Background(), requesterID, targetID)
 
 		require.Error(t, err)
@@ -1028,7 +1028,7 @@ func TestSocialServiceGetUserActivity(t *testing.T) {
 		mockSocialRepo.On("GetRecentReviews", mock.Anything, targetID, 15).Return(reviews, nil).Once()
 		mockSocialRepo.On("GetRecentFavorites", mock.Anything, targetID, 15).Return(favorites, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
 
 		require.NoError(t, err)
@@ -1058,7 +1058,7 @@ func TestSocialServiceGetUserActivity(t *testing.T) {
 		mockSocialRepo.On("GetRecentReviews", mock.Anything, requesterID, 15).Return(reviews, nil).Once()
 		mockSocialRepo.On("GetRecentFavorites", mock.Anything, requesterID, 15).Return(favorites, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetUserActivity(context.Background(), &requesterID, requesterID, 15)
 
 		require.NoError(t, err)
@@ -1088,7 +1088,7 @@ func TestSocialServiceGetUserActivity(t *testing.T) {
 		mockSocialRepo.On("GetRecentReviews", mock.Anything, targetID, 15).Return(reviews, nil).Once()
 		mockSocialRepo.On("GetRecentFavorites", mock.Anything, targetID, 15).Return(favorites, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetUserActivity(context.Background(), nil, targetID, 15)
 
 		require.NoError(t, err)
@@ -1117,7 +1117,7 @@ func TestSocialServiceGetUserActivity(t *testing.T) {
 		mockSocialRepo.On("GetRecentReviews", mock.Anything, targetID, 15).Return(reviews, nil).Once()
 		mockSocialRepo.On("GetRecentFavorites", mock.Anything, targetID, 15).Return(favorites, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
 
 		require.NoError(t, err)
@@ -1144,7 +1144,7 @@ func TestSocialServiceGetUserActivity(t *testing.T) {
 		mockSocialRepo.On("GetRecentReviews", mock.Anything, targetID, 50).Return([]dto.ReviewSummary{}, nil).Once()
 		mockSocialRepo.On("GetRecentFavorites", mock.Anything, targetID, 50).Return([]dto.FavoriteSummary{}, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 50)
 
 		require.NoError(t, err)
@@ -1170,7 +1170,7 @@ func TestSocialServiceGetUserActivity(t *testing.T) {
 		mockSocialRepo.On("GetRecentReviews", mock.Anything, targetID, 15).Return(nil, nil).Once()
 		mockSocialRepo.On("GetRecentFavorites", mock.Anything, targetID, 15).Return(nil, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
 
 		require.NoError(t, err)
@@ -1193,7 +1193,7 @@ func TestSocialServiceGetUserActivity(t *testing.T) {
 
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(nil, repository.ErrUserNotFound).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
 
 		require.Error(t, err)
@@ -1214,7 +1214,7 @@ func TestSocialServiceGetUserActivity(t *testing.T) {
 
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(inactiveUser, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
 
 		require.Error(t, err)
@@ -1237,7 +1237,7 @@ func TestSocialServiceGetUserActivity(t *testing.T) {
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
 		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(privatePrivacy, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
 
 		require.Error(t, err)
@@ -1261,7 +1261,7 @@ func TestSocialServiceGetUserActivity(t *testing.T) {
 		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(followersOnlyPrivacy, nil).Once()
 		mockUserRepo.On("IsFollowing", mock.Anything, requesterID, targetID).Return(false, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
 
 		require.Error(t, err)
@@ -1284,7 +1284,7 @@ func TestSocialServiceGetUserActivity(t *testing.T) {
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
 		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(followersOnlyPrivacy, nil).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetUserActivity(context.Background(), nil, targetID, 15)
 
 		require.Error(t, err)
@@ -1305,7 +1305,7 @@ func TestSocialServiceGetUserActivity(t *testing.T) {
 
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(nil, errRepoSocial).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
 
 		require.Error(t, err)
@@ -1326,7 +1326,7 @@ func TestSocialServiceGetUserActivity(t *testing.T) {
 		mockUserRepo.On("FindUserByID", mock.Anything, targetID).Return(targetUser, nil).Once()
 		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(nil, errRepoSocial).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
 
 		require.Error(t, err)
@@ -1349,7 +1349,7 @@ func TestSocialServiceGetUserActivity(t *testing.T) {
 		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(followersOnlyPrivacy, nil).Once()
 		mockUserRepo.On("IsFollowing", mock.Anything, requesterID, targetID).Return(false, errRepoSocial).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
 
 		require.Error(t, err)
@@ -1372,7 +1372,7 @@ func TestSocialServiceGetUserActivity(t *testing.T) {
 		mockUserRepo.On("FindPrivacyPreferencesByUserID", mock.Anything, targetID).Return(publicPrivacy, nil).Once()
 		mockSocialRepo.On("GetRecentRecipes", mock.Anything, targetID, 15).Return(nil, errRepoSocial).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
 
 		require.Error(t, err)
@@ -1398,7 +1398,7 @@ func TestSocialServiceGetUserActivity(t *testing.T) {
 		mockSocialRepo.On("GetRecentRecipes", mock.Anything, targetID, 15).Return(recipes, nil).Once()
 		mockSocialRepo.On("GetRecentFollows", mock.Anything, targetID, 15).Return(nil, errRepoSocial).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
 
 		require.Error(t, err)
@@ -1425,7 +1425,7 @@ func TestSocialServiceGetUserActivity(t *testing.T) {
 		mockSocialRepo.On("GetRecentFollows", mock.Anything, targetID, 15).Return(follows, nil).Once()
 		mockSocialRepo.On("GetRecentReviews", mock.Anything, targetID, 15).Return(nil, errRepoSocial).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
 
 		require.Error(t, err)
@@ -1453,7 +1453,7 @@ func TestSocialServiceGetUserActivity(t *testing.T) {
 		mockSocialRepo.On("GetRecentReviews", mock.Anything, targetID, 15).Return(reviews, nil).Once()
 		mockSocialRepo.On("GetRecentFavorites", mock.Anything, targetID, 15).Return(nil, errRepoSocial).Once()
 
-		svc := service.NewSocialService(mockUserRepo, mockSocialRepo)
+		svc := service.NewSocialService(mockUserRepo, mockSocialRepo, nil)
 		resp, err := svc.GetUserActivity(context.Background(), &requesterID, targetID, 15)
 
 		require.Error(t, err)

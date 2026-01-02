@@ -1,6 +1,5 @@
 ---
 downstreamServices:
   notification:
-    enabled: false
-    base_url: "http://sous-chef-proxy.local/api/v1/notification"
+    enabled: true
     timeout: 30s

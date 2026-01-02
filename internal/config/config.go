@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -298,9 +299,35 @@ func mergeDownstreamServicesConfig() {
 		if errors.As(err, &configFileNotFoundError) {
 			// Config file not found; ignore - downstream services are optional
 			return
-		} else {
+		}
+
+		panic(fmt.Errorf(fatalConfigErr, err))
+	}
+
+	// Load environment-specific overrides
+	mergeEnvSpecificConfig("downstreamServices")
+}
+
+// mergeEnvSpecificConfig loads environment-specific overrides for a config file.
+// For example, if baseName is "downstreamServices" and ENVIRONMENT is "production",
+// it will attempt to merge "downstreamServices.production.yaml".
+// Missing environment-specific files are silently ignored.
+func mergeEnvSpecificConfig(baseName string) {
+	env := os.Getenv("ENVIRONMENT")
+	if env == "" {
+		env = "development"
+	}
+
+	viper.SetConfigName(baseName + "." + env)
+	viper.SetConfigType("yaml")
+
+	err := viper.MergeInConfig()
+	if err != nil {
+		var configFileNotFoundError viper.ConfigFileNotFoundError
+		if !errors.As(err, &configFileNotFoundError) {
 			panic(fmt.Errorf(fatalConfigErr, err))
 		}
+		// Environment-specific file not found is fine - it's optional
 	}
 }
 

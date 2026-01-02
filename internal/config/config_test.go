@@ -234,6 +234,98 @@ func TestLoadDownstreamServicesDefaults(t *testing.T) {
 	assert.Equal(t, 30*time.Second, cfg.DownstreamServices.Notification.Timeout)
 }
 
+func TestLoadDownstreamServicesEnvSpecificOverride(t *testing.T) {
+	viper.Reset()
+
+	tmpDir := t.TempDir()
+	configDir := filepath.Join(tmpDir, "config")
+	err := os.Mkdir(configDir, 0750)
+	require.NoError(t, err)
+
+	// Create minimal config files
+	createConfigFile(t, configDir, serverConfigFileName, serverConfigFileContents)
+	createConfigFile(t, configDir, corsConfigFileName, corsConfigFileContents)
+	createConfigFile(t, configDir, loggingConfigFileName, loggingConfigFileContents)
+	createConfigFile(t, configDir, databaseConfigFileName, databaseConfigFileContents)
+
+	// Create base downstream services config
+	createConfigFile(t, configDir, "downstreamServices.yaml", `
+downstreamServices:
+  notification:
+    enabled: false
+    base_url: "http://local.dev/api/v1/notification"
+    timeout: 30s
+`)
+
+	// Create production-specific override
+	createConfigFile(t, configDir, "downstreamServices.production.yaml", `
+downstreamServices:
+  notification:
+    enabled: true
+    base_url: "http://kong-gateway.prod/api/v1/notification"
+`)
+
+	t.Chdir(tmpDir)
+
+	// Set environment to production
+	t.Setenv("ENVIRONMENT", "production")
+
+	// Clear env var overrides
+	t.Setenv("DOWNSTREAM_SERVICES_NOTIFICATION_ENABLED", "")
+	t.Setenv("DOWNSTREAM_SERVICES_NOTIFICATION_BASE_URL", "")
+	t.Setenv("DOWNSTREAM_SERVICES_NOTIFICATION_TIMEOUT", "")
+
+	cfg := Load()
+
+	// Verify production overrides were applied
+	assert.True(t, cfg.DownstreamServices.Notification.Enabled)
+	assert.Equal(t, "http://kong-gateway.prod/api/v1/notification", cfg.DownstreamServices.Notification.BaseURL)
+	// Timeout should remain from base config (not overridden)
+	assert.Equal(t, 30*time.Second, cfg.DownstreamServices.Notification.Timeout)
+}
+
+func TestLoadDownstreamServicesMissingEnvSpecificFile(t *testing.T) {
+	viper.Reset()
+
+	tmpDir := t.TempDir()
+	configDir := filepath.Join(tmpDir, "config")
+	err := os.Mkdir(configDir, 0750)
+	require.NoError(t, err)
+
+	// Create minimal config files
+	createConfigFile(t, configDir, serverConfigFileName, serverConfigFileContents)
+	createConfigFile(t, configDir, corsConfigFileName, corsConfigFileContents)
+	createConfigFile(t, configDir, loggingConfigFileName, loggingConfigFileContents)
+	createConfigFile(t, configDir, databaseConfigFileName, databaseConfigFileContents)
+
+	// Create base downstream services config only (no staging-specific file)
+	createConfigFile(t, configDir, "downstreamServices.yaml", `
+downstreamServices:
+  notification:
+    enabled: true
+    base_url: "http://base.url/api/v1/notification"
+    timeout: 45s
+`)
+
+	t.Chdir(tmpDir)
+
+	// Set environment to staging (no staging-specific file exists)
+	t.Setenv("ENVIRONMENT", "staging")
+
+	// Clear env var overrides
+	t.Setenv("DOWNSTREAM_SERVICES_NOTIFICATION_ENABLED", "")
+	t.Setenv("DOWNSTREAM_SERVICES_NOTIFICATION_BASE_URL", "")
+	t.Setenv("DOWNSTREAM_SERVICES_NOTIFICATION_TIMEOUT", "")
+
+	// Should not panic - missing env-specific file is OK
+	cfg := Load()
+
+	// Base config should be used
+	assert.True(t, cfg.DownstreamServices.Notification.Enabled)
+	assert.Equal(t, "http://base.url/api/v1/notification", cfg.DownstreamServices.Notification.BaseURL)
+	assert.Equal(t, 45*time.Second, cfg.DownstreamServices.Notification.Timeout)
+}
+
 func TestLoadEnvironmentVariableBinding(t *testing.T) {
 	viper.Reset()
 

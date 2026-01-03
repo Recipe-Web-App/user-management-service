@@ -433,6 +433,8 @@ paths:
                 $ref: "#/components/schemas/GetFollowedUsersResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
@@ -450,13 +452,7 @@ paths:
       description: Follow another user
       parameters:
         - $ref: "#/components/parameters/UserIdPath"
-        - name: targetUserId
-          in: path
-          required: true
-          description: Target user ID to follow
-          schema:
-            type: string
-            format: uuid
+        - $ref: "#/components/parameters/TargetUserIdPath"
       responses:
         "200":
           description: Successfully followed user or already following
@@ -482,13 +478,7 @@ paths:
       description: Unfollow another user
       parameters:
         - $ref: "#/components/parameters/UserIdPath"
-        - name: targetUserId
-          in: path
-          required: true
-          description: Target user ID to unfollow
-          schema:
-            type: string
-            format: uuid
+        - $ref: "#/components/parameters/TargetUserIdPath"
       responses:
         "200":
           description: Successfully unfollowed user or not following
@@ -502,6 +492,37 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /users/{userId}/following/{targetUserId}:
+    get:
+      tags:
+        - social
+      summary: Check if user follows another user
+      description: Check if userId is following targetUserId
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+        - $ref: "#/components/parameters/TargetUserIdPath"
+      responses:
+        "200":
+          description: Following status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowingCheckResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
@@ -719,6 +740,15 @@ components:
       in: path
       required: true
       description: User ID
+      schema:
+        type: string
+        format: uuid
+
+    TargetUserIdPath:
+      name: targetUserId
+      in: path
+      required: true
+      description: Target user ID
       schema:
         type: string
         format: uuid
@@ -1109,6 +1139,20 @@ components:
         isFollowing:
           type: boolean
           description: Whether the user is now following the target user
+
+    FollowingCheckResponse:
+      type: object
+      required:
+        - isFollowing
+      properties:
+        isFollowing:
+          type: boolean
+          description: Whether the user follows the target user
+        followedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp when the follow relationship was created (null if not following)
 
     UserActivityResponse:
       type: object

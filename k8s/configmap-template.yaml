@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: user-management-config
-  namespace: user-management-dev-poc
+  namespace: user-management
 data:
   # Environment
   ENVIRONMENT: "${ENVIRONMENT}"

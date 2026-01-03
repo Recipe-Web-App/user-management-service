@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: user-management-service
-  namespace: user-management-dev-poc
+  namespace: user-management
   labels:
     app: user-management-service
 spec:

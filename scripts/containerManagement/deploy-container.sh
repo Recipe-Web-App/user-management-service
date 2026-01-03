@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-NAMESPACE="user-management-dev-poc"
+NAMESPACE="user-management"
 CONFIG_DIR="k8s"
 SECRET_NAME="user-management-secrets" # pragma: allowlist secret
 IMAGE_NAME="user-management-service"
@@ -146,6 +146,12 @@ print_separator "-"
 kubectl apply -f "${CONFIG_DIR}/service.yaml"
 
 print_separator "="
+echo -e "${CYAN}📥 Applying HTTPRoute for Kong Gateway...${NC}"
+print_separator "-"
+
+kubectl apply -f "${CONFIG_DIR}/gateway-route.yaml"
+
+print_separator "="
 echo -e "${CYAN}⏳ Waiting for User Management Service pod to be ready...${NC}"
 print_separator "-"
 
@@ -158,15 +164,32 @@ print_separator "-"
 print_status "ok" "User Management Service is up and running in namespace '$NAMESPACE'."
 
 print_separator "="
+echo -e "${CYAN}🔗 Setting up /etc/hosts for user-management.local...${NC}"
+print_separator "-"
+
+MINIKUBE_IP=$(minikube ip)
+if grep -q "user-management.local" /etc/hosts; then
+  echo -e "${YELLOW}🔄 Updating /etc/hosts for user-management.local...${NC}"
+  sed -i "/user-management.local/d" /etc/hosts
+else
+  echo -e "${GREEN}➕ Adding user-management.local to /etc/hosts...${NC}"
+fi
+echo "$MINIKUBE_IP user-management.local" | tee -a /etc/hosts > /dev/null
+print_status "ok" "/etc/hosts updated with user-management.local pointing to $MINIKUBE_IP"
+
+print_separator "="
 echo -e "${CYAN}🛰️  Access info:${NC}"
 
 POD_NAME=$(kubectl get pods -n "$NAMESPACE" -l app=user-management-service -o jsonpath="{.items[0].metadata.name}")
 SERVICE_JSON=$(kubectl get svc user-management-service -n "$NAMESPACE" -o json)
 SERVICE_IP=$(echo "$SERVICE_JSON" | jq -r '.spec.clusterIP')
 SERVICE_PORT=$(echo "$SERVICE_JSON" | jq -r '.spec.ports[0].port')
+HTTPROUTE_HOSTS=$(kubectl get httproute -n "$NAMESPACE" -o jsonpath='{.items[*].spec.hostnames[*]}' 2>/dev/null | tr ' ' '\n' | sort -u | paste -sd ',' - || echo "N/A")
 
 echo "  Pod: $POD_NAME"
 echo "  Service: $SERVICE_IP:$SERVICE_PORT"
-echo "  To access locally, use: kubectl port-forward -n $NAMESPACE svc/user-management-service 8080:8080"
-echo "  Then visit: http://localhost:8080/api/v1/user-management/health"
+echo "  HTTPRoute Hosts: $HTTPROUTE_HOSTS"
+echo "  Gateway: kong (namespace: kong)"
+echo "  Health Check: http://user-management.local/api/v1/user-management/health"
+echo "  To access locally without gateway: kubectl port-forward -n $NAMESPACE svc/user-management-service 8080:8080"
 print_separator "="

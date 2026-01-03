@@ -271,6 +271,22 @@ func (m *MockSocialRepo) GetRecentFavorites(
 	return favorites, nil
 }
 
+func (m *MockSocialRepo) CheckFollowing(
+	ctx context.Context,
+	followerID, followeeID uuid.UUID,
+) (*time.Time, error) {
+	args := m.Called(ctx, followerID, followeeID)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf(mockSocialErrorFmt, err)
+	}
+
+	followedAt, _ := args.Get(0).(*time.Time)
+
+	return followedAt, nil
+}
+
 func createTestUser(userID uuid.UUID, isActive bool) *dto.User {
 	now := time.Now()
 	fullName := "Test User"

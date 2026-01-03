@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-NAMESPACE="user-management-dev-poc"
+NAMESPACE="user-management"
 IMAGE_NAME="user-management-service"
 IMAGE_TAG="latest"
 FULL_IMAGE_NAME="${IMAGE_NAME}:${IMAGE_TAG}"

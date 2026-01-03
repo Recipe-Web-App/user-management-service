@@ -1,0 +1,62 @@
+# .golangci.yml (V2)
+version: "2"
+
+run:
+  concurrency: 4
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+
+linters:
+  default: all
+  disable:
+    # Mutually exclusive / Conflicting / overly noisy
+    - wsl              # Too strict about whitespace
+    - nlreturn         # Too strict about newlines
+    - depguard         # Requires specific config
+    - varnamelen       # Too strict about variable naming length
+    - ireturn          # Too strict about interface returns
+    - gochecknoglobals # Globals are sometimes necessary
+    - gochecknoinits   # Inits are sometimes necessary
+    - exhaustruct      # Often too noisy for existing code
+    - errchkjson       # Overly strict for simple marshaling
+    - nonamedreturns   # Named returns are fine
+    - testpackage      # Forces white-box testing to black-box, maybe not desired immediately
+
+  settings:
+    gocyclo:
+      min-complexity: 20
+    gocognit:
+      min-complexity: 20
+    revive:
+      severity: warning
+    staticcheck:
+      checks: ["all"]
+    lll:
+      line-length: 120
+    errcheck:
+      exclude-functions:
+        - net/http.ResponseWriter.Write
+        - net/http.Response.Body.Close
+        - io.Closer.Close
+
+formatters:
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/jsamuelsen/recipe-web-app/user-management-service
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    - linters:
+        - errcheck
+      text: "Error return value of .*Write.* is not checked"
+    - path: _test\.go
+      linters:
+        - funlen
+        - goconst
+        - gocyclo
+        - gocognit

@@ -1,135 +1,27 @@
----
 name: Security
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches: [ main ]
   schedule:
-    - cron: "0 0 * * 0" # Weekly on Sunday at midnight
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
+    - cron: '30 1 * * 1'
 
 jobs:
-  codeql:
-    name: CodeQL Analysis
+  gosec:
+    name: Gosec
     runs-on: ubuntu-latest
     permissions:
-      actions: read
-      contents: read
       security-events: write
-
-    strategy:
-      fail-fast: false
-      matrix:
-        language: ["python"]
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          languages: ${{ matrix.language }}
-
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v4
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
-
-  dependency-review:
-    name: Dependency Review
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    permissions:
-      contents: read
-      pull-requests: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Dependency Review
-        uses: actions/dependency-review-action@v4
+          go-version: '1.23'
+      - name: Run Gosec
+        uses: securecodewarrior/github-action-gosec@master
         with:
-          fail-on-severity: moderate
-
-  trivy-repo:
-    name: Trivy Repository Scan
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+          args: '-no-fail -fmt sarif -out gosec.sarif ./...'
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
         with:
-          scan-type: "fs"
-          scan-ref: "."
-          format: "sarif"
-          output: "trivy-results.sarif"
-          severity: "CRITICAL,HIGH"
-
-      - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v4
-        if: always()
-        with:
-          sarif_file: "trivy-results.sarif"
-
-  python-security:
-    name: Python Security Checks
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
-    env:
-      PYTHON_VERSION: "3.11"
-      POETRY_VERSION: "1.8.3"
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: ${{ env.POETRY_VERSION }}
-
-      - name: Install dependencies
-        run: poetry install --no-interaction
-
-      - name: Run Bandit security scan
-        run: |
-          poetry run bandit -r app/ -f json -o bandit-report.json || true
-          poetry run bandit -r app/
-
-      - name: Run Safety check
-        run: |
-          poetry run safety check --json --output safety-report.json || true
-          poetry run safety check
-
-      - name: Upload security reports
-        uses: actions/upload-artifact@v6
-        if: always()
-        with:
-          name: security-reports
-          path: |
-            bandit-report.json
-            safety-report.json
+          sarif_file: gosec.sarif

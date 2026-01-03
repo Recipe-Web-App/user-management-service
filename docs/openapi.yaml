@@ -4,13 +4,12 @@ info:
   title: User Management Service API
   description: |
     A comprehensive user management microservice providing authentication, profile management,
-    social features, notifications, and administrative capabilities for a recipe web application.
+    social features and administrative capabilities for a recipe web application.
 
     ## Features
     - User registration and authentication (JWT-based)
     - Profile management with privacy controls
     - Social features (following/followers)
-    - Notification system with preferences
     - Administrative tools and metrics
     - Health monitoring endpoints
 
@@ -39,9 +38,9 @@ info:
     email: support@example.com
 
 servers:
-  - url: http://localhost:8000/api/v1
+  - url: http://localhost:8000/api/v1/user-management
     description: Development server
-  - url: https://api.example.com/api/v1
+  - url: https://user-management.local/api/v1/user-management
     description: Production server
 
 security:
@@ -50,10 +49,10 @@ security:
 tags:
   - name: users
     description: User profile and account operations
+  - name: preferences
+    description: User preference management (notification, display, privacy, etc.)
   - name: social
     description: Social features including following and activity
-  - name: notifications
-    description: Notification management and preferences
   - name: admin
     description: Administrative operations (requires admin role)
   - name: metrics
@@ -62,11 +61,8 @@ tags:
     description: Service health checks
 
 paths:
-  # Note: Authentication endpoints are handled by external OAuth2 service
-  # This service only provides user management functionality
-
   # User Management Endpoints
-  /user-management/users/{user_id}/profile:
+  /users/{userId}/profile:
     get:
       tags:
         - users
@@ -96,14 +92,14 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /user-management/users/profile:
+  /users/profile:
     put:
       tags:
         - users
       summary: Update user profile
       description: Update current user's profile information
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -121,14 +117,12 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
-        "422":
-          $ref: "#/components/responses/ValidationError"
         "500":
           $ref: "#/components/responses/InternalServerError"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /user-management/users/account/delete-request:
+  /users/account/delete-request:
     post:
       tags:
         - users
@@ -152,7 +146,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /user-management/users/account:
+  /users/account:
     delete:
       tags:
         - users
@@ -182,7 +176,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /user-management/users/search:
+  /users/search:
     get:
       tags:
         - users
@@ -206,6 +200,10 @@ paths:
                 $ref: "#/components/schemas/UserSearchResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "422":
           $ref: "#/components/responses/ValidationError"
         "500":
@@ -213,7 +211,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /user-management/users/{user_id}:
+  /users/{userId}:
     get:
       tags:
         - users
@@ -240,8 +238,151 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
+  # User Preference Endpoints
+  /users/{userId}/preferences:
+    get:
+      tags:
+        - preferences
+      summary: Get user preferences
+      description: >-
+        Retrieve all or filtered user preferences. Users can access their own
+        preferences, admins can access any user's preferences, and services
+        with user:read scope can also access preferences.
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+        - name: categories
+          in: query
+          description: >-
+            Comma-separated list of preference categories to retrieve.
+            If not specified, all categories are returned.
+          schema:
+            type: string
+            example: "notification,display,privacy"
+      responses:
+        "200":
+          description: User preferences retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPreferencesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    put:
+      tags:
+        - preferences
+      summary: Update multiple preference categories
+      description: >-
+        Update multiple preference categories at once. Only provided categories
+        will be updated. Users can update their own preferences, admins can
+        update any user's preferences, and services with user:write scope can
+        also update preferences.
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserPreferencesUpdateRequest"
+      responses:
+        "200":
+          description: User preferences updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPreferencesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /users/{userId}/preferences/{category}:
+    get:
+      tags:
+        - preferences
+      summary: Get specific preference category
+      description: Retrieve a specific preference category for a user.
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+        - $ref: "#/components/parameters/PreferenceCategoryPath"
+      responses:
+        "200":
+          description: Preference category retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreferenceCategoryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    put:
+      tags:
+        - preferences
+      summary: Update specific preference category
+      description: >-
+        Update a specific preference category. Supports partial updates -
+        only provided fields will be updated.
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+        - $ref: "#/components/parameters/PreferenceCategoryPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/NotificationPreferencesUpdate"
+                - $ref: "#/components/schemas/DisplayPreferencesUpdate"
+                - $ref: "#/components/schemas/PrivacyPreferencesUpdate"
+                - $ref: "#/components/schemas/AccessibilityPreferencesUpdate"
+                - $ref: "#/components/schemas/LanguagePreferencesUpdate"
+                - $ref: "#/components/schemas/SecurityPreferencesUpdate"
+                - $ref: "#/components/schemas/SocialPreferencesUpdate"
+                - $ref: "#/components/schemas/SoundPreferencesUpdate"
+                - $ref: "#/components/schemas/ThemePreferencesUpdate"
+      responses:
+        "200":
+          description: Preference category updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreferenceCategoryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
   # Social Features Endpoints
-  /user-management/users/{user_id}/following:
+  /users/{userId}/following:
     get:
       tags:
         - social
@@ -272,7 +413,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /user-management/users/{user_id}/followers:
+  /users/{userId}/followers:
     get:
       tags:
         - social
@@ -292,6 +433,8 @@ paths:
                 $ref: "#/components/schemas/GetFollowedUsersResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
@@ -301,7 +444,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /user-management/users/{user_id}/follow/{target_user_id}:
+  /users/{userId}/follow/{targetUserId}:
     post:
       tags:
         - social
@@ -309,13 +452,7 @@ paths:
       description: Follow another user
       parameters:
         - $ref: "#/components/parameters/UserIdPath"
-        - name: target_user_id
-          in: path
-          required: true
-          description: Target user ID to follow
-          schema:
-            type: string
-            format: uuid
+        - $ref: "#/components/parameters/TargetUserIdPath"
       responses:
         "200":
           description: Successfully followed user or already following
@@ -341,13 +478,7 @@ paths:
       description: Unfollow another user
       parameters:
         - $ref: "#/components/parameters/UserIdPath"
-        - name: target_user_id
-          in: path
-          required: true
-          description: Target user ID to unfollow
-          schema:
-            type: string
-            format: uuid
+        - $ref: "#/components/parameters/TargetUserIdPath"
       responses:
         "200":
           description: Successfully unfollowed user or not following
@@ -366,7 +497,38 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /user-management/users/{user_id}/activity:
+  /users/{userId}/following/{targetUserId}:
+    get:
+      tags:
+        - social
+      summary: Check if user follows another user
+      description: Check if userId is following targetUserId
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+        - $ref: "#/components/parameters/TargetUserIdPath"
+      responses:
+        "200":
+          description: Following status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowingCheckResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /users/{userId}/activity:
     get:
       tags:
         - social
@@ -374,7 +536,7 @@ paths:
       description: Retrieve activity from a specific user (recipes, follows, reviews, favorites)
       parameters:
         - $ref: "#/components/parameters/UserIdPath"
-        - name: per_type_limit
+        - name: perTypeLimit
           in: query
           description: Number of results to return per activity type
           schema:
@@ -396,213 +558,8 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  # Notification Endpoints
-  /user-management/notifications:
-    get:
-      tags:
-        - notifications
-      summary: Get notifications
-      description: Retrieve user's notifications
-      parameters:
-        - $ref: "#/components/parameters/LimitParam"
-        - $ref: "#/components/parameters/OffsetParam"
-        - $ref: "#/components/parameters/CountOnlyParam"
-      responses:
-        "200":
-          description: Notifications retrieved successfully
-          content:
-            application/json:
-              schema:
-                oneOf:
-                  - $ref: "#/components/schemas/NotificationListResponse"
-                  - $ref: "#/components/schemas/NotificationCountResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "422":
-          $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-
-    delete:
-      tags:
-        - notifications
-      summary: Delete notifications
-      description: Delete multiple notifications
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/NotificationDeleteRequest"
-      responses:
-        "200":
-          description: All notifications deleted successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/NotificationDeleteResponse"
-        "206":
-          description: Partial success - some notifications deleted, others not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/NotificationDeleteResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "422":
-          $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-
-  /user-management/notifications/{notification_id}/read:
-    put:
-      tags:
-        - notifications
-      summary: Mark notification as read
-      description: Mark a notification as read
-      parameters:
-        - name: notification_id
-          in: path
-          required: true
-          description: Notification ID
-          schema:
-            type: string
-            format: uuid
-      responses:
-        "200":
-          description: Notification marked as read successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/NotificationReadResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "422":
-          $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-
-  /user-management/notifications/read-all:
-    put:
-      tags:
-        - notifications
-      summary: Mark all notifications as read
-      description: Mark all notifications as read
-      responses:
-        "200":
-          description: All notifications marked as read successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/NotificationReadAllResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "422":
-          $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-
-  /user-management/notifications/preferences:
-    get:
-      tags:
-        - notifications
-      summary: Get notification preferences
-      description: Retrieve user's notification preferences
-      responses:
-        "200":
-          description: Notification preferences retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UserPreferenceResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "422":
-          $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-
-    put:
-      tags:
-        - notifications
-      summary: Update notification preferences
-      description: Update user's notification preferences
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateUserPreferenceRequest"
-      responses:
-        "200":
-          description: Notification preferences updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UserPreferenceResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "422":
-          $ref: "#/components/responses/ValidationError"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-
   # Admin Endpoints
-  /user-management/admin/redis/session-stats:
-    get:
-      tags:
-        - admin
-      summary: Get Redis session stats
-      description: Return Redis session statistics
-      responses:
-        "200":
-          description: Session stats returned
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RedisSessionStatsResponse"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-        "503":
-          $ref: "#/components/responses/ServiceUnavailable"
-
-  /user-management/admin/users/stats:
+  /admin/users/stats:
     get:
       tags:
         - admin
@@ -622,74 +579,8 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /user-management/admin/health:
-    get:
-      tags:
-        - admin
-      summary: System health check
-      description: Return system health status
-      responses:
-        "200":
-          description: System health returned
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SystemHealthResponse"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-  /user-management/admin/users/{user_id}/force-logout:
-    post:
-      tags:
-        - admin
-      summary: Force logout user
-      description: Force logout a user
-      parameters:
-        - $ref: "#/components/parameters/UserIdPath"
-      responses:
-        "200":
-          description: User force-logout triggered
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ForceLogoutResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-  /user-management/admin/redis/sessions:
-    delete:
-      tags:
-        - admin
-      summary: Clear all Redis sessions
-      description: Clear all Redis sessions
-      responses:
-        "200":
-          description: All sessions cleared
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ClearSessionsResponse"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
   # Metrics Endpoints
-  /user-management/metrics/performance:
+  /metrics/performance:
     get:
       tags:
         - metrics
@@ -707,7 +598,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
-  /user-management/metrics/cache:
+  /metrics/cache:
     get:
       tags:
         - metrics
@@ -725,10 +616,10 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
-  /user-management/metrics/cache/clear:
+  /admin/cache/clear:
     post:
       tags:
-        - metrics
+        - admin
       summary: Clear cache entries
       description: Clear cache entries matching a pattern (requires admin authentication)
       requestBody:
@@ -738,7 +629,7 @@ paths:
             schema:
               type: object
               properties:
-                pattern:
+                keyPattern:
                   type: string
                   default: "*"
                   description: Redis pattern for keys to clear
@@ -754,7 +645,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
-  /user-management/metrics/system:
+  /metrics/system:
     get:
       tags:
         - metrics
@@ -772,7 +663,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
-  /user-management/metrics/health/detailed:
+  /metrics/health/detailed:
     get:
       tags:
         - metrics
@@ -791,7 +682,22 @@ paths:
           $ref: "#/components/responses/Forbidden"
 
   # Health Check Endpoints
-  /user-management/health:
+  /health:
+    get:
+      tags:
+        - health
+      summary: Liveness check
+      description: Returns a 200 OK response indicating the server is alive
+      security: []
+      responses:
+        "200":
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LivenessResponse"
+
+  /ready:
     get:
       tags:
         - health
@@ -815,21 +721,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/ReadinessResponse"
 
-  /user-management/live:
-    get:
-      tags:
-        - health
-      summary: Liveness check
-      description: Returns a 200 OK response indicating the server is alive
-      security: []
-      responses:
-        "200":
-          description: Service is alive
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LivenessResponse"
-
 components:
   securitySchemes:
     HTTPBearer:
@@ -845,10 +736,19 @@ components:
 
   parameters:
     UserIdPath:
-      name: user_id
+      name: userId
       in: path
       required: true
       description: User ID
+      schema:
+        type: string
+        format: uuid
+
+    TargetUserIdPath:
+      name: targetUserId
+      in: path
+      required: true
+      description: Target user ID
       schema:
         type: string
         format: uuid
@@ -873,12 +773,30 @@ components:
         default: 0
 
     CountOnlyParam:
-      name: count_only
+      name: countOnly
       in: query
       description: Return only the count of results
       schema:
         type: boolean
         default: false
+
+    PreferenceCategoryPath:
+      name: category
+      in: path
+      required: true
+      description: Preference category name
+      schema:
+        type: string
+        enum:
+          - notification
+          - display
+          - privacy
+          - accessibility
+          - language
+          - security
+          - social
+          - sound
+          - theme
 
   responses:
     BadRequest:
@@ -909,20 +827,20 @@ components:
           schema:
             $ref: "#/components/schemas/OAuth2ScopeError"
           examples:
-            missing_write_scope:
+            missingWriteScope:
               summary: Missing write scope
               value:
                 detail: "Missing required scope: user:write"
-                error_code: "INSUFFICIENT_SCOPE"
-                required_scopes: ["user:write"]
-                available_scopes: ["user:read", "profile"]
-            missing_admin_scope:
+                errorCode: "INSUFFICIENT_SCOPE"
+                requiredScopes: ["user:write"]
+                availableScopes: ["user:read", "profile"]
+            missingAdminScope:
               summary: Missing admin scope
               value:
                 detail: "Missing required scope: admin"
-                error_code: "INSUFFICIENT_SCOPE"
-                required_scopes: ["admin"]
-                available_scopes: ["user:read", "user:write", "profile"]
+                errorCode: "INSUFFICIENT_SCOPE"
+                requiredScopes: ["admin"]
+                availableScopes: ["user:read", "user:write", "profile"]
 
     NotFound:
       description: Resource not found
@@ -963,7 +881,7 @@ components:
         error:
           type: string
           description: Error type or category
-          example: validation_error
+          example: validationError
         message:
           type: string
           description: Human-readable error message
@@ -1199,15 +1117,15 @@ components:
           items:
             $ref: "#/components/schemas/User"
           nullable: true
-          description: List of users being followed (null when count_only=true)
+          description: List of users being followed (null when countOnly=true)
         limit:
           type: integer
           nullable: true
-          description: Number of results returned (null when count_only=true)
+          description: Number of results returned (null when countOnly=true)
         offset:
           type: integer
           nullable: true
-          description: Number of results skipped (null when count_only=true)
+          description: Number of results skipped (null when countOnly=true)
 
     FollowResponse:
       type: object
@@ -1221,6 +1139,20 @@ components:
         isFollowing:
           type: boolean
           description: Whether the user is now following the target user
+
+    FollowingCheckResponse:
+      type: object
+      required:
+        - isFollowing
+      properties:
+        isFollowing:
+          type: boolean
+          description: Whether the user follows the target user
+        followedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp when the follow relationship was created (null if not following)
 
     UserActivityResponse:
       type: object
@@ -1337,359 +1269,78 @@ components:
           format: date-time
           description: Timestamp when the recipe was favorited
 
-    # Notification Schemas
-    Notification:
-      type: object
-      required:
-        - notificationId
-        - userId
-        - title
-        - message
-        - notificationType
-        - isRead
-        - isDeleted
-        - createdAt
-        - updatedAt
-      properties:
-        notificationId:
-          type: string
-          format: uuid
-          description: Unique identifier for the notification
-        userId:
-          type: string
-          format: uuid
-          description: User ID who owns this notification
-        title:
-          type: string
-          maxLength: 255
-          description: Notification title
-        message:
-          type: string
-          description: Notification message content
-        notificationType:
-          type: string
-          maxLength: 50
-          description: Type of notification
-        isRead:
-          type: boolean
-          description: Whether the notification has been read
-        isDeleted:
-          type: boolean
-          description: Whether the notification has been deleted
-        createdAt:
-          type: string
-          format: date-time
-          description: Timestamp when the notification was created
-        updatedAt:
-          type: string
-          format: date-time
-          description: Timestamp when the notification was last updated
-
-    NotificationListResponse:
-      type: object
-      required:
-        - notifications
-        - totalCount
-        - limit
-        - offset
-      properties:
-        notifications:
-          type: array
-          items:
-            $ref: "#/components/schemas/Notification"
-          description: List of notifications
-        totalCount:
-          type: integer
-          description: Total number of notifications
-        limit:
-          type: integer
-          description: Number of results returned
-        offset:
-          type: integer
-          description: Number of results skipped
-
-    NotificationCountResponse:
-      type: object
-      required:
-        - totalCount
-      properties:
-        totalCount:
-          type: integer
-          description: Total number of notifications
-
-    NotificationReadResponse:
-      type: object
-      required:
-        - message
-      properties:
-        message:
-          type: string
-          description: Success message
-          example: Notification marked as read successfully
-
-    NotificationReadAllResponse:
-      type: object
-      required:
-        - message
-        - readNotificationIds
-      properties:
-        message:
-          type: string
-          description: Success message
-          example: All notifications marked as read successfully
-        readNotificationIds:
-          type: array
-          items:
-            type: string
-            format: uuid
-          description: List of notification IDs that were marked as read
-
-    NotificationDeleteRequest:
-      type: object
-      required:
-        - notificationIds
-      properties:
-        notificationIds:
-          type: array
-          items:
-            type: string
-            format: uuid
-          minItems: 1
-          maxItems: 100
-          description: List of notification IDs to delete
-
-    NotificationDeleteResponse:
-      type: object
-      properties:
-        message:
-          type: string
-          description: Success message
-          example: Notifications deleted successfully
-        deleted_notification_ids:
-          type: array
-          items:
-            type: string
-            format: uuid
-          description: List of notification IDs that were successfully deleted
-
-    # User Preferences Schemas
-    UserPreferences:
-      type: object
-      properties:
-        notification_preferences:
-          $ref: "#/components/schemas/NotificationPreferences"
-        privacy_preferences:
-          $ref: "#/components/schemas/PrivacyPreferences"
-        display_preferences:
-          $ref: "#/components/schemas/DisplayPreferences"
-
-    UserPreferenceResponse:
-      type: object
-      properties:
-        preferences:
-          $ref: "#/components/schemas/UserPreferences"
-
-    UpdateUserPreferenceRequest:
-      type: object
-      properties:
-        notification_preferences:
-          $ref: "#/components/schemas/NotificationPreferences"
-        privacy_preferences:
-          $ref: "#/components/schemas/PrivacyPreferences"
-        display_preferences:
-          $ref: "#/components/schemas/DisplayPreferences"
-
-    NotificationPreferences:
-      type: object
-      properties:
-        email_notifications:
-          type: boolean
-          default: true
-        push_notifications:
-          type: boolean
-          default: true
-        follow_notifications:
-          type: boolean
-          default: true
-        like_notifications:
-          type: boolean
-          default: true
-        comment_notifications:
-          type: boolean
-          default: true
-        recipe_notifications:
-          type: boolean
-          default: true
-        system_notifications:
-          type: boolean
-          default: true
-
-    PrivacyPreferences:
-      type: object
-      properties:
-        profile_visibility:
-          type: string
-          enum: [public, followers_only, private]
-          default: public
-        show_email:
-          type: boolean
-          default: false
-        show_full_name:
-          type: boolean
-          default: true
-        allow_follows:
-          type: boolean
-          default: true
-        allow_messages:
-          type: boolean
-          default: true
-
-    DisplayPreferences:
-      type: object
-      properties:
-        theme:
-          type: string
-          enum: [light, dark, auto]
-          default: auto
-        language:
-          type: string
-          default: en
-        timezone:
-          type: string
-          default: UTC
-
     # Admin Schemas
-    RedisSessionStatsResponse:
-      type: object
-      properties:
-        total_sessions:
-          type: integer
-        active_sessions:
-          type: integer
-        memory_usage:
-          type: string
-        ttl_info:
-          type: object
-          additionalProperties: true
-
     UserStatsResponse:
       type: object
       properties:
-        total_users:
+        totalUsers:
           type: integer
-        active_users:
+        activeUsers:
           type: integer
-        inactive_users:
+        inactiveUsers:
           type: integer
-        new_users_today:
+        newUsersToday:
           type: integer
-        new_users_this_week:
+        newUsersThisWeek:
           type: integer
-        new_users_this_month:
-          type: integer
-
-    SystemHealthResponse:
-      type: object
-      properties:
-        status:
-          type: string
-          enum: [healthy, degraded, unhealthy]
-        database_status:
-          type: string
-          enum: [healthy, unhealthy]
-        redis_status:
-          type: string
-          enum: [healthy, unhealthy]
-        uptime_seconds:
-          type: integer
-        version:
-          type: string
-
-    ForceLogoutResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-        message:
-          type: string
-          example: User force-logout triggered
-        sessions_cleared:
-          type: integer
-
-    ClearSessionsResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-        message:
-          type: string
-          example: All sessions cleared
-        sessions_cleared:
+        newUsersThisMonth:
           type: integer
 
     # Metrics Schemas
     PerformanceMetrics:
       type: object
       properties:
-        response_times:
+        responseTimes:
           type: object
           properties:
-            average_ms:
+            averageMs:
               type: number
-            p50_ms:
+            p50Ms:
               type: number
-            p95_ms:
+            p95Ms:
               type: number
-            p99_ms:
+            p99Ms:
               type: number
-        request_counts:
+        requestCounts:
           type: object
           properties:
-            total_requests:
+            totalRequests:
               type: integer
-            requests_per_minute:
-              type: integer
-            active_sessions:
-              type: integer
-        error_rates:
+        errorRates:
           type: object
           properties:
-            total_errors:
+            totalErrors:
               type: integer
-            error_rate_percent:
+            errorRatePercent:
               type: number
-            4xx_errors:
+            4xxErrors:
               type: integer
-            5xx_errors:
+            5xxErrors:
               type: integer
         database:
           type: object
           properties:
-            active_connections:
+            activeConnections:
               type: integer
-            max_connections:
-              type: integer
-            avg_query_time_ms:
-              type: number
-            slow_queries_count:
+            maxConnections:
               type: integer
 
     CacheMetrics:
       type: object
       properties:
-        memory_usage:
+        memoryUsage:
           type: string
-        memory_usage_human:
+        memoryUsageHuman:
           type: string
-        keys_count:
+        keysCount:
           type: integer
-        hit_rate:
+        hitRate:
           type: number
-        connected_clients:
+        connectedClients:
           type: integer
-        evicted_keys:
+        evictedKeys:
           type: integer
-        expired_keys:
+        expiredKeys:
           type: integer
 
     CacheClearResponse:
@@ -1700,7 +1351,7 @@ components:
           example: Cache cleared successfully
         pattern:
           type: string
-        cleared_count:
+        clearedCount:
           type: integer
 
     SystemMetrics:
@@ -1712,34 +1363,34 @@ components:
         system:
           type: object
           properties:
-            cpu_usage_percent:
+            cpuUsagePercent:
               type: number
-            memory_total_gb:
+            memoryTotalGb:
               type: number
-            memory_used_gb:
+            memoryUsedGb:
               type: number
-            memory_usage_percent:
+            memoryUsagePercent:
               type: number
-            disk_total_gb:
+            diskTotalGb:
               type: number
-            disk_used_gb:
+            diskUsedGb:
               type: number
-            disk_usage_percent:
+            diskUsagePercent:
               type: number
         process:
           type: object
           properties:
-            memory_rss_mb:
+            memoryRssMb:
               type: number
-            memory_vms_mb:
+            memoryVmsMb:
               type: number
-            cpu_percent:
+            cpuPercent:
               type: number
-            num_threads:
+            numThreads:
               type: integer
-            open_files:
+            openFiles:
               type: integer
-        uptime_seconds:
+        uptimeSeconds:
           type: integer
 
     DetailedHealthMetrics:
@@ -1748,7 +1399,7 @@ components:
         timestamp:
           type: string
           format: date-time
-        overall_status:
+        overallStatus:
           type: string
           enum: [healthy, degraded, unhealthy]
         services:
@@ -1760,13 +1411,13 @@ components:
                 status:
                   type: string
                   enum: [healthy, unhealthy]
-                response_time_ms:
+                responseTimeMs:
                   type: number
-                memory_usage:
+                memoryUsage:
                   type: string
-                connected_clients:
+                connectedClients:
                   type: integer
-                hit_rate_percent:
+                hitRatePercent:
                   type: number
             database:
               type: object
@@ -1774,11 +1425,11 @@ components:
                 status:
                   type: string
                   enum: [healthy, unhealthy]
-                response_time_ms:
+                responseTimeMs:
                   type: number
-                active_connections:
+                activeConnections:
                   type: integer
-                max_connections:
+                maxConnections:
                   type: integer
         application:
           type: object
@@ -1796,36 +1447,86 @@ components:
                   type: string
                 monitoring:
                   type: string
-                security_headers:
+                securityHeaders:
                   type: string
 
     # Health Check Schemas
     ReadinessResponse:
       type: object
       properties:
-        ready:
-          type: boolean
         status:
           type: string
-          enum: [ready, degraded, not_ready]
-        checks:
-          type: object
-          properties:
-            app:
-              $ref: "#/components/schemas/HealthCheck"
-            database:
-              $ref: "#/components/schemas/HealthCheck"
-            redis:
-              $ref: "#/components/schemas/HealthCheck"
+          example: "READY"
+        database:
+          $ref: "#/components/schemas/DatabaseHealth"
+        redis:
+          $ref: "#/components/schemas/RedisHealth"
+
+    DatabaseHealth:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "up"
+        message:
+          type: string
+          example: "database is healthy"
+        open_connections:
+          type: string
+          example: "1"
+        in_use:
+          type: string
+          example: "0"
+        idle:
+          type: string
+          example: "1"
+        wait_count:
+          type: string
+          example: "0"
+        wait_duration:
+          type: string
+          example: "0s"
+        max_idle_closed:
+          type: string
+          example: "0"
+        max_lifetime_closed:
+          type: string
+          example: "0"
+
+    RedisHealth:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "up"
+        message:
+          type: string
+          example: "redis is healthy"
+        total_conns:
+          type: string
+          example: "3"
+        idle_conns:
+          type: string
+          example: "3"
+        stale_conns:
+          type: string
+          example: "0"
+        hits:
+          type: string
+          example: "3"
+        misses:
+          type: string
+          example: "0"
+        timeouts:
+          type: string
+          example: "0"
 
     LivenessResponse:
       type: object
       properties:
-        alive:
-          type: boolean
-        timestamp:
+        status:
           type: string
-          format: date-time
+          example: "UP"
 
     HealthCheck:
       type: object
@@ -1840,26 +1541,475 @@ components:
       type: object
       required:
         - detail
-        - error_code
-        - required_scopes
+        - errorCode
+        - requiredScopes
       properties:
         detail:
           type: string
           description: Human-readable error message
           example: "Missing required scope: user:write"
-        error_code:
+        errorCode:
           type: string
           description: Machine-readable error code
           example: "INSUFFICIENT_SCOPE"
-        required_scopes:
+        requiredScopes:
           type: array
           items:
             type: string
           description: List of scopes required for this operation
           example: ["user:write"]
-        available_scopes:
+        availableScopes:
           type: array
           items:
             type: string
           description: List of scopes available in the current token
           example: ["user:read", "profile"]
+
+    # Preference Enums
+    FontSizeEnum:
+      type: string
+      enum:
+        - SMALL
+        - MEDIUM
+        - LARGE
+        - EXTRA_LARGE
+      description: Font size preference
+
+    ColorSchemeEnum:
+      type: string
+      enum:
+        - LIGHT
+        - DARK
+        - AUTO
+        - HIGH_CONTRAST
+      description: Color scheme preference
+
+    LayoutDensityEnum:
+      type: string
+      enum:
+        - COMPACT
+        - COMFORTABLE
+        - SPACIOUS
+      description: Layout density preference
+
+    ProfileVisibilityEnum:
+      type: string
+      enum:
+        - PUBLIC
+        - FRIENDS_ONLY
+        - PRIVATE
+      description: Profile visibility setting
+
+    LanguageEnum:
+      type: string
+      enum:
+        - EN
+        - ES
+        - FR
+        - DE
+        - IT
+        - PT
+        - ZH
+        - JA
+        - KO
+        - RU
+      description: Language preference
+
+    ThemeEnum:
+      type: string
+      enum:
+        - LIGHT
+        - DARK
+        - AUTO
+        - CUSTOM
+      description: Theme preference
+
+    # Preference Response Schemas
+    UserPreferencesResponse:
+      type: object
+      required:
+        - userId
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: User ID
+        notification:
+          $ref: "#/components/schemas/NotificationPreferences"
+        display:
+          $ref: "#/components/schemas/DisplayPreferences"
+        privacy:
+          $ref: "#/components/schemas/PrivacyPreferences"
+        accessibility:
+          $ref: "#/components/schemas/AccessibilityPreferences"
+        language:
+          $ref: "#/components/schemas/LanguagePreferences"
+        security:
+          $ref: "#/components/schemas/SecurityPreferences"
+        social:
+          $ref: "#/components/schemas/SocialPreferences"
+        sound:
+          $ref: "#/components/schemas/SoundPreferences"
+        theme:
+          $ref: "#/components/schemas/ThemePreferences"
+
+    PreferenceCategoryResponse:
+      type: object
+      required:
+        - userId
+        - category
+        - preferences
+        - updatedAt
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: User ID
+        category:
+          type: string
+          description: Preference category name
+        preferences:
+          type: object
+          description: Category-specific preferences object
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    # Category-specific preference schemas
+    NotificationPreferences:
+      type: object
+      properties:
+        emailNotifications:
+          type: boolean
+          description: Enable email notifications
+        pushNotifications:
+          type: boolean
+          description: Enable push notifications
+        smsNotifications:
+          type: boolean
+          description: Enable SMS notifications
+        marketingEmails:
+          type: boolean
+          description: Enable marketing emails
+        securityAlerts:
+          type: boolean
+          description: Enable security alerts
+        activitySummaries:
+          type: boolean
+          description: Enable activity summaries
+        recipeRecommendations:
+          type: boolean
+          description: Enable recipe recommendations
+        socialInteractions:
+          type: boolean
+          description: Enable social interaction notifications
+        updatedAt:
+          type: string
+          format: date-time
+
+    DisplayPreferences:
+      type: object
+      properties:
+        fontSize:
+          $ref: "#/components/schemas/FontSizeEnum"
+        colorScheme:
+          $ref: "#/components/schemas/ColorSchemeEnum"
+        layoutDensity:
+          $ref: "#/components/schemas/LayoutDensityEnum"
+        showImages:
+          type: boolean
+          description: Show images in listings
+        compactMode:
+          type: boolean
+          description: Enable compact display mode
+        updatedAt:
+          type: string
+          format: date-time
+
+    PrivacyPreferences:
+      type: object
+      properties:
+        profileVisibility:
+          $ref: "#/components/schemas/ProfileVisibilityEnum"
+        recipeVisibility:
+          $ref: "#/components/schemas/ProfileVisibilityEnum"
+        activityVisibility:
+          $ref: "#/components/schemas/ProfileVisibilityEnum"
+        contactInfoVisibility:
+          $ref: "#/components/schemas/ProfileVisibilityEnum"
+        dataSharing:
+          type: boolean
+          description: Allow data sharing with partners
+        analyticsTracking:
+          type: boolean
+          description: Allow analytics tracking
+        updatedAt:
+          type: string
+          format: date-time
+
+    AccessibilityPreferences:
+      type: object
+      properties:
+        screenReader:
+          type: boolean
+          description: Optimize for screen readers
+        highContrast:
+          type: boolean
+          description: Enable high contrast mode
+        reducedMotion:
+          type: boolean
+          description: Reduce motion and animations
+        largeText:
+          type: boolean
+          description: Use larger text
+        keyboardNavigation:
+          type: boolean
+          description: Enable keyboard navigation
+        updatedAt:
+          type: string
+          format: date-time
+
+    LanguagePreferences:
+      type: object
+      properties:
+        primaryLanguage:
+          $ref: "#/components/schemas/LanguageEnum"
+        secondaryLanguage:
+          $ref: "#/components/schemas/LanguageEnum"
+        translationEnabled:
+          type: boolean
+          description: Enable automatic translation
+        updatedAt:
+          type: string
+          format: date-time
+
+    SecurityPreferences:
+      type: object
+      properties:
+        twoFactorAuth:
+          type: boolean
+          description: Enable two-factor authentication
+        loginNotifications:
+          type: boolean
+          description: Notify on new logins
+        sessionTimeout:
+          type: boolean
+          description: Enable session timeout
+        passwordRequirements:
+          type: boolean
+          description: Enable strict password requirements
+        updatedAt:
+          type: string
+          format: date-time
+
+    SocialPreferences:
+      type: object
+      properties:
+        friendRequests:
+          type: boolean
+          description: Allow friend requests
+        messageNotifications:
+          type: boolean
+          description: Enable message notifications
+        groupInvites:
+          type: boolean
+          description: Allow group invites
+        shareActivity:
+          type: boolean
+          description: Share activity with followers
+        updatedAt:
+          type: string
+          format: date-time
+
+    SoundPreferences:
+      type: object
+      properties:
+        notificationSounds:
+          type: boolean
+          description: Enable notification sounds
+        systemSounds:
+          type: boolean
+          description: Enable system sounds
+        volumeLevel:
+          type: boolean
+          description: Enable volume control
+        muteNotifications:
+          type: boolean
+          description: Mute all notifications
+        updatedAt:
+          type: string
+          format: date-time
+
+    ThemePreferences:
+      type: object
+      properties:
+        darkMode:
+          type: boolean
+          description: Enable dark mode
+        lightMode:
+          type: boolean
+          description: Enable light mode
+        autoTheme:
+          type: boolean
+          description: Auto-switch based on system
+        customTheme:
+          $ref: "#/components/schemas/ThemeEnum"
+        updatedAt:
+          type: string
+          format: date-time
+
+    # Preference Update Request Schemas
+    UserPreferencesUpdateRequest:
+      type: object
+      description: Update multiple preference categories at once
+      properties:
+        notification:
+          $ref: "#/components/schemas/NotificationPreferencesUpdate"
+        display:
+          $ref: "#/components/schemas/DisplayPreferencesUpdate"
+        privacy:
+          $ref: "#/components/schemas/PrivacyPreferencesUpdate"
+        accessibility:
+          $ref: "#/components/schemas/AccessibilityPreferencesUpdate"
+        language:
+          $ref: "#/components/schemas/LanguagePreferencesUpdate"
+        security:
+          $ref: "#/components/schemas/SecurityPreferencesUpdate"
+        social:
+          $ref: "#/components/schemas/SocialPreferencesUpdate"
+        sound:
+          $ref: "#/components/schemas/SoundPreferencesUpdate"
+        theme:
+          $ref: "#/components/schemas/ThemePreferencesUpdate"
+
+    NotificationPreferencesUpdate:
+      type: object
+      description: Partial update for notification preferences
+      properties:
+        emailNotifications:
+          type: boolean
+        pushNotifications:
+          type: boolean
+        smsNotifications:
+          type: boolean
+        marketingEmails:
+          type: boolean
+        securityAlerts:
+          type: boolean
+        activitySummaries:
+          type: boolean
+        recipeRecommendations:
+          type: boolean
+        socialInteractions:
+          type: boolean
+
+    DisplayPreferencesUpdate:
+      type: object
+      description: Partial update for display preferences
+      properties:
+        fontSize:
+          $ref: "#/components/schemas/FontSizeEnum"
+        colorScheme:
+          $ref: "#/components/schemas/ColorSchemeEnum"
+        layoutDensity:
+          $ref: "#/components/schemas/LayoutDensityEnum"
+        showImages:
+          type: boolean
+        compactMode:
+          type: boolean
+
+    PrivacyPreferencesUpdate:
+      type: object
+      description: Partial update for privacy preferences
+      properties:
+        profileVisibility:
+          $ref: "#/components/schemas/ProfileVisibilityEnum"
+        recipeVisibility:
+          $ref: "#/components/schemas/ProfileVisibilityEnum"
+        activityVisibility:
+          $ref: "#/components/schemas/ProfileVisibilityEnum"
+        contactInfoVisibility:
+          $ref: "#/components/schemas/ProfileVisibilityEnum"
+        dataSharing:
+          type: boolean
+        analyticsTracking:
+          type: boolean
+
+    AccessibilityPreferencesUpdate:
+      type: object
+      description: Partial update for accessibility preferences
+      properties:
+        screenReader:
+          type: boolean
+        highContrast:
+          type: boolean
+        reducedMotion:
+          type: boolean
+        largeText:
+          type: boolean
+        keyboardNavigation:
+          type: boolean
+
+    LanguagePreferencesUpdate:
+      type: object
+      description: Partial update for language preferences
+      properties:
+        primaryLanguage:
+          $ref: "#/components/schemas/LanguageEnum"
+        secondaryLanguage:
+          $ref: "#/components/schemas/LanguageEnum"
+        translationEnabled:
+          type: boolean
+
+    SecurityPreferencesUpdate:
+      type: object
+      description: Partial update for security preferences
+      properties:
+        twoFactorAuth:
+          type: boolean
+        loginNotifications:
+          type: boolean
+        sessionTimeout:
+          type: boolean
+        passwordRequirements:
+          type: boolean
+
+    SocialPreferencesUpdate:
+      type: object
+      description: Partial update for social preferences
+      properties:
+        friendRequests:
+          type: boolean
+        messageNotifications:
+          type: boolean
+        groupInvites:
+          type: boolean
+        shareActivity:
+          type: boolean
+
+    SoundPreferencesUpdate:
+      type: object
+      description: Partial update for sound preferences
+      properties:
+        notificationSounds:
+          type: boolean
+        systemSounds:
+          type: boolean
+        volumeLevel:
+          type: boolean
+        muteNotifications:
+          type: boolean
+
+    ThemePreferencesUpdate:
+      type: object
+      description: Partial update for theme preferences
+      properties:
+        darkMode:
+          type: boolean
+        lightMode:
+          type: boolean
+        autoTheme:
+          type: boolean
+        customTheme:
+          $ref: "#/components/schemas/ThemeEnum"

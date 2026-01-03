@@ -1,0 +1,4 @@
+---
+downstreamServices:
+  notification:
+    base_url: "http://kong-gateway.kong.svc.cluster.local/api/v1/notification"

@@ -1,0 +1,19 @@
+cors:
+  allowedOrigins:
+    - "https://*"
+    - "http://*"
+  allowedMethods:
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "DELETE"
+    - "OPTIONS"
+  allowedHeaders:
+    - "Accept"
+    - "Authorization"
+    - "Content-Type"
+    - "X-CSRF-Token"
+  exposedHeaders:
+    - "Link"
+  allowCredentials: true
+  maxAge: "300s"

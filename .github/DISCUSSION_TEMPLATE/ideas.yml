@@ -1,40 +1,33 @@
 ---
-labels: ["idea"]
+labels: [idea]
 body:
   - type: markdown
     attributes:
       value: |
-        # Share Your Idea
-
-        Got an idea for the User Management Service? Share it here! This is a place for brainstorming
-        and discussing potential features, improvements, or changes.
+        Share your ideas for new features or improvements to the User Management Service!
 
   - type: textarea
-    id: idea
     attributes:
-      label: Your Idea
+      label: Idea Description
       description: Describe your idea
-      placeholder: What's your idea?
+      placeholder: What would you like to see?
     validations:
       required: true
 
   - type: textarea
-    id: problem
     attributes:
-      label: Problem It Solves
-      description: What problem does this idea address?
-      placeholder: What problem would this solve?
+      label: Problem or Use Case
+      description: What problem does this solve or what use case does it enable?
+      placeholder: This would help with...
 
   - type: textarea
-    id: benefits
     attributes:
-      label: Benefits
-      description: What are the benefits of this idea?
-      placeholder: How would this help users?
+      label: Proposed Solution
+      description: How might this be implemented?
+      placeholder: Any thoughts on implementation?
 
   - type: textarea
-    id: considerations
     attributes:
-      label: Considerations
-      description: Any challenges or considerations?
-      placeholder: What should we think about?
+      label: Additional Context
+      description: Any additional information
+      placeholder: Links, examples, mockups, etc.

@@ -1,11 +1,10 @@
----
-name: Coverage
+name: Code Coverage
 
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [ main, develop ]
   push:
-    branches: [main, develop]
+    branches: [ main, develop ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -16,121 +15,77 @@ permissions:
   pull-requests: write
 
 env:
-  PYTHON_VERSION: "3.11"
-  POETRY_VERSION: "1.8.3"
-  COVERAGE_THRESHOLD: 90
+  GO_VERSION: '1.24'
+  COVERAGE_THRESHOLD: 80
 
 jobs:
   coverage:
-    name: Test Coverage
+    name: Check Code Coverage
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_PASSWORD: test_password
-          POSTGRES_USER: test_user
-          POSTGRES_DB: test_db
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-      redis:
-        image: redis:7-alpine
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-
-    env:
-      POSTGRES_HOST: localhost
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: test_db
-      POSTGRES_SCHEMA: public
-      USER_MANAGEMENT_DB_USER: test_user
-      USER_MANAGEMENT_DB_PASSWORD: test_password
-      JWT_SECRET_KEY: test_secret_key_very_long_and_secure
-      JWT_SIGNING_ALGORITHM: HS256
-      ACCESS_TOKEN_EXPIRE_MINUTES: 30
-      REFRESH_TOKEN_EXPIRE_DAYS: 7
-      PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: 15
-      ALLOWED_ORIGIN_HOSTS: http://localhost:3000,http://localhost:8080
-      ALLOWED_CREDENTIALS: true
-      REDIS_HOST: localhost
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ""
-      REDIS_DB: 0
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
 
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: ${{ env.POETRY_VERSION }}
-          virtualenvs-create: true
-          virtualenvs-in-project: true
+    - name: Run tests with coverage
+      run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 
-      - name: Load cached venv
-        id: cached-poetry-dependencies
-        uses: actions/cache@v5
-        with:
-          path: .venv
-          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+    - name: Calculate coverage percentage
+      id: coverage
+      run: |
+        COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
+        echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
+        echo "Coverage: $COVERAGE%"
 
-      - name: Install dependencies
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction --no-root
+    - name: Check coverage threshold
+      run: |
+        COVERAGE=${{ steps.coverage.outputs.percentage }}
+        THRESHOLD=${{ env.COVERAGE_THRESHOLD }}
 
-      - name: Install project
-        run: poetry install --no-interaction
+        if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
+          echo "Coverage $COVERAGE% is below threshold $THRESHOLD%"
+          exit 1
+        else
+          echo "Coverage $COVERAGE% meets threshold $THRESHOLD%"
+        fi
 
-      - name: Run tests with coverage
-        run: |
-          poetry run pytest --cov=app --cov-report=xml --cov-report=html --cov-report=term
+    - name: Generate coverage badge
+      uses: jaywcjlove/coverage-badges-cli@main
+      with:
+        source: coverage.out
+        output: coverage.svg
 
-      - name: Check coverage threshold
-        run: |
-          COVERAGE=$(poetry run coverage report | grep TOTAL | awk '{print $4}' | sed 's/%//')
-          echo "Coverage: $COVERAGE%"
-          if (( $(echo "$COVERAGE < $COVERAGE_THRESHOLD" | bc -l) )); then
-            echo "❌ Coverage $COVERAGE% is below threshold $COVERAGE_THRESHOLD%"
-            exit 1
-          else
-            echo "✅ Coverage $COVERAGE% meets threshold $COVERAGE_THRESHOLD%"
-          fi
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        file: ./coverage.out
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          file: ./coverage.xml
-          fail_ci_if_error: false
+    - name: Comment PR with coverage
+      if: github.event_name == 'pull_request'
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        header: coverage
+        message: |
+          ## Code Coverage Report
 
-      - name: Comment coverage on PR
-        if: github.event_name == 'pull_request'
-        uses: py-cov-action/python-coverage-comment-action@v3
-        with:
-          GITHUB_TOKEN: ${{ github.token }}
-          MINIMUM_GREEN: 90
-          MINIMUM_ORANGE: 70
+          **Coverage:** ${{ steps.coverage.outputs.percentage }}%
+          **Threshold:** ${{ env.COVERAGE_THRESHOLD }}%
+          **Status:** ${{ steps.coverage.outputs.percentage >= env.COVERAGE_THRESHOLD && 'Passed' || 'Failed' }}
 
-      - name: Upload coverage HTML report
-        uses: actions/upload-artifact@v6
-        if: always()
-        with:
-          name: coverage-report
-          path: htmlcov/
+          <details>
+          <summary>View detailed coverage</summary>
+
+          ```
+          $(go tool cover -func=coverage.out)
+          ```
+
+          </details>

@@ -1,0 +1,11 @@
+postgres:
+  defaultMaxOpenConns: 25
+  defaultMaxIdleConns: 25
+  defaultConnMaxLifetime: 5m
+
+redis:
+  dialTimeout: 5s
+  readTimeout: 3s
+  writeTimeout: 3s
+  poolSize: 10
+  minIdleConns: 2

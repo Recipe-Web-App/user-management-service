@@ -1,46 +1,95 @@
----
-name: Check Links
+name: Link Checker
 
 on:
-  schedule:
-    - cron: "0 0 * * 0" # Weekly on Sunday at midnight
-  workflow_dispatch:
   pull_request:
+    branches: [ main, develop ]
     paths:
-      - "**.md"
-      - "docs/**"
+      - '**.md'
+      - 'docs/**'
+  schedule:
+    # Run weekly on Sundays at 6 AM UTC
+    - cron: '0 6 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
-  issues: write
+  pull-requests: write
 
 jobs:
   link-check:
-    name: Check Markdown Links
+    name: Check Broken Links
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Check links in Markdown files
-        uses: gaurav-nelson/github-action-markdown-link-check@v1
-        with:
-          use-quiet-mode: "yes"
-          use-verbose-mode: "no"
-          config-file: ".github/markdown-link-check-config.json"
-          folder-path: "."
-          file-path: "./README.md, ./CLAUDE.md"
-          max-depth: -1
+    - name: Check links in markdown files
+      id: lychee
+      uses: lycheeverse/lychee-action@v2
+      with:
+        # Check all markdown files
+        args: |
+          --verbose
+          --no-progress
+          --exclude-mail
+          --exclude 'localhost'
+          --exclude '127.0.0.1'
+          --exclude-path '.github/ISSUE_TEMPLATE'
+          '**/*.md'
+        # Only fail on errors, not warnings
+        fail: true
+        # Output file
+        output: lychee-report.md
 
-      - name: Create issue if links are broken
-        if: failure() && github.event_name == 'schedule'
-        uses: actions/github-script@v8
-        with:
-          script: |
-            github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: '🔗 Broken links detected in documentation',
-              body: 'The scheduled link check found broken links. Please review the workflow logs.',
-              labels: ['documentation', 'maintenance']
-            })
+    - name: Generate link report summary
+      if: always()
+      run: |
+        if [ -f lychee-report.md ]; then
+          echo "## Link Check Report" > link-summary.md
+          echo "" >> link-summary.md
+          cat lychee-report.md >> link-summary.md
+        else
+          echo "No broken links found!" > link-summary.md
+        fi
+
+    - name: Upload link report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: link-check-report
+        path: link-summary.md
+        retention-days: 30
+
+    - name: Comment on PR
+      if: github.event_name == 'pull_request' && failure()
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        header: links
+        message: |
+          ## Broken Links Detected
+
+          This PR introduces broken or invalid links in documentation.
+
+          <details>
+          <summary>View link check report</summary>
+
+          $(cat link-summary.md)
+
+          </details>
+
+          Please fix the broken links before merging.
+
+    - name: Comment success on PR
+      if: github.event_name == 'pull_request' && success()
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        header: links
+        message: |
+          ## Link Check Passed
+
+          All links in documentation are valid!

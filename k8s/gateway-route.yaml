@@ -15,8 +15,8 @@ spec:
       namespace: kong
   rules:
     - backendRefs:
-        - name: user-management
-          port: 8000
+        - name: user-management-service
+          port: 8080
       matches:
         - path:
             type: PathPrefix

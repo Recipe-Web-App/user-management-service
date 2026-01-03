@@ -1,14 +1,16 @@
----
-# k8s/service.yaml
 apiVersion: v1
 kind: Service
 metadata:
-  name: user-management
+  name: user-management-service
   namespace: user-management
+  labels:
+    app: user-management-service
 spec:
-  selector:
-    app: user-management
-  ports:
-    - port: 8000
-      targetPort: 8000
   type: ClusterIP
+  selector:
+    app: user-management-service
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP

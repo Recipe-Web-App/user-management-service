@@ -1,0 +1,24 @@
+# Git
+.git
+.gitignore
+
+# Go
+bin/
+*.exe
+*.test
+*.prof
+vendor/
+
+# Configuration
+.env
+.env.*
+*.local.yaml
+
+# Docker
+Dockerfile
+.dockerignore
+
+# IDEs
+.idea
+.vscode
+*.swp

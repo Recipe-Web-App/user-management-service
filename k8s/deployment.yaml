@@ -1,184 +1,68 @@
----
-# k8s/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: user-management
+  name: user-management-service
   namespace: user-management
-  annotations:
-    # Ignoring image tag and pull policy checks since we build images locally
-    kube-score/ignore: container-image-tag,container-image-pull-policy
+  labels:
+    app: user-management-service
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: user-management
+      app: user-management-service
   template:
     metadata:
       labels:
-        app: user-management
+        app: user-management-service
     spec:
-      restartPolicy: Always
-      terminationGracePeriodSeconds: 10
-      volumes:
-        - name: logs
-          emptyDir: {}
+      securityContext:
+        runAsNonRoot: true
+        # Using the same UID/GID as defined in the Dockerfile
+        runAsUser: 100
+        runAsGroup: 101
+        fsGroup: 101
       containers:
-        - name: user-management
+        - name: user-management-service
+          # Image name will be updated by the deployment script based on the build
           image: user-management-service:latest
           imagePullPolicy: Never
           ports:
-            - containerPort: 8000
-          env:
-            - name: ENVIRONMENT
-              valueFrom:
-                configMapKeyRef:
-                  name: user-management-config
-                  key: ENVIRONMENT
-            - name: USER_MANAGEMENT_DB_USER
-              valueFrom:
-                configMapKeyRef:
-                  name: user-management-config
-                  key: USER_MANAGEMENT_DB_USER
-            - name: POSTGRES_DB
-              valueFrom:
-                configMapKeyRef:
-                  name: user-management-config
-                  key: POSTGRES_DB
-            - name: POSTGRES_HOST
-              valueFrom:
-                configMapKeyRef:
-                  name: user-management-config
-                  key: POSTGRES_HOST
-            - name: POSTGRES_PORT
-              valueFrom:
-                configMapKeyRef:
-                  name: user-management-config
-                  key: POSTGRES_PORT
-            - name: POSTGRES_SCHEMA
-              valueFrom:
-                configMapKeyRef:
-                  name: user-management-config
-                  key: POSTGRES_SCHEMA
-            - name: USER_MANAGEMENT_DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: user-management-db-password
-                  key: USER_MANAGEMENT_DB_PASSWORD
-            - name: JWT_SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: user-management-db-password
-                  key: JWT_SECRET_KEY
-            - name: JWT_SIGNING_ALGORITHM
-              valueFrom:
-                configMapKeyRef:
-                  name: user-management-config
-                  key: JWT_SIGNING_ALGORITHM
-            - name: ACCESS_TOKEN_EXPIRE_MINUTES
-              valueFrom:
-                configMapKeyRef:
-                  name: user-management-config
-                  key: ACCESS_TOKEN_EXPIRE_MINUTES
-            - name: REFRESH_TOKEN_EXPIRE_DAYS
-              valueFrom:
-                configMapKeyRef:
-                  name: user-management-config
-                  key: REFRESH_TOKEN_EXPIRE_DAYS
-            - name: PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
-              valueFrom:
-                configMapKeyRef:
-                  name: user-management-config
-                  key: PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
-            - name: ALLOWED_ORIGIN_HOSTS
-              valueFrom:
-                configMapKeyRef:
-                  name: user-management-config
-                  key: ALLOWED_ORIGIN_HOSTS
-            - name: ALLOWED_CREDENTIALS
-              valueFrom:
-                configMapKeyRef:
-                  name: user-management-config
-                  key: ALLOWED_CREDENTIALS
-            - name: REDIS_HOST
-              valueFrom:
-                configMapKeyRef:
-                  name: user-management-config
-                  key: REDIS_HOST
-            - name: REDIS_PORT
-              valueFrom:
-                configMapKeyRef:
-                  name: user-management-config
-                  key: REDIS_PORT
-            - name: REDIS_DB
-              valueFrom:
-                configMapKeyRef:
-                  name: user-management-config
-                  key: REDIS_DB
-            - name: REDIS_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: user-management-db-password
-                  key: REDIS_PASSWORD
-            - name: OAUTH2_SERVICE_ENABLED
-              valueFrom:
-                configMapKeyRef:
-                  name: user-management-config
-                  key: OAUTH2_SERVICE_ENABLED
-            - name: OAUTH2_INTROSPECTION_ENABLED
-              valueFrom:
-                configMapKeyRef:
-                  name: user-management-config
-                  key: OAUTH2_INTROSPECTION_ENABLED
-            - name: JWT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: user-management-db-password
-                  key: JWT_SECRET
-            - name: OAUTH2_CLIENT_ID
-              valueFrom:
-                secretKeyRef:
-                  name: user-management-db-password
-                  key: OAUTH2_CLIENT_ID
-            - name: OAUTH2_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: user-management-db-password
-                  key: OAUTH2_CLIENT_SECRET
-          livenessProbe:
-            httpGet:
-              path: /api/v1/user-management/live
-              port: 8000
-            initialDelaySeconds: 30
-            periodSeconds: 30
-            timeoutSeconds: 5
-            failureThreshold: 3
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: user-management-config
+            - secretRef:
+                name: user-management-secrets
           readinessProbe:
             httpGet:
-              path: /api/v1/user-management/health
-              port: 8000
-            initialDelaySeconds: 10
+              path: /api/v1/user-management/ready
+              port: 8080
+            initialDelaySeconds: 5
             periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/v1/user-management/health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          startupProbe:
+            httpGet:
+              path: /api/v1/user-management/ready
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 10
           resources:
             requests:
               cpu: "100m"
               memory: "128Mi"
-              ephemeral-storage: "512Mi"
             limits:
               cpu: "500m"
               memory: "512Mi"
-              ephemeral-storage: "1Gi"
           securityContext:
-            runAsUser: 10001
-            runAsGroup: 10001
-            runAsNonRoot: true
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
-          volumeMounts:
-            - name: logs
-              mountPath: /app/logs

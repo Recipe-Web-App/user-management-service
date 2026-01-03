@@ -1,50 +1,43 @@
 ---
-labels: ["show-and-tell"]
+labels: [show-and-tell]
 body:
   - type: markdown
     attributes:
       value: |
-        # Show and Tell
-
-        Built something cool with the User Management Service? Share it with the community!
+        Share how you're using the User Management Service! Your implementations might help others.
 
   - type: textarea
-    id: project
     attributes:
       label: What Did You Build?
-      description: Describe what you built
-      placeholder: Tell us about your project
+      description: Describe your implementation or integration
+      placeholder: Tell us about your project...
     validations:
       required: true
 
   - type: textarea
-    id: how
     attributes:
-      label: How You Used This Service
-      description: How did you integrate or use this service?
-      placeholder: Describe your implementation
-    validations:
-      required: true
-
-  - type: textarea
-    id: challenges
-    attributes:
-      label: Challenges & Solutions
-      description: What challenges did you face and how did you solve them?
-      placeholder: Share your experience
-
-  - type: textarea
-    id: links
-    attributes:
-      label: Links
-      description: Links to your project (if public)
+      label: How Are You Using the User Management Service?
+      description: How does the service fit into your architecture?
       placeholder: |
-        - GitHub: https://...
-        - Demo: https://...
+        - Features used
+        - Integration details
+        - Client types
+        - Deployment setup
 
   - type: textarea
-    id: tips
     attributes:
-      label: Tips for Others
-      description: Any tips for others who want to build something similar?
-      placeholder: Share your wisdom!
+      label: Interesting Challenges or Solutions
+      description: Any interesting problems you solved or lessons learned?
+      placeholder: Share your experience...
+
+  - type: textarea
+    attributes:
+      label: Screenshots or Demo
+      description: Show us what you built!
+      placeholder: Links to screenshots, demos, repositories, etc.
+
+  - type: textarea
+    attributes:
+      label: Feedback for the Project
+      description: Any feedback or suggestions based on your experience?
+      placeholder: What worked well? What could be improved?

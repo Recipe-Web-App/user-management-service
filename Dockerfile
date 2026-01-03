@@ -1,50 +1,61 @@
-# Multi-stage build for production optimization
-FROM python:3.14-slim AS base
+# User Management Service - Production Dockerfile
+# Multi-stage build for optimal production image size
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    POETRY_VERSION=1.8.3 \
-    POETRY_VIRTUALENVS_CREATE=false
+# Stage 1: Builder
+# using alpine based go image for smaller footprint
+FROM golang:1.24-alpine AS builder
+LABEL stage=builder
 
-# Set working directory
+# Install required build tools
+RUN apk add --no-cache git make
+
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    gcc \
-    libpq-dev \
-    libffi-dev \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Copy go mod and sum files
+COPY go.mod go.sum ./
 
-# Development stage
-FROM base AS development
+# Download dependencies
+# using -x to verbose output and ensure download
+RUN go mod download
 
-# Install additional development tools
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    vim \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Poetry
-RUN curl -sSL https://install.python-poetry.org | python3 - --version $POETRY_VERSION
-
-# Add Poetry to PATH
-ENV PATH="/root/.local/bin:$PATH"
-
-# Copy only the dependency files first for better caching
-COPY pyproject.toml poetry.lock* ./
-
-# Install Python dependencies via Poetry (no virtualenv, production only)
-RUN poetry install --no-root --only main
-
-# Copy the rest of the application
+# Copy source code
 COPY . .
 
-# Expose the app port
-EXPOSE 8000
+# Build the binary
+# CGO_ENABLED=0 for static binary
+# -ldflags="-w -s" to strip debug information and reduce binary size
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o bin/server ./cmd/api
 
-# Default command
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Stage 2: Runtime
+# using alpine for minimal runtime environment
+FROM alpine:3.21 AS runner
+LABEL stage=runner \
+    service="user-management-service" \
+    maintainer="Recipe App Team"
+
+# Install basics
+RUN apk --no-cache add ca-certificates tzdata
+
+# Create non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+
+# Copy binary from builder
+COPY --from=builder /app/bin/server ./server
+
+# Copy configuration files
+# The application expects config files in ./config, relative to the working directory
+COPY --from=builder /app/config ./config
+
+# Set ownership to non-root user
+RUN chown -R appuser:appgroup /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose server port
+EXPOSE 8080
+
+# Run the server
+CMD ["./server"]

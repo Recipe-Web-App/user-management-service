@@ -179,6 +179,22 @@ func (m *MockSocialRepository) GetRecentFavorites(
 	return favorites, nil
 }
 
+func (m *MockSocialRepository) CheckFollowing(
+	ctx context.Context,
+	followerID, followeeID uuid.UUID,
+) (*time.Time, error) {
+	args := m.Called(ctx, followerID, followeeID)
+
+	err := args.Error(1)
+	if err != nil {
+		return nil, fmt.Errorf("check following: %w", err)
+	}
+
+	followedAt, _ := args.Get(0).(*time.Time)
+
+	return followedAt, nil
+}
+
 type socialTestFixture struct {
 	handler        http.Handler
 	mockUserRepo   *MockUserRepository

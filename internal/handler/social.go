@@ -209,6 +209,46 @@ func (h *SocialHandler) UnfollowUser(w http.ResponseWriter, r *http.Request) {
 	SuccessResponse(w, http.StatusOK, response)
 }
 
+// CheckFollowing handles GET /users/{user_id}/following/{target_user_id}.
+// Checks if user_id is following target_user_id.
+func (h *SocialHandler) CheckFollowing(w http.ResponseWriter, r *http.Request) {
+	// 1. Extract and validate requester ID from header (authentication required)
+	requesterID, ok := h.extractAuthenticatedUserID(w, r)
+	if !ok {
+		return
+	}
+
+	// 2. Extract and validate user_id from path
+	userIDStr := chi.URLParam(r, "user_id")
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		ErrorResponse(w, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "Invalid user ID format")
+
+		return
+	}
+
+	// 3. Extract and validate target_user_id from path
+	targetUserIDStr := chi.URLParam(r, "target_user_id")
+
+	targetUserID, err := uuid.Parse(targetUserIDStr)
+	if err != nil {
+		ErrorResponse(w, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "Invalid target user ID format")
+
+		return
+	}
+
+	// 4. Call service
+	response, err := h.socialService.CheckFollowing(r.Context(), requesterID, userID, targetUserID)
+	if err != nil {
+		h.handleCheckFollowingError(w, err)
+
+		return
+	}
+
+	SuccessResponse(w, http.StatusOK, response)
+}
+
 // Activity parameter constants.
 const (
 	defaultPerTypeLimit = 15
@@ -421,6 +461,18 @@ func (h *SocialHandler) handleUnfollowUserError(w http.ResponseWriter, err error
 		ErrorResponse(w, http.StatusNotFound, "USER_NOT_FOUND", "User not found")
 	default:
 		slog.Error("failed to unfollow user", "error", err)
+		InternalErrorResponse(w)
+	}
+}
+
+func (h *SocialHandler) handleCheckFollowingError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, service.ErrUserNotFound):
+		ErrorResponse(w, http.StatusNotFound, "USER_NOT_FOUND", "User not found")
+	case errors.Is(err, service.ErrAccessDenied):
+		ForbiddenResponse(w, "Access to this user's following information is restricted")
+	default:
+		slog.Error("failed to check following status", "error", err)
 		InternalErrorResponse(w)
 	}
 }

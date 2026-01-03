@@ -95,6 +95,7 @@ func registerUserRoutes(r chi.Router, h Handlers) {
 			r.Get("/profile", h.User.GetUserProfile)
 			r.Get("/following", h.Social.GetFollowing)
 			r.Get("/followers", h.Social.GetFollowers)
+			r.Get("/following/{target_user_id}", h.Social.CheckFollowing)
 			r.Get("/activity", h.Social.GetUserActivity)
 			r.Post("/follow/{target_user_id}", h.Social.FollowUser)
 			r.Delete("/follow/{target_user_id}", h.Social.UnfollowUser)

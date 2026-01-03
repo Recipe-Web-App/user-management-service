@@ -33,6 +33,10 @@ type SocialService interface {
 		ctx context.Context,
 		followerID, targetUserID uuid.UUID,
 	) (*dto.FollowResponse, error)
+	CheckFollowing(
+		ctx context.Context,
+		requesterID, userID, targetUserID uuid.UUID,
+	) (*dto.FollowingCheckResponse, error)
 	GetUserActivity(
 		ctx context.Context,
 		requesterID *uuid.UUID,
@@ -252,6 +256,62 @@ func (s *SocialServiceImpl) UnfollowUser(
 	return &dto.FollowResponse{
 		Message:     "Successfully unfollowed user",
 		IsFollowing: false,
+	}, nil
+}
+
+// CheckFollowing checks if userID is following targetUserID.
+// Requires authentication - services can check any relationship, users must respect privacy.
+func (s *SocialServiceImpl) CheckFollowing(
+	ctx context.Context,
+	requesterID, userID, targetUserID uuid.UUID,
+) (*dto.FollowingCheckResponse, error) {
+	// 1. Verify userID exists and is active
+	user, err := s.userRepo.FindUserByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, ErrUserNotFound
+		}
+
+		return nil, fmt.Errorf("failed to fetch user: %w", err)
+	}
+
+	if !user.IsActive {
+		return nil, ErrUserNotFound
+	}
+
+	// 2. Verify targetUserID exists and is active
+	targetUser, err := s.userRepo.FindUserByID(ctx, targetUserID)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, ErrUserNotFound
+		}
+
+		return nil, fmt.Errorf("failed to fetch target user: %w", err)
+	}
+
+	if !targetUser.IsActive {
+		return nil, ErrUserNotFound
+	}
+
+	// 3. Check privacy - can requester view this relationship?
+	canAccess, err := s.canAccessFollowingList(ctx, requesterID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if !canAccess {
+		return nil, ErrAccessDenied
+	}
+
+	// 4. Check the follow relationship
+	followedAt, err := s.socialRepo.CheckFollowing(ctx, userID, targetUserID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check following status: %w", err)
+	}
+
+	return &dto.FollowingCheckResponse{
+		IsFollowing: followedAt != nil,
+		FollowedAt:  followedAt,
 	}, nil
 }
 

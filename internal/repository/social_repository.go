@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -19,6 +20,7 @@ type SocialRepository interface {
 	GetFollowers(ctx context.Context, userID uuid.UUID, limit, offset int) ([]dto.User, int, error)
 	FollowUser(ctx context.Context, followerID, followeeID uuid.UUID) error
 	UnfollowUser(ctx context.Context, followerID, followeeID uuid.UUID) error
+	CheckFollowing(ctx context.Context, followerID, followeeID uuid.UUID) (*time.Time, error)
 	GetRecentRecipes(ctx context.Context, userID uuid.UUID, limit int) ([]dto.RecipeSummary, error)
 	GetRecentFollows(ctx context.Context, userID uuid.UUID, limit int) ([]dto.UserSummary, error)
 	GetRecentReviews(ctx context.Context, userID uuid.UUID, limit int) ([]dto.ReviewSummary, error)
@@ -245,6 +247,32 @@ func (r *SQLSocialRepository) UnfollowUser(ctx context.Context, followerID, foll
 	}
 
 	return nil
+}
+
+// CheckFollowing checks if followerID follows followeeID and returns the followed_at timestamp.
+// Returns nil if not following.
+func (r *SQLSocialRepository) CheckFollowing(
+	ctx context.Context,
+	followerID, followeeID uuid.UUID,
+) (*time.Time, error) {
+	query := `
+		SELECT followed_at
+		FROM recipe_manager.user_follows
+		WHERE follower_id = $1 AND followee_id = $2
+	`
+
+	var followedAt time.Time
+
+	err := r.db.QueryRowContext(ctx, query, followerID, followeeID).Scan(&followedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil //nolint:nilnil // nil,nil is valid: no error, just not following
+		}
+
+		return nil, fmt.Errorf("failed to check following status: %w", err)
+	}
+
+	return &followedAt, nil
 }
 
 // GetRecentRecipes retrieves the most recent recipes created by a user.

@@ -79,6 +79,12 @@ type FollowResponse struct {
 	IsFollowing bool   `json:"isFollowing"`
 }
 
+// FollowingCheckResponse represents the response for checking follow status.
+type FollowingCheckResponse struct {
+	IsFollowing bool       `json:"isFollowing"`
+	FollowedAt  *time.Time `json:"followedAt,omitempty"`
+}
+
 // RecipeSummary represents a recipe in activity.
 type RecipeSummary struct {
 	RecipeID  int       `json:"recipeId"`

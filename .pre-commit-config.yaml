@@ -23,7 +23,7 @@ repos:
         args: ["-d", "{extends: relaxed, rules: {line-length: {max: 120}}}"]
 
   - repo: https://github.com/golangci/golangci-lint
-    rev: v2.7.1
+    rev: v2.7.2
     hooks:
       - id: golangci-lint
         args: ["--config=.golangci.yml"]
@@ -61,13 +61,13 @@ repos:
       - id: hadolint-docker
 
   - repo: https://github.com/bridgecrewio/checkov
-    rev: 3.2.495
+    rev: 3.2.497
     hooks:
       - id: checkov
         args: ["--quiet", "--compact"]
 
   - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.46.0
+    rev: v0.47.0
     hooks:
       - id: markdownlint
         args: ["--config", ".markdownlint.yaml", "--fix"]

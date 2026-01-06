@@ -46,7 +46,8 @@ via an official social media account, or acting as an appointed representative a
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible
-for enforcement at [INSERT CONTACT METHOD]. All complaints will be reviewed and investigated promptly and fairly.
+for enforcement via [GitHub Issues](https://github.com/Recipe-Web-App/user-management-service/issues).
+All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the reporter of any incident.
 

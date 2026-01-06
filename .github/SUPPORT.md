@@ -4,7 +4,7 @@
 
 ### 1. Documentation
 
-Check the `docs/` directory and the `README.md` first.
+Check the [README.md](../README.md) and [API documentation](../docs/openapi.yaml) first.
 
 ### 2. GitHub Discussions
 

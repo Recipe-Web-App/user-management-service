@@ -17,7 +17,7 @@ you are expected to uphold this code.
 
 ### Prerequisites
 
-- **Go 1.23+**: Ensure you have a recent version of Go installed.
+- **Go 1.24**: Ensure you have Go 1.24 installed.
 - **Make**: We use `make` for running tasks.
 
 ### Installation
@@ -45,7 +45,7 @@ make test
 To run with coverage:
 
 ```bash
-make test-cover
+make test-coverage
 ```
 
 ## Code Style
@@ -53,8 +53,7 @@ make test-cover
 We strictly follow standard Go idioms and use `golangci-lint` to enforce style.
 
 ```bash
-make fmt  # Formats code
-make lint # Runs linter
+make lint # Runs pre-commit hooks including golangci-lint
 ```
 
 Ensure all checks pass before submitting your PR.

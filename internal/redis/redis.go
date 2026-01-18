@@ -32,6 +32,7 @@ var Instance *Service
 func New(cfg *config.RedisConfig) (*Service, error) {
 	opts := &redis.Options{
 		Addr:         fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
+		Username:     cfg.Username,
 		Password:     cfg.Password,
 		DB:           cfg.Database,
 		DialTimeout:  cfg.DialTimeout,

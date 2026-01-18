@@ -70,6 +70,7 @@ type RedisConfig struct {
 	Host         string
 	Port         int
 	Database     int
+	Username     string
 	Password     string
 	DialTimeout  time.Duration
 	ReadTimeout  time.Duration
@@ -266,11 +267,13 @@ func loadRedisConfig() {
 	viper.SetDefault("redis.host", "localhost")
 	viper.SetDefault("redis.port", defaultRedisPort)
 	viper.SetDefault("redis.database", defaultRedisDatabase)
+	viper.SetDefault("redis.username", "")
 	viper.SetDefault("redis.password", "")
 
 	_ = viper.BindEnv("redis.host", "REDIS_HOST")
 	_ = viper.BindEnv("redis.port", "REDIS_PORT")
 	_ = viper.BindEnv("redis.database", "REDIS_DB")
+	_ = viper.BindEnv("redis.username", "REDIS_USER")
 	_ = viper.BindEnv("redis.password", "REDIS_PASSWORD")
 }
 

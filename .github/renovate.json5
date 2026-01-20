@@ -1,0 +1,85 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    "config:recommended",
+    ":semanticCommits",
+    ":dependencyDashboard"
+  ],
+  timezone: "America/New_York",
+  schedule: ["before 6am every weekday"],
+  labels: ["dependencies"],
+  reviewers: ["jsamuelsen11"],
+  assignees: ["jsamuelsen11"],
+  semanticCommitType: "build",
+  semanticCommitScope: "deps",
+  postUpdateOptions: ["gomodTidy"],
+  lockFileMaintenance: {
+    enabled: true,
+    schedule: ["before 6am on monday"]
+  },
+  packageRules: [
+    {
+      description: "GitHub Actions - use ci scope",
+      matchManagers: ["github-actions"],
+      semanticCommitType: "ci",
+      groupName: "github-actions"
+    },
+    {
+      description: "Group Go non-major updates",
+      matchManagers: ["gomod"],
+      matchUpdateTypes: ["minor", "patch"],
+      groupName: "go-dependencies-non-major"
+    },
+    {
+      description: "Group pre-commit hook updates",
+      matchManagers: ["pre-commit"],
+      groupName: "pre-commit-hooks",
+      semanticCommitType: "chore"
+    },
+    {
+      description: "Auto-merge patch updates",
+      matchUpdateTypes: ["patch"],
+      automerge: true,
+      automergeType: "pr",
+      platformAutomerge: true,
+      minimumReleaseAge: "3 days"
+    },
+    {
+      description: "Auto-merge minor updates for indirect Go deps",
+      matchManagers: ["gomod"],
+      matchDepTypes: ["indirect"],
+      matchUpdateTypes: ["minor"],
+      automerge: true,
+      automergeType: "pr",
+      platformAutomerge: true,
+      minimumReleaseAge: "3 days"
+    },
+    {
+      description: "Auto-merge pre-commit non-major updates",
+      matchManagers: ["pre-commit"],
+      matchUpdateTypes: ["minor", "patch"],
+      automerge: true,
+      automergeType: "pr",
+      platformAutomerge: true,
+      minimumReleaseAge: "3 days"
+    },
+    {
+      description: "Major updates require dashboard approval",
+      matchUpdateTypes: ["major"],
+      dependencyDashboardApproval: true,
+      labels: ["dependencies", "major-update"]
+    },
+    {
+      description: "Security updates bypass schedule",
+      matchCategories: ["security"],
+      schedule: ["at any time"],
+      labels: ["dependencies", "security"],
+      automerge: true,
+      minimumReleaseAge: "0 days"
+    }
+  ],
+  vulnerabilityAlerts: {
+    enabled: true,
+    labels: ["security", "dependencies"]
+  }
+}

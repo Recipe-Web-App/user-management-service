@@ -28,7 +28,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o bin/server ./cmd/api
 
 # Stage 2: Runtime
 # using alpine for minimal runtime environment
-FROM alpine:3.21 AS runner
+FROM alpine:3.23 AS runner
 LABEL stage=runner \
     service="user-management-service" \
     maintainer="Recipe App Team"

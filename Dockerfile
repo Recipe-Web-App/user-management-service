@@ -3,7 +3,7 @@
 
 # Stage 1: Builder
 # using alpine based go image for smaller footprint
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 LABEL stage=builder
 
 # Install required build tools

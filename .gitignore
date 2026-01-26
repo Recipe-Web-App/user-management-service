@@ -33,3 +33,9 @@ logs/
 .tmp/
 tmp/
 temp/
+
+# Serena
+.serena/
+
+# Beads
+.bv/

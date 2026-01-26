@@ -146,12 +146,6 @@ print_separator "-"
 kubectl apply -f "${CONFIG_DIR}/service.yaml"
 
 print_separator "="
-echo -e "${CYAN}📥 Applying HTTPRoute for Kong Gateway...${NC}"
-print_separator "-"
-
-kubectl apply -f "${CONFIG_DIR}/gateway-route.yaml"
-
-print_separator "="
 echo -e "${CYAN}⏳ Waiting for User Management Service pod to be ready...${NC}"
 print_separator "-"
 
@@ -184,12 +178,9 @@ POD_NAME=$(kubectl get pods -n "$NAMESPACE" -l app=user-management-service -o js
 SERVICE_JSON=$(kubectl get svc user-management-service -n "$NAMESPACE" -o json)
 SERVICE_IP=$(echo "$SERVICE_JSON" | jq -r '.spec.clusterIP')
 SERVICE_PORT=$(echo "$SERVICE_JSON" | jq -r '.spec.ports[0].port')
-HTTPROUTE_HOSTS=$(kubectl get httproute -n "$NAMESPACE" -o jsonpath='{.items[*].spec.hostnames[*]}' 2>/dev/null | tr ' ' '\n' | sort -u | paste -sd ',' - || echo "N/A")
 
 echo "  Pod: $POD_NAME"
 echo "  Service: $SERVICE_IP:$SERVICE_PORT"
-echo "  HTTPRoute Hosts: $HTTPROUTE_HOSTS"
-echo "  Gateway: kong (namespace: kong)"
 echo "  Health Check: http://user-management.local/api/v1/user-management/health"
 echo "  To access locally without gateway: kubectl port-forward -n $NAMESPACE svc/user-management-service 8080:8080"
 print_separator "="

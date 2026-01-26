@@ -153,10 +153,8 @@ print_separator
 echo ""
 echo -e "${CYAN}🏥 Health Check Dashboard:${NC}"
 if [ -n "$POD_NAME" ]; then
-    # Since we don't have Ingress yet, we'll check via port-forward logic conceptually or via kubectl exec
-    # For now, let's use kubectl exec to check localhost inside the pod if curl is available there,
-    # OR warn that external access requires port-forwarding.
-    # The reference script assumes /etc/hosts or ingress. We only have ClusterIP.
+    # Health checks require port-forwarding since the service uses ClusterIP.
+    # Gateway routing is managed externally.
 
     echo -e "${PURPLE}🔍 Checking connectivity...${NC}"
 

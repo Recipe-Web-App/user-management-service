@@ -1624,6 +1624,15 @@ components:
         - CUSTOM
       description: Theme preference
 
+    VolumeLevelEnum:
+      type: string
+      enum:
+        - MUTED
+        - LOW
+        - MEDIUM
+        - HIGH
+      description: Volume level preference
+
     # Preference Response Schemas
     UserPreferencesResponse:
       type: object
@@ -1832,8 +1841,7 @@ components:
           type: boolean
           description: Enable system sounds
         volumeLevel:
-          type: boolean
-          description: Enable volume control
+          $ref: "#/components/schemas/VolumeLevelEnum"
         muteNotifications:
           type: boolean
           description: Mute all notifications
@@ -1997,7 +2005,7 @@ components:
         systemSounds:
           type: boolean
         volumeLevel:
-          type: boolean
+          $ref: "#/components/schemas/VolumeLevelEnum"
         muteNotifications:
           type: boolean
 

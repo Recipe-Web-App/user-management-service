@@ -105,6 +105,16 @@ const (
 	ThemeCustom Theme = "CUSTOM"
 )
 
+// VolumeLevel represents volume level preference values.
+type VolumeLevel string
+
+const (
+	VolumeLevelMuted  VolumeLevel = "MUTED"
+	VolumeLevelLow    VolumeLevel = "LOW"
+	VolumeLevelMedium VolumeLevel = "MEDIUM"
+	VolumeLevelHigh   VolumeLevel = "HIGH"
+)
+
 // NotificationPreferences represents notification preference settings.
 type NotificationPreferences struct {
 	EmailNotifications    bool      `json:"emailNotifications"`
@@ -177,11 +187,11 @@ type SocialPreferences struct {
 
 // SoundPreferences represents sound preference settings.
 type SoundPreferences struct {
-	NotificationSounds bool      `json:"notificationSounds"`
-	SystemSounds       bool      `json:"systemSounds"`
-	VolumeLevel        bool      `json:"volumeLevel"`
-	MuteNotifications  bool      `json:"muteNotifications"`
-	UpdatedAt          time.Time `json:"updatedAt"`
+	NotificationSounds bool        `json:"notificationSounds"`
+	SystemSounds       bool        `json:"systemSounds"`
+	VolumeLevel        VolumeLevel `json:"volumeLevel"`
+	MuteNotifications  bool        `json:"muteNotifications"`
+	UpdatedAt          time.Time   `json:"updatedAt"`
 }
 
 // ThemePreferences represents theme preference settings.
@@ -258,10 +268,10 @@ type SocialPreferencesUpdate struct {
 
 // SoundPreferencesUpdate represents update request for sound preferences.
 type SoundPreferencesUpdate struct {
-	NotificationSounds *bool `json:"notificationSounds,omitempty"`
-	SystemSounds       *bool `json:"systemSounds,omitempty"`
-	VolumeLevel        *bool `json:"volumeLevel,omitempty"`
-	MuteNotifications  *bool `json:"muteNotifications,omitempty"`
+	NotificationSounds *bool        `json:"notificationSounds,omitempty"`
+	SystemSounds       *bool        `json:"systemSounds,omitempty"`
+	VolumeLevel        *VolumeLevel `json:"volumeLevel,omitempty"`
+	MuteNotifications  *bool        `json:"muteNotifications,omitempty"`
 }
 
 // ThemePreferencesUpdate represents update request for theme preferences.

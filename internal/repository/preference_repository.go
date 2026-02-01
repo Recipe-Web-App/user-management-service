@@ -821,7 +821,7 @@ func defaultSoundPreferences() *dto.SoundPreferences {
 	return &dto.SoundPreferences{
 		NotificationSounds: true,
 		SystemSounds:       true,
-		VolumeLevel:        true,
+		VolumeLevel:        dto.VolumeLevelMedium,
 		MuteNotifications:  false,
 		UpdatedAt:          time.Now(),
 	}
@@ -838,7 +838,7 @@ func (r *SQLPreferenceRepository) UpdateSoundPreferences(
 			user_id, notification_sounds, system_sounds, volume_level, mute_notifications, updated_at
 		)
 		VALUES ($1,
-			COALESCE($2, true), COALESCE($3, true), COALESCE($4, true), COALESCE($5, false), NOW()
+			COALESCE($2, true), COALESCE($3, true), COALESCE($4, 'MEDIUM'), COALESCE($5, false), NOW()
 		)
 		ON CONFLICT (user_id) DO UPDATE SET
 			notification_sounds = COALESCE($2, user_sound_preferences.notification_sounds),
